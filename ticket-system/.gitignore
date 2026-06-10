@@ -1,21 +1,38 @@
-# Docker volumes
-docker-volumes/
-
-# Java
-backend/target/
-backend/*.jar
-backend/*.war
-!.mvn/wrapper/maven-wrapper.jar
+# OS generated files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
 
 # IDE
 .idea/
 *.iml
 .vscode/
-.superpowers/
 
-# Node
+# Claude Code
+.claude/
+
+# Java
+backend/target/
+backend/*.jar
+backend/*.war
+backend/.mvn/wrapper/maven-wrapper.jar
+*.log
+*.class
+
+# Node / Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/.env.local
+frontend/*.local
 
 # Environment
 .env
+
+# Docker volumes
+docker-volumes/*
+!docker-volumes/**/.gitkeep
+
+# Coverage
+*.exec
+*.codecov

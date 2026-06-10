@@ -10,7 +10,10 @@
       "Read(//mnt/c/Program Files/**)",
       "Bash(python3 -c \"import yaml; yaml.safe_load\\(open\\('E:/WorkSpace-IDEA/ai-learning/ticket-system/docker-compose.yml'\\)\\); print\\('YAML valid'\\)\")",
       "Bash(python -c \"import yaml; yaml.safe_load\\(open\\('E:/WorkSpace-IDEA/ai-learning/ticket-system/docker-compose.yml'\\)\\); print\\('YAML valid'\\)\")",
-      "Bash(mvn --version)"
+      "Bash(mvn --version)",
+      "Bash(mvn compile *)",
+      "Bash(where mvn *)",
+      "Bash(where mvnw *)"
     ]
   }
 }

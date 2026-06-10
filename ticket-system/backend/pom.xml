@@ -20,6 +20,7 @@
         <java.version>17</java.version>
         <jjwt.version>0.12.5</jjwt.version>
         <mybatis-plus.version>3.5.5</mybatis-plus.version>
+        <flyway.version>9.22.3</flyway.version>
     </properties>
 
     <dependencies>
@@ -65,6 +66,7 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-mysql</artifactId>
+            <version>${flyway.version}</version>
         </dependency>
 
         <!-- Redis (Redisson) -->

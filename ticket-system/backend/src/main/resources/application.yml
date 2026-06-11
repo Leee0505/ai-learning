@@ -18,6 +18,9 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
+rate-limit:
+  max-requests-per-minute: 10
+
 jwt:
   access-token-expiration: 7200000
   refresh-token-expiration: 604800000

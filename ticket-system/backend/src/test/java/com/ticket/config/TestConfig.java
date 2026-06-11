@@ -1,6 +1,7 @@
 package com.ticket.config;
 
 import org.mockito.Mockito;
+import org.redisson.api.RAtomicLong;
 import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -22,6 +23,12 @@ public class TestConfig {
         RBucket<String> mockBucket = (RBucket<String>) Mockito.mock(RBucket.class);
         when(mockBucket.isExists()).thenReturn(false);
         doReturn(mockBucket).when(mockClient).getBucket(anyString());
+
+        // Mock rate limit counter — always returns 1 (below limit)
+        RAtomicLong mockCounter = Mockito.mock(RAtomicLong.class);
+        when(mockCounter.incrementAndGet()).thenReturn(1L);
+        doReturn(mockCounter).when(mockClient).getAtomicLong(anyString());
+
         return mockClient;
     }
 }

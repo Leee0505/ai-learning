@@ -8,6 +8,8 @@ public enum ErrorCode {
     INVITE_TOKEN_EXPIRED(40003, "invitation link has expired"),
     INVITE_TOKEN_USED(40004, "invitation link already used"),
     INVITE_TOKEN_NOT_FOUND(40005, "invitation link not found"),
+    USER_NOT_FOUND(40006, "user not found"),
+    RATE_LIMIT_EXCEEDED(40007, "too many requests, please try again later"),
 
     // 401xx Auth Errors
     INVALID_CREDENTIALS(40100, "invalid credentials"),

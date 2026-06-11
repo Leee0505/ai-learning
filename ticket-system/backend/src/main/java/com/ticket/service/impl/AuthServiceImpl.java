@@ -137,7 +137,7 @@ public class AuthServiceImpl implements AuthService {
     public UserResponse getCurrentUser(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
-            throw new BusinessException(ErrorCode.TOKEN_INVALID);
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
         return UserResponse.from(user);
     }

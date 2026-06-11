@@ -44,9 +44,11 @@ public class JwtTokenProvider {
     public String generateAccessToken(Long userId, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpiration);
+        String jti = UUID.randomUUID().toString();
 
         return Jwts.builder()
                 .subject(userId.toString())
+                .id(jti)
                 .claim("role", role)
                 .issuedAt(now)
                 .expiration(expiryDate)
@@ -83,10 +85,10 @@ public class JwtTokenProvider {
                     .parseSignedClaims(token)
                     .getPayload();
 
-            // Check blacklist for access tokens (refresh tokens have JTI)
+            // Check blacklist by JWT ID (jti) — both access and refresh tokens carry a jti
             String jti = claims.getId();
-            if (jti == null) {
-                String blacklistKey = CacheConstants.BLACKLIST_PREFIX + token.hashCode();
+            if (jti != null) {
+                String blacklistKey = CacheConstants.BLACKLIST_PREFIX + jti;
                 RBucket<String> bucket = redissonClient.getBucket(blacklistKey);
                 if (bucket.isExists()) {
                     throw new TokenBlacklistedException();
@@ -111,8 +113,8 @@ public class JwtTokenProvider {
                     .parseSignedClaims(token)
                     .getPayload();
             long remaining = claims.getExpiration().getTime() - System.currentTimeMillis();
-            if (remaining > 0) {
-                String blacklistKey = CacheConstants.BLACKLIST_PREFIX + token.hashCode();
+            if (remaining > 0 && claims.getId() != null) {
+                String blacklistKey = CacheConstants.BLACKLIST_PREFIX + claims.getId();
                 RBucket<String> bucket = redissonClient.getBucket(blacklistKey);
                 bucket.set("revoked", Duration.ofMillis(remaining));
             }

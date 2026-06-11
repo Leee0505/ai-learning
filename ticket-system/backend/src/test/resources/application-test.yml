@@ -7,6 +7,9 @@ spring:
   flyway:
     enabled: false
 
+rate-limit:
+  max-requests-per-minute: 1000
+
 jwt:
   secret: test-secret-key-that-is-at-least-256-bits-long-for-testing-only
   access-token-expiration: 7200000

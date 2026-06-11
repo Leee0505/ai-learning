@@ -1,5 +1,6 @@
 package com.ticket.security;
 
+import com.ticket.common.constant.SecurityConstants;
 import com.ticket.common.exception.TokenBlacklistedException;
 import com.ticket.common.exception.TokenExpiredException;
 import io.jsonwebtoken.Claims;
@@ -67,8 +68,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private String extractToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(SecurityConstants.BEARER_PREFIX)) {
+            return bearerToken.substring(SecurityConstants.BEARER_PREFIX_LENGTH);
         }
         return null;
     }

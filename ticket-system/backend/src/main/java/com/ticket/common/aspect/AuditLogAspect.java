@@ -1,6 +1,8 @@
 package com.ticket.common.aspect;
 
 import com.ticket.common.constant.AuditConstants;
+import com.ticket.entity.AuditLog;
+import com.ticket.mapper.AuditLogMapper;
 import com.ticket.security.UserDetailsImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.JoinPoint;
@@ -18,6 +20,12 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class AuditLogAspect {
 
     private static final Logger log = LoggerFactory.getLogger(AuditLogAspect.class);
+
+    private final AuditLogMapper auditLogMapper;
+
+    public AuditLogAspect(AuditLogMapper auditLogMapper) {
+        this.auditLogMapper = auditLogMapper;
+    }
 
     @AfterReturning("execution(* com.ticket.service.impl.AuthServiceImpl.login(..))")
     public void logLogin(JoinPoint joinPoint) {
@@ -50,7 +58,16 @@ public class AuditLogAspect {
             Long userId = getCurrentUserId();
             String ip = getClientIp();
 
-            log.info("AUDIT: userId={}, action={}, targetType={}, targetId={}, ip={}",
+            AuditLog auditLog = new AuditLog();
+            auditLog.setUserId(userId);
+            auditLog.setAction(action);
+            auditLog.setTargetType(targetType);
+            auditLog.setTargetId(targetId);
+            auditLog.setDetail(detail);
+            auditLog.setIpAddress(ip);
+            auditLogMapper.insert(auditLog);
+
+            log.debug("Audit log written: userId={}, action={}, targetType={}, targetId={}, ip={}",
                     userId, action, targetType, targetId, ip);
         } catch (Exception e) {
             log.warn("Failed to write audit log", e);

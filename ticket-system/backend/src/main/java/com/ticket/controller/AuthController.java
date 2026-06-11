@@ -1,6 +1,7 @@
 package com.ticket.controller;
 
 import com.ticket.common.constant.RoleConstants;
+import com.ticket.common.constant.SecurityConstants;
 import com.ticket.dto.request.*;
 import com.ticket.dto.response.ApiResponse;
 import com.ticket.dto.response.AuthResponse;
@@ -40,7 +41,11 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @RequestHeader("Authorization") String authHeader) {
-        String token = authHeader.substring(7);
+        if (authHeader == null || authHeader.length() <= SecurityConstants.BEARER_PREFIX_LENGTH
+                || !authHeader.startsWith(SecurityConstants.BEARER_PREFIX)) {
+            return ResponseEntity.ok(ApiResponse.success());
+        }
+        String token = authHeader.substring(SecurityConstants.BEARER_PREFIX_LENGTH);
         authService.logout(token);
         return ResponseEntity.ok(ApiResponse.success());
     }

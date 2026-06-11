@@ -1,5 +1,6 @@
 package com.ticket.controller;
 
+import com.ticket.common.constant.RoleConstants;
 import com.ticket.dto.request.*;
 import com.ticket.dto.response.ApiResponse;
 import com.ticket.dto.response.AuthResponse;
@@ -59,7 +60,7 @@ public class AuthController {
     }
 
     @PostMapping("/invite")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('" + RoleConstants.ADMIN + "')")
     public ResponseEntity<ApiResponse<String>> invite(
             @Valid @RequestBody InviteRequest request,
             @AuthenticationPrincipal UserDetailsImpl admin) {

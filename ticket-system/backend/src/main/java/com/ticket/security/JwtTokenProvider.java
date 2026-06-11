@@ -1,5 +1,6 @@
 package com.ticket.security;
 
+import com.ticket.common.constant.CacheConstants;
 import com.ticket.common.exception.TokenBlacklistedException;
 import com.ticket.common.exception.TokenExpiredException;
 import io.jsonwebtoken.*;
@@ -67,7 +68,7 @@ public class JwtTokenProvider {
                 .compact();
 
         // Store in Redis whitelist
-        String redisKey = "refresh:" + userId + ":" + jti;
+        String redisKey = CacheConstants.REFRESH_TOKEN_PREFIX + userId + ":" + jti;
         RBucket<String> bucket = redissonClient.getBucket(redisKey);
         bucket.set(token, Duration.ofMillis(refreshTokenExpiration));
 
@@ -85,7 +86,7 @@ public class JwtTokenProvider {
             // Check blacklist for access tokens (refresh tokens have JTI)
             String jti = claims.getId();
             if (jti == null) {
-                String blacklistKey = "blacklist:" + token.hashCode();
+                String blacklistKey = CacheConstants.BLACKLIST_PREFIX + token.hashCode();
                 RBucket<String> bucket = redissonClient.getBucket(blacklistKey);
                 if (bucket.isExists()) {
                     throw new TokenBlacklistedException();
@@ -111,7 +112,7 @@ public class JwtTokenProvider {
                     .getPayload();
             long remaining = claims.getExpiration().getTime() - System.currentTimeMillis();
             if (remaining > 0) {
-                String blacklistKey = "blacklist:" + token.hashCode();
+                String blacklistKey = CacheConstants.BLACKLIST_PREFIX + token.hashCode();
                 RBucket<String> bucket = redissonClient.getBucket(blacklistKey);
                 bucket.set("revoked", Duration.ofMillis(remaining));
             }
@@ -119,13 +120,13 @@ public class JwtTokenProvider {
     }
 
     public void revokeRefreshToken(Long userId, String jti) {
-        String redisKey = "refresh:" + userId + ":" + jti;
+        String redisKey = CacheConstants.REFRESH_TOKEN_PREFIX + userId + ":" + jti;
         RBucket<String> bucket = redissonClient.getBucket(redisKey);
         bucket.delete();
     }
 
     public boolean isRefreshTokenValid(Long userId, String jti) {
-        String redisKey = "refresh:" + userId + ":" + jti;
+        String redisKey = CacheConstants.REFRESH_TOKEN_PREFIX + userId + ":" + jti;
         RBucket<String> bucket = redissonClient.getBucket(redisKey);
         return bucket.isExists();
     }

@@ -1,7 +1,9 @@
 package com.ticket.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ticket.common.constant.BusinessConstants;
 import com.ticket.common.constant.ErrorCode;
+import com.ticket.common.constant.RoleConstants;
 import com.ticket.common.exception.*;
 import com.ticket.dto.request.*;
 import com.ticket.dto.response.AuthResponse;
@@ -29,7 +31,6 @@ import java.util.UUID;
 public class AuthServiceImpl implements AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
-    private static final long INVITE_EXPIRY_MS = 48 * 60 * 60 * 1000L; // 48 hours
 
     private final UserMapper userMapper;
     private final InviteTokenMapper inviteTokenMapper;
@@ -66,8 +67,8 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole("ROLE_USER");
-        user.setStatus(1);
+        user.setRole(RoleConstants.ROLE_USER);
+        user.setStatus(BusinessConstants.USER_STATUS_ENABLED);
         userMapper.insert(user);
 
         // Generate tokens
@@ -150,8 +151,8 @@ public class AuthServiceImpl implements AuthService {
         InviteToken inviteToken = new InviteToken();
         inviteToken.setToken(token);
         inviteToken.setEmail(request.getEmail());
-        inviteToken.setExpiresAt(now + INVITE_EXPIRY_MS);
-        inviteToken.setUsed(0);
+        inviteToken.setExpiresAt(now + BusinessConstants.INVITE_EXPIRY_MS);
+        inviteToken.setUsed(BusinessConstants.INVITE_TOKEN_UNUSED);
         inviteToken.setCreatedBy(adminId);
         inviteTokenMapper.insert(inviteToken);
 
@@ -170,7 +171,7 @@ public class AuthServiceImpl implements AuthService {
         if (inviteToken == null) {
             throw new InviteTokenNotFoundException();
         }
-        if (inviteToken.getUsed() == 1) {
+        if (inviteToken.getUsed() == BusinessConstants.INVITE_TOKEN_USED) {
             throw new InviteTokenUsedException();
         }
         if (System.currentTimeMillis() > inviteToken.getExpiresAt()) {
@@ -188,12 +189,12 @@ public class AuthServiceImpl implements AuthService {
         user.setUsername(request.getUsername());
         user.setEmail(inviteToken.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole("ROLE_AGENT");
-        user.setStatus(1);
+        user.setRole(RoleConstants.ROLE_AGENT);
+        user.setStatus(BusinessConstants.USER_STATUS_ENABLED);
         userMapper.insert(user);
 
         // Mark token as used
-        inviteToken.setUsed(1);
+        inviteToken.setUsed(BusinessConstants.INVITE_TOKEN_USED);
         inviteTokenMapper.updateById(inviteToken);
 
         // Generate tokens

@@ -1,5 +1,6 @@
 package com.ticket.security;
 
+import com.ticket.common.constant.RoleConstants;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -34,7 +35,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/login").permitAll()
                 .requestMatchers("/api/auth/refresh").permitAll()
                 .requestMatchers("/api/auth/accept-invite").permitAll()
-                .requestMatchers("/api/auth/invite").hasRole("ADMIN")
+                .requestMatchers("/api/auth/invite").hasRole(RoleConstants.ADMIN)
                 .requestMatchers("/api/auth/**").authenticated()
                 .anyRequest().authenticated()
             )

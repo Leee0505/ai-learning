@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 @TestConfiguration
@@ -20,7 +21,7 @@ public class TestConfig {
         @SuppressWarnings("unchecked")
         RBucket<String> mockBucket = (RBucket<String>) Mockito.mock(RBucket.class);
         when(mockBucket.isExists()).thenReturn(false);
-        when(mockClient.getBucket(anyString())).thenReturn(mockBucket);
+        doReturn(mockBucket).when(mockClient).getBucket(anyString());
         return mockClient;
     }
 }

@@ -1,6 +1,6 @@
 package com.ticket.security;
 
-import com.ticket.common.exception.TokenBlacklistedException;
+import com.ticket.common.constant.CacheConstants;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,8 +8,9 @@ import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -22,9 +23,19 @@ class JwtTokenProviderTest {
     void setUp() {
         redissonClient = mock(RedissonClient.class);
 
-        RBucket<String> mockBucket = mock(RBucket.class);
-        when(mockBucket.isExists()).thenReturn(true);
-        when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+        // Return different mock buckets based on key prefix:
+        // - refresh:* keys exist (whitelist check passes)
+        // - blacklist:* keys do NOT exist (blacklist check passes)
+        doAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            RBucket<String> bucket = mock(RBucket.class);
+            if (key.startsWith(CacheConstants.REFRESH_TOKEN_PREFIX)) {
+                when(bucket.isExists()).thenReturn(true);
+            } else {
+                when(bucket.isExists()).thenReturn(false);
+            }
+            return bucket;
+        }).when(redissonClient).getBucket(anyString());
 
         jwtTokenProvider = new JwtTokenProvider(
                 "test-secret-key-that-is-at-least-256-bits-long-for-testing-only",
@@ -82,7 +93,7 @@ class JwtTokenProviderTest {
     @Test
     void shouldBlacklistAccessToken() {
         RBucket<String> mockBucket = mock(RBucket.class);
-        when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+        doReturn(mockBucket).when(redissonClient).getBucket(anyString());
 
         String token = jwtTokenProvider.generateAccessToken(1L, "ROLE_USER");
         jwtTokenProvider.blacklistAccessToken(token);

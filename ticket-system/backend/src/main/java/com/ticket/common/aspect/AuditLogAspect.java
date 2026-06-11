@@ -1,5 +1,6 @@
 package com.ticket.common.aspect;
 
+import com.ticket.common.constant.AuditConstants;
 import com.ticket.security.UserDetailsImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.JoinPoint;
@@ -20,28 +21,28 @@ public class AuditLogAspect {
 
     @AfterReturning("execution(* com.ticket.service.impl.AuthServiceImpl.login(..))")
     public void logLogin(JoinPoint joinPoint) {
-        writeAudit("LOGIN", "USER", null, null);
+        writeAudit(AuditConstants.ACTION_LOGIN, AuditConstants.TARGET_USER, null, null);
     }
 
     @AfterReturning("execution(* com.ticket.service.impl.AuthServiceImpl.logout(..))")
     public void logLogout(JoinPoint joinPoint) {
-        writeAudit("LOGOUT", "USER", null, null);
+        writeAudit(AuditConstants.ACTION_LOGOUT, AuditConstants.TARGET_USER, null, null);
     }
 
     @AfterReturning("execution(* com.ticket.service.impl.AuthServiceImpl.register(..))")
     public void logRegister(JoinPoint joinPoint) {
-        writeAudit("REGISTER", "USER", null, null);
+        writeAudit(AuditConstants.ACTION_REGISTER, AuditConstants.TARGET_USER, null, null);
     }
 
     @AfterReturning(value = "execution(* com.ticket.service.impl.AuthServiceImpl.invite(..))",
             returning = "result")
     public void logInvite(JoinPoint joinPoint, Object result) {
-        writeAudit("INVITE_AGENT", "INVITE_TOKEN", null, null);
+        writeAudit(AuditConstants.ACTION_INVITE_AGENT, AuditConstants.TARGET_INVITE_TOKEN, null, null);
     }
 
     @AfterReturning("execution(* com.ticket.service.impl.AuthServiceImpl.acceptInvite(..))")
     public void logAcceptInvite(JoinPoint joinPoint) {
-        writeAudit("ACCEPT_INVITE", "USER", null, null);
+        writeAudit(AuditConstants.ACTION_ACCEPT_INVITE, AuditConstants.TARGET_USER, null, null);
     }
 
     private void writeAudit(String action, String targetType, Long targetId, String detail) {

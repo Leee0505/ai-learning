@@ -47,6 +47,12 @@
                   <span class="detail-reply-author">{{ reply.username }}</span>
                   <span v-if="reply.isInternal" class="detail-reply-internal-badge">Internal Note</span>
                   <span class="detail-reply-time">{{ formatDateTime(reply.createdDate) }}</span>
+                  <button class="detail-reply-quote-btn" @click="handleQuote(reply)" title="Quote this reply">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="detail-reply-quote-icon" aria-hidden="true">
+                      <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/>
+                      <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
+                    </svg>
+                  </button>
                 </div>
                 <p class="detail-reply-content">{{ reply.content }}</p>
               </div>
@@ -272,6 +278,15 @@ async function loadThumbnails() {
       thumbnails.value[att.id] = URL.createObjectURL(res.data)
     } catch { /* ignore failed thumbnail */ }
   }))
+}
+
+function handleQuote(reply) {
+  const lines = reply.content.split('\n').map(line => `> ${line}`).join('\n')
+  const quote = `> **${reply.username}** said:\n${lines}\n\n`
+  replyContent.value = replyContent.value ? replyContent.value + '\n' + quote : quote
+  // Focus the textarea
+  const textarea = document.querySelector('.detail-reply-input')
+  if (textarea) { textarea.focus(); textarea.scrollIntoView({ behavior: 'smooth' }) }
 }
 
 async function handleReply() {
@@ -565,6 +580,15 @@ function handleLightboxDownload() {
 .detail-reply-author { font-weight: 600; font-size: var(--text-sm); color: var(--color-text-primary); }
 .detail-reply-internal-badge { padding: 1px 6px; font-size: 10px; font-weight: 600; background: #FEF3C7; color: #B45309; border-radius: var(--radius-full); }
 .detail-reply-time { font-size: var(--text-xs); color: var(--color-text-muted); }
+
+/* Quote button */
+.detail-reply-quote-btn {
+  display: inline-flex; align-items: center; padding: 2px 6px; margin-left: auto;
+  background: none; border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm);
+  color: var(--color-text-muted); cursor: pointer; transition: all var(--transition-fast);
+}
+.detail-reply-quote-btn:hover { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-bg); }
+.detail-reply-quote-icon { width: 14px; height: 14px; }
 .detail-reply-content { margin: 0; font-size: var(--text-base); line-height: 1.6; color: var(--color-text-primary); white-space: pre-wrap; }
 
 /* Reply Input */

@@ -155,7 +155,7 @@
               <!-- Image thumbnail -->
               <img
                 v-if="isImage(att.contentType)"
-                :src="thumbnailUrl(att.id)"
+                :src="thumbnails[att.id]"
                 :alt="att.originalFilename"
                 class="detail-attach-thumb"
                 @click="openLightbox(att)"
@@ -220,7 +220,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
-import { downloadAttachment, thumbnailUrl } from '@/api/tickets'
+import { downloadAttachment } from '@/api/tickets'
+import request from '@/api/request'
 
 const route = useRoute()
 const router = useRouter()
@@ -234,6 +235,7 @@ const downloadingId = ref(null)
 const selectedStatus = ref('')
 const assignTargetId = ref('')
 const lightboxAtt = ref(null)
+const thumbnails = ref({})  // attachmentId → blob URL (loaded via axios for JWT auth)
 
 const ticketId = computed(() => route.params.id)
 
@@ -255,9 +257,20 @@ const visibleReplies = computed(() => {
   })
 })
 
-onMounted(() => {
-  store.fetchTicketDetail(ticketId.value)
+onMounted(async () => {
+  await store.fetchTicketDetail(ticketId.value)
+  await loadThumbnails()
 })
+
+async function loadThumbnails() {
+  const images = (store.currentTicket?.attachments || []).filter(a => isImage(a.contentType))
+  for (const att of images) {
+    try {
+      const res = await request.get(`/attachments/${att.id}/thumbnail?size=200`, { responseType: 'blob' })
+      thumbnails.value[att.id] = URL.createObjectURL(res.data)
+    } catch { /* ignore failed thumbnails */ }
+  }
+}
 
 async function handleReply() {
   if (!replyContent.value.trim()) return

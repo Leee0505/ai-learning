@@ -43,6 +43,3 @@ export function downloadAttachment(id) {
   return request.get(`/attachments/${id}`, { responseType: 'blob' })
 }
 
-export function thumbnailUrl(id, size = 200) {
-  return `/api/attachments/${id}/thumbnail?size=${size}`
-}

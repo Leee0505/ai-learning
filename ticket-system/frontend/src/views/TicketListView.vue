@@ -78,7 +78,7 @@
         <thead>
           <tr>
             <th v-if="authStore.isAdmin" class="ticket-list-check-col">
-              <input type="checkbox" :checked="selectedIds.length === store.tickets.length && store.tickets.length > 0" @change="toggleSelectAll" />
+              <input type="checkbox" :checked="selectedIds.length === store.tickets.length && store.tickets.length > 0" @click.stop @change="toggleSelectAll" />
             </th>
             <th>ID</th>
             <th>Title</th>
@@ -100,8 +100,8 @@
             class="ticket-list-row"
             @click="goDetail(ticket.id)"
           >
-            <td v-if="authStore.isAdmin" class="ticket-list-check-col" @click.stop>
-              <input type="checkbox" :checked="selectedIds.includes(ticket.id)" @change="toggleSelect(ticket.id)" />
+            <td v-if="authStore.isAdmin" class="ticket-list-check-col">
+              <input type="checkbox" :checked="selectedIds.includes(ticket.id)" @click.stop @change="toggleSelect(ticket.id)" />
             </td>
             <td class="ticket-list-id">#{{ ticket.id }}</td>
             <td class="ticket-list-title-cell">{{ ticket.title }}</td>

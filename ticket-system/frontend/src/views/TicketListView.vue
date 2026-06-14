@@ -8,12 +8,18 @@
           {{ authStore.isAdmin || authStore.isAgent ? 'All tickets in the system' : 'Your submitted tickets' }}
         </p>
       </div>
-      <button class="ticket-list-create-btn" @click="goCreate">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-        New Ticket
-      </button>
+      <div class="ticket-list-header-btns">
+        <div class="ticket-list-export">
+          <button class="ticket-list-export-btn" @click="handleExport('csv')" title="Export as CSV">CSV</button>
+          <button class="ticket-list-export-btn" @click="handleExport('excel')" title="Export as Excel">Excel</button>
+        </div>
+        <button class="ticket-list-create-btn" @click="goCreate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New Ticket
+        </button>
+      </div>
     </div>
 
     <!-- Filter Bar -->
@@ -125,7 +131,7 @@
     </div>
 
     <!-- Pagination -->
-    <div v-if="store.total > store.size" class="ticket-list-pagination">
+    <div class="ticket-list-pagination">
       <button
         :disabled="store.page <= 1"
         class="ticket-list-page-btn"
@@ -134,6 +140,12 @@
       <span class="ticket-list-page-info">
         Page {{ store.page }} of {{ totalPages }} ({{ store.total }} total)
       </span>
+      <select class="ticket-list-size-select" :value="store.size" @change="store.setSize(Number($event.target.value))">
+        <option :value="10">10 / page</option>
+        <option :value="20">20 / page</option>
+        <option :value="50">50 / page</option>
+        <option :value="100">100 / page</option>
+      </select>
       <button
         :disabled="store.page >= totalPages"
         class="ticket-list-page-btn"
@@ -149,6 +161,7 @@ import { useRouter } from 'vue-router'
 import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
 import { deleteBatchTickets } from '@/api/tickets'
+import request from '@/api/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const store = useTicketStore()
@@ -196,6 +209,32 @@ onMounted(() => {
 })
 
 function goCreate() { router.push('/tickets/new') }
+
+async function handleExport(format) {
+  const params = {
+    format,
+    sortOrder: store.sortOrder,
+    status: store.filters.status || undefined,
+    priority: store.filters.priority || undefined,
+    category: store.filters.category || undefined,
+    keyword: store.filters.keyword || undefined
+  }
+  try {
+    const res = await request.get('/tickets/export', { params, responseType: 'blob' })
+    const ext = format === 'excel' ? 'xlsx' : 'csv'
+    const blob = new Blob([res.data])
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `tickets.${ext}`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch {
+    ElMessage.error('Export failed')
+  }
+}
 function goDetail(id, event) {
   // Ignore clicks from the checkbox column
   if (event.target.closest('.ticket-list-check-col')) return
@@ -265,7 +304,19 @@ function priorityClass(priority) {
   color: var(--color-text-secondary);
 }
 
-/* ── Buttons ── */
+/* ── Header buttons ── */
+.ticket-list-header-btns { display: flex; align-items: center; gap: var(--space-sm); }
+
+/* Export */
+.ticket-list-export { display: flex; gap: 0; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); overflow: hidden; }
+.ticket-list-export-btn {
+  padding: 8px 14px; font-size: var(--text-xs); font-weight: 600; font-family: var(--font-body);
+  color: var(--color-text-secondary); background: var(--color-white); border: none; cursor: pointer;
+  border-right: 1px solid var(--color-gray-200); transition: background var(--transition-fast);
+}
+.ticket-list-export-btn:last-child { border-right: none; }
+.ticket-list-export-btn:hover { background: var(--color-gray-50); color: var(--color-primary); }
+
 .ticket-list-create-btn {
   display: inline-flex;
   align-items: center;
@@ -506,6 +557,11 @@ function priorityClass(priority) {
 .ticket-list-page-btn:hover:not(:disabled) { background: var(--color-gray-50); }
 .ticket-list-page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .ticket-list-page-info { font-size: var(--text-sm); color: var(--color-text-secondary); }
+.ticket-list-size-select {
+  padding: 6px 8px; font-size: var(--text-xs); font-family: var(--font-body);
+  color: var(--color-text-secondary); border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-sm); background: var(--color-white); cursor: pointer;
+}
 
 @media (max-width: 768px) {
   .ticket-list { padding: var(--space-lg) var(--space-md); }

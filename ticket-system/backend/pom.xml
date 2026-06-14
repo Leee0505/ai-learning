@@ -109,6 +109,13 @@
             <version>8.5.7</version>
         </dependency>
 
+        <!-- Apache POI — Excel export -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+
         <!-- Thumbnailator — thumbnail generation (EXIF-aware, Lanczos3) -->
         <dependency>
             <groupId>net.coobird</groupId>

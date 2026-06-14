@@ -23,4 +23,7 @@ public interface TicketService {
     Resource downloadAttachment(Long attachmentId);
 
     DashboardStatsResponse getDashboardStats(Long userId, String role);
+
+    Resource exportTickets(String format, String status, String priority, String category,
+                           String keyword, Long userId, String role);
 }

@@ -79,6 +79,45 @@ public class TicketController {
         return ApiResult.success(stats);
     }
 
+    // ── Export ──
+
+    @GetMapping("/tickets/export")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Export tickets as CSV or Excel",
+        description = "Exports all matching tickets (ignores pagination). "
+                    + "Supports the same filters as the list endpoint."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "File download"),
+        @ApiResponse(responseCode = "401", description = "Not authenticated")
+    })
+    public ResponseEntity<Resource> exportTickets(
+            @Parameter(description = "Export format: csv or excel")
+            @RequestParam(defaultValue = "csv") String format,
+            @Parameter(description = "Filter by status")
+            @RequestParam(required = false) String status,
+            @Parameter(description = "Filter by priority")
+            @RequestParam(required = false) String priority,
+            @Parameter(description = "Filter by category")
+            @RequestParam(required = false) String category,
+            @Parameter(description = "Search keyword")
+            @RequestParam(required = false) String keyword,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        Resource resource = ticketService.exportTickets(
+                format, status, priority, category, keyword,
+                userDetails.getUserId(), userDetails.getRole());
+        String filename = "tickets-" + java.time.LocalDate.now() + "." + (format.equals("excel") ? "xlsx" : "csv");
+        MediaType mediaType = format.equals("excel")
+                ? MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                : MediaType.parseMediaType("text/csv");
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename*=UTF-8''" + URLEncoder.encode(filename, StandardCharsets.UTF_8))
+                .body(resource);
+    }
+
     // ── List ──
 
     @GetMapping("/tickets")

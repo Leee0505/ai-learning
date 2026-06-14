@@ -109,26 +109,7 @@ public class TicketServiceImpl implements TicketService {
     public PageResponse<TicketResponse> listTickets(String status, String priority, String category,
                                                      String keyword, int pageNum, int size,
                                                      Long userId, String role, String sortOrder) {
-        LambdaQueryWrapper<Ticket> wrapper = new LambdaQueryWrapper<>();
-
-        // Role-based visibility: ROLE_USER sees only own tickets
-        if (RoleConstants.ROLE_USER.equals(role)) {
-            wrapper.eq(Ticket::getCreatedBy, userId);
-        }
-
-        // Filters
-        if (status != null && !status.isBlank()) {
-            wrapper.eq(Ticket::getStatus, status);
-        }
-        if (priority != null && !priority.isBlank()) {
-            wrapper.eq(Ticket::getPriority, priority);
-        }
-        if (category != null && !category.isBlank()) {
-            wrapper.eq(Ticket::getCategory, category);
-        }
-        if (keyword != null && !keyword.isBlank()) {
-            wrapper.like(Ticket::getTitle, keyword);
-        }
+        LambdaQueryWrapper<Ticket> wrapper = buildFilterWrapper(status, priority, category, keyword, userId, role);
         if ("asc".equalsIgnoreCase(sortOrder)) {
             wrapper.orderByAsc(Ticket::getCreatedDate);
         } else {
@@ -439,6 +420,112 @@ public class TicketServiceImpl implements TicketService {
         int deleted = ticketMapper.deleteBatchIds(ticketIds);
         log.info("Batch deleted {} tickets: ids={}", deleted, ticketIds);
         return deleted;
+    }
+
+    // ──────────────────────────────────────────────
+    //  Export
+    // ──────────────────────────────────────────────
+
+    private static final String[] EXPORT_HEADERS = {"ID", "Title", "Status", "Priority", "Category", "Created By", "Assignee", "Created Date", "Resolved Date", "Closed Date"};
+
+    @Override
+    public Resource exportTickets(String format, String status, String priority, String category,
+                                  String keyword, Long userId, String role) {
+        // Query without pagination — export all matching tickets
+        LambdaQueryWrapper<Ticket> wrapper = buildFilterWrapper(status, priority, category, keyword, userId, role);
+        wrapper.orderByDesc(Ticket::getCreatedDate);
+        List<Ticket> tickets = ticketMapper.selectList(wrapper);
+
+        // Resolve usernames
+        Set<Long> userIds = new HashSet<>();
+        for (Ticket t : tickets) {
+            userIds.add(t.getCreatedBy());
+            if (t.getAssignedTo() != null) userIds.add(t.getAssignedTo());
+        }
+        Map<Long, String> nameMap = getUsernameMap(userIds);
+
+        if ("excel".equalsIgnoreCase(format)) {
+            return generateExcel(tickets, nameMap);
+        }
+        return generateCsv(tickets, nameMap);
+    }
+
+    private Resource generateCsv(List<Ticket> tickets, Map<Long, String> nameMap) {
+        StringBuilder sb = new StringBuilder();
+        // UTF-8 BOM for Excel compatibility
+        sb.append('﻿');
+        sb.append(String.join(",", EXPORT_HEADERS)).append('\n');
+        for (Ticket t : tickets) {
+            sb.append(escapeCsv(String.valueOf(t.getId()))).append(',');
+            sb.append(escapeCsv(t.getTitle())).append(',');
+            sb.append(escapeCsv(t.getStatus())).append(',');
+            sb.append(escapeCsv(t.getPriority())).append(',');
+            sb.append(escapeCsv(t.getCategory())).append(',');
+            sb.append(escapeCsv(nameMap.getOrDefault(t.getCreatedBy(), ""))).append(',');
+            sb.append(escapeCsv(nameMap.getOrDefault(t.getAssignedTo(), ""))).append(',');
+            sb.append(formatDate(t.getCreatedDate())).append(',');
+            sb.append(formatDate(t.getResolvedDate())).append(',');
+            sb.append(formatDate(t.getClosedDate())).append('\n');
+        }
+        return new org.springframework.core.io.ByteArrayResource(
+                sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    private Resource generateExcel(List<Ticket> tickets, Map<Long, String> nameMap) {
+        try (org.apache.poi.xssf.usermodel.XSSFWorkbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
+            org.apache.poi.xssf.usermodel.XSSFSheet sheet = wb.createSheet("Tickets");
+            // Header row
+            org.apache.poi.xssf.usermodel.XSSFRow header = sheet.createRow(0);
+            for (int i = 0; i < EXPORT_HEADERS.length; i++) {
+                header.createCell(i).setCellValue(EXPORT_HEADERS[i]);
+            }
+            // Data rows
+            int rowIdx = 1;
+            for (Ticket t : tickets) {
+                org.apache.poi.xssf.usermodel.XSSFRow row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(t.getId());
+                row.createCell(1).setCellValue(t.getTitle());
+                row.createCell(2).setCellValue(t.getStatus());
+                row.createCell(3).setCellValue(t.getPriority());
+                row.createCell(4).setCellValue(t.getCategory());
+                row.createCell(5).setCellValue(nameMap.getOrDefault(t.getCreatedBy(), ""));
+                row.createCell(6).setCellValue(nameMap.getOrDefault(t.getAssignedTo(), ""));
+                row.createCell(7).setCellValue(formatDate(t.getCreatedDate()));
+                row.createCell(8).setCellValue(formatDate(t.getResolvedDate()));
+                row.createCell(9).setCellValue(formatDate(t.getClosedDate()));
+            }
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            wb.write(out);
+            return new org.springframework.core.io.ByteArrayResource(out.toByteArray());
+        } catch (IOException e) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "failed to generate excel");
+        }
+    }
+
+    private LambdaQueryWrapper<Ticket> buildFilterWrapper(String status, String priority, String category,
+                                                           String keyword, Long userId, String role) {
+        LambdaQueryWrapper<Ticket> wrapper = new LambdaQueryWrapper<>();
+        if (RoleConstants.ROLE_USER.equals(role)) {
+            wrapper.eq(Ticket::getCreatedBy, userId);
+        }
+        if (status != null && !status.isBlank()) wrapper.eq(Ticket::getStatus, status);
+        if (priority != null && !priority.isBlank()) wrapper.eq(Ticket::getPriority, priority);
+        if (category != null && !category.isBlank()) wrapper.eq(Ticket::getCategory, category);
+        if (keyword != null && !keyword.isBlank()) wrapper.like(Ticket::getTitle, keyword);
+        return wrapper;
+    }
+
+    private String escapeCsv(String val) {
+        if (val == null) return "";
+        if (val.contains(",") || val.contains("\"") || val.contains("\n")) {
+            return '"' + val.replace("\"", "\"\"") + '"';
+        }
+        return val;
+    }
+
+    private String formatDate(Long ts) {
+        if (ts == null || ts == 0) return "";
+        return java.time.Instant.ofEpochMilli(ts).toString().substring(0, 10);
     }
 
     // ──────────────────────────────────────────────

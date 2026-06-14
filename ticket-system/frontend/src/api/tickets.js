@@ -35,9 +35,8 @@ export function addReply(id, data) {
 export function uploadAttachment(id, file) {
   const formData = new FormData()
   formData.append('file', file)
-  return request.post(`/tickets/${id}/attachments`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
+  // Let axios/browser set Content-Type automatically — it must include the multipart boundary
+  return request.post(`/tickets/${id}/attachments`, formData)
 }
 
 export function downloadAttachment(id) {

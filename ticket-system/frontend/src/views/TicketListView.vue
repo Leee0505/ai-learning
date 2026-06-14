@@ -55,6 +55,14 @@
       <button class="ticket-list-reset-btn" @click="store.resetFilters()">Reset</button>
     </div>
 
+    <!-- Batch action bar — outside card to avoid layout shift when appearing -->
+    <div v-if="authStore.isAdmin && selectedIds.length > 0" class="ticket-list-batch-bar">
+      <span>{{ selectedIds.length }} selected</span>
+      <button class="ticket-list-batch-delete" :disabled="batchLoading" @click="handleBatchDelete">
+        {{ batchLoading ? 'Deleting...' : 'Delete Selected' }}
+      </button>
+    </div>
+
     <!-- Table -->
     <div class="ticket-list-table-card">
       <div v-if="store.loading" class="ticket-list-loading">Loading...</div>
@@ -65,13 +73,6 @@
         </svg>
         <p>No tickets found</p>
         <button class="ticket-list-create-btn" @click="goCreate">Create your first ticket</button>
-      </div>
-      <!-- Batch action bar -->
-      <div v-if="authStore.isAdmin && selectedIds.length > 0" class="ticket-list-batch-bar">
-        <span>{{ selectedIds.length }} selected</span>
-        <button class="ticket-list-batch-delete" :disabled="batchLoading" @click="handleBatchDelete">
-          {{ batchLoading ? 'Deleting...' : 'Delete Selected' }}
-        </button>
       </div>
 
       <table v-else class="ticket-list-table">
@@ -375,8 +376,9 @@ function priorityClass(priority) {
 /* Batch action bar */
 .ticket-list-batch-bar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 16px; background: var(--color-primary-bg);
-  border-bottom: 1px solid var(--color-primary);
+  padding: 10px 16px; margin-bottom: var(--space-sm);
+  background: var(--color-primary-bg);
+  border: 1px solid var(--color-primary); border-radius: var(--radius-md);
   font-size: var(--text-sm); color: var(--color-primary); font-weight: 500;
 }
 .ticket-list-batch-delete {

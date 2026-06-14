@@ -1,6 +1,6 @@
 package com.ticket.config;
 
-import com.ticket.dto.response.ApiResponse;
+import com.ticket.dto.response.R;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Contact;
@@ -37,6 +37,6 @@ public class OpenApiConfig {
         // Unwrap ApiResponse<T> → T so SpringDoc documents the inner data type directly.
         // Without this, SpringDoc generates N separate ApiResponse* schemas (one per T),
         // all with identical {code, message, data} shape, cluttering the Schemas section.
-        SpringDocUtils.getConfig().addResponseWrapperToIgnore(ApiResponse.class);
+        SpringDocUtils.getConfig().addResponseWrapperToIgnore(R.class);
     }
 }

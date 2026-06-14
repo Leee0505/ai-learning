@@ -109,7 +109,7 @@ public class AuthController {
     })
     public ApiResult<UserResponse> me(
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        UserResponse response = authService.getCurrentUser(userDetails.getUserId();
+        UserResponse response = authService.getCurrentUser(userDetails.getUserId());
         return ApiResult.success(response);
     }
 
@@ -129,7 +129,7 @@ public class AuthController {
     public ApiResult<String> invite(
             @Valid @RequestBody InviteRequest request,
             @AuthenticationPrincipal UserDetailsImpl admin) {
-        String token = authService.invite(request, admin.getUserId();
+        String token = authService.invite(request, admin.getUserId());
         return ApiResult.success(token);
     }
 

@@ -1,7 +1,7 @@
 package com.ticket.common.exception;
 
 import com.ticket.common.constant.ErrorCode;
-import com.ticket.dto.response.R;
+import com.ticket.dto.response.ApiResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -21,41 +21,41 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<R<Void>> handleBusinessException(BusinessException ex) {
+    public ResponseEntity<ApiResult<Void>> handleBusinessException(BusinessException ex) {
         ErrorCode errorCode = ex.getErrorCode();
-        R<Void> response = R.error(errorCode.getCode(), ex.getMessage());
+        ApiResult<Void> response = ApiResult.error(errorCode.getCode(), ex.getMessage());
         return ResponseEntity.status(mapHttpStatus(errorCode.getCode())).body(response);
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<R<Void>> handleBadCredentials(BadCredentialsException ex) {
-        R<Void> response = R.error(
+    public ResponseEntity<ApiResult<Void>> handleBadCredentials(BadCredentialsException ex) {
+        ApiResult<Void> response = ApiResult.error(
                 ErrorCode.INVALID_CREDENTIALS.getCode(),
                 ErrorCode.INVALID_CREDENTIALS.getDefaultMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<R<Void>> handleAccessDenied(AccessDeniedException ex) {
-        R<Void> response = R.error(
+    public ResponseEntity<ApiResult<Void>> handleAccessDenied(AccessDeniedException ex) {
+        ApiResult<Void> response = ApiResult.error(
                 ErrorCode.ACCESS_DENIED.getCode(),
                 ErrorCode.ACCESS_DENIED.getDefaultMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<R<Void>> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ApiResult<Void>> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
-        R<Void> response = R.error(ErrorCode.VALIDATION_ERROR.getCode(), message);
+        ApiResult<Void> response = ApiResult.error(ErrorCode.VALIDATION_ERROR.getCode(), message);
         return ResponseEntity.badRequest().body(response);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<R<Void>> handleFallback(Exception ex) {
+    public ResponseEntity<ApiResult<Void>> handleFallback(Exception ex) {
         log.error("Unhandled exception", ex);
-        R<Void> response = R.error(
+        ApiResult<Void> response = ApiResult.error(
                 ErrorCode.INTERNAL_ERROR.getCode(),
                 ErrorCode.INTERNAL_ERROR.getDefaultMessage());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);

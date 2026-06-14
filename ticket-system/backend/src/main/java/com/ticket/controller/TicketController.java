@@ -51,11 +51,11 @@ public class TicketController {
         @ApiResponse(responseCode = "400", description = "Validation error — missing required fields"),
         @ApiResponse(responseCode = "401", description = "Not authenticated")
     })
-    public ResponseEntity<R<TicketDetailResponse>> createTicket(
+    public ApiResult<TicketDetailResponse> createTicket(
             @Valid @RequestBody CreateTicketRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         TicketDetailResponse response = ticketService.createTicket(request, userDetails.getUserId());
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 
     // ── List ──
@@ -71,7 +71,7 @@ public class TicketController {
         @ApiResponse(responseCode = "200", description = "Paginated ticket list"),
         @ApiResponse(responseCode = "401", description = "Not authenticated")
     })
-    public ResponseEntity<R<PageResponse<TicketResponse>>> listTickets(
+    public ApiResult<PageResponse<TicketResponse>> listTickets(
             @Parameter(description = "Filter by ticket status: OPEN, IN_PROGRESS, RESOLVED, CLOSED")
             @RequestParam(required = false) String status,
             @Parameter(description = "Filter by priority: LOW, MEDIUM, HIGH, URGENT")
@@ -88,7 +88,7 @@ public class TicketController {
         PageResponse<TicketResponse> response = ticketService.listTickets(
                 status, priority, category, keyword, page, size,
                 userDetails.getUserId(), userDetails.getRole());
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 
     // ── Detail ──
@@ -106,13 +106,13 @@ public class TicketController {
         @ApiResponse(responseCode = "404", description = "Ticket not found"),
         @ApiResponse(responseCode = "401", description = "Not authenticated")
     })
-    public ResponseEntity<R<TicketDetailResponse>> getTicketDetail(
+    public ApiResult<TicketDetailResponse> getTicketDetail(
             @Parameter(description = "Ticket ID", required = true)
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         TicketDetailResponse response = ticketService.getTicketDetail(
                 id, userDetails.getUserId(), userDetails.getRole());
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 
     // ── Update ──
@@ -130,14 +130,14 @@ public class TicketController {
         @ApiResponse(responseCode = "403", description = "Access denied"),
         @ApiResponse(responseCode = "404", description = "Ticket not found")
     })
-    public ResponseEntity<R<TicketDetailResponse>> updateTicket(
+    public ApiResult<TicketDetailResponse> updateTicket(
             @Parameter(description = "Ticket ID", required = true)
             @PathVariable Long id,
             @Valid @RequestBody UpdateTicketRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         TicketDetailResponse response = ticketService.updateTicket(
                 id, request, userDetails.getUserId(), userDetails.getRole());
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 
     // ── Delete ──
@@ -154,11 +154,11 @@ public class TicketController {
         @ApiResponse(responseCode = "403", description = "Forbidden — requires ADMIN role"),
         @ApiResponse(responseCode = "404", description = "Ticket not found")
     })
-    public ResponseEntity<R<Void>> deleteTicket(
+    public ApiResult<Void> deleteTicket(
             @Parameter(description = "Ticket ID", required = true)
             @PathVariable Long id) {
         ticketService.deleteTicket(id);
-        return ResponseEntity.ok(R.success());
+        return ApiResult.success();
     }
 
     // ── Change Status ──
@@ -179,14 +179,14 @@ public class TicketController {
         @ApiResponse(responseCode = "403", description = "Forbidden — requires ADMIN or AGENT role"),
         @ApiResponse(responseCode = "404", description = "Ticket not found")
     })
-    public ResponseEntity<R<TicketDetailResponse>> changeStatus(
+    public ApiResult<TicketDetailResponse> changeStatus(
             @Parameter(description = "Ticket ID", required = true)
             @PathVariable Long id,
             @Valid @RequestBody ChangeStatusRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         TicketDetailResponse response = ticketService.changeStatus(
                 id, request, userDetails.getUserId(), userDetails.getRole());
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 
     // ── Assign ──
@@ -204,14 +204,14 @@ public class TicketController {
         @ApiResponse(responseCode = "403", description = "Forbidden — requires ADMIN or AGENT role"),
         @ApiResponse(responseCode = "404", description = "Ticket not found")
     })
-    public ResponseEntity<R<TicketDetailResponse>> assignTicket(
+    public ApiResult<TicketDetailResponse> assignTicket(
             @Parameter(description = "Ticket ID", required = true)
             @PathVariable Long id,
             @Valid @RequestBody AssignTicketRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         TicketDetailResponse response = ticketService.assignTicket(
                 id, request, userDetails.getUserId(), userDetails.getRole());
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 
     // ── Reply ──
@@ -228,13 +228,13 @@ public class TicketController {
         @ApiResponse(responseCode = "400", description = "Validation error"),
         @ApiResponse(responseCode = "404", description = "Ticket not found")
     })
-    public ResponseEntity<R<TicketReplyResponse>> addReply(
+    public ApiResult<TicketReplyResponse> addReply(
             @Parameter(description = "Ticket ID", required = true)
             @PathVariable Long id,
             @Valid @RequestBody CreateReplyRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         TicketReplyResponse response = ticketService.addReply(id, request, userDetails.getUserId());
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 
     // ── Upload Attachment ──
@@ -251,14 +251,14 @@ public class TicketController {
         @ApiResponse(responseCode = "400", description = "File too large (>10 MB) or unsupported file type"),
         @ApiResponse(responseCode = "404", description = "Ticket not found")
     })
-    public ResponseEntity<R<TicketAttachmentResponse>> uploadAttachment(
+    public ApiResult<TicketAttachmentResponse> uploadAttachment(
             @Parameter(description = "Ticket ID", required = true)
             @PathVariable Long id,
             @Parameter(description = "File to upload (max 10 MB)", required = true)
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         TicketAttachmentResponse response = ticketService.uploadAttachment(id, file, userDetails.getUserId());
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 
     // ── Download Attachment ──

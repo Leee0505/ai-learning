@@ -3,7 +3,7 @@ package com.ticket.controller;
 import com.ticket.common.constant.RoleConstants;
 import com.ticket.common.constant.SecurityConstants;
 import com.ticket.dto.request.*;
-import com.ticket.dto.response.R;
+import com.ticket.dto.response.ApiResult;
 import com.ticket.dto.response.AuthResponse;
 import com.ticket.dto.response.UserResponse;
 import com.ticket.security.UserDetailsImpl;
@@ -15,7 +15,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -40,10 +39,10 @@ public class AuthController {
         @ApiResponse(responseCode = "200", description = "Registration successful — returns JWT tokens"),
         @ApiResponse(responseCode = "400", description = "Validation error — username or email already exists")
     })
-    public ResponseEntity<R<AuthResponse>> register(
+    public ApiResult<AuthResponse> register(
             @Valid @RequestBody RegisterRequest request) {
         AuthResponse response = authService.register(request);
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 
     @PostMapping("/login")
@@ -55,10 +54,10 @@ public class AuthController {
         @ApiResponse(responseCode = "200", description = "Login successful — returns JWT tokens"),
         @ApiResponse(responseCode = "401", description = "Invalid credentials")
     })
-    public ResponseEntity<R<AuthResponse>> login(
+    public ApiResult<AuthResponse> login(
             @Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 
     @PostMapping("/logout")
@@ -70,16 +69,16 @@ public class AuthController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Logout successful (token invalidated)")
     })
-    public ResponseEntity<R<Void>> logout(
+    public ApiResult<Void> logout(
             @Parameter(description = "Bearer JWT token", required = true)
             @RequestHeader("Authorization") String authHeader) {
         if (authHeader == null || authHeader.length() <= SecurityConstants.BEARER_PREFIX_LENGTH
                 || !authHeader.startsWith(SecurityConstants.BEARER_PREFIX)) {
-            return ResponseEntity.ok(R.success());
+            return ApiResult.success();
         }
         String token = authHeader.substring(SecurityConstants.BEARER_PREFIX_LENGTH);
         authService.logout(token);
-        return ResponseEntity.ok(R.success());
+        return ApiResult.success();
     }
 
     @PostMapping("/refresh")
@@ -92,10 +91,10 @@ public class AuthController {
         @ApiResponse(responseCode = "200", description = "Tokens refreshed successfully"),
         @ApiResponse(responseCode = "401", description = "Refresh token expired, revoked, or invalid")
     })
-    public ResponseEntity<R<AuthResponse>> refresh(
+    public ApiResult<AuthResponse> refresh(
             @Valid @RequestBody RefreshRequest request) {
         AuthResponse response = authService.refresh(request);
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 
     @GetMapping("/me")
@@ -108,10 +107,10 @@ public class AuthController {
         @ApiResponse(responseCode = "200", description = "Current user profile"),
         @ApiResponse(responseCode = "401", description = "Not authenticated")
     })
-    public ResponseEntity<R<UserResponse>> me(
+    public ApiResult<UserResponse> me(
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        UserResponse response = authService.getCurrentUser(userDetails.getUserId());
-        return ResponseEntity.ok(R.success(response));
+        UserResponse response = authService.getCurrentUser(userDetails.getUserId();
+        return ApiResult.success(response);
     }
 
     @PostMapping("/invite")
@@ -127,11 +126,11 @@ public class AuthController {
         @ApiResponse(responseCode = "400", description = "Email already has a pending invitation"),
         @ApiResponse(responseCode = "403", description = "Forbidden — requires ADMIN role")
     })
-    public ResponseEntity<R<String>> invite(
+    public ApiResult<String> invite(
             @Valid @RequestBody InviteRequest request,
             @AuthenticationPrincipal UserDetailsImpl admin) {
-        String token = authService.invite(request, admin.getUserId());
-        return ResponseEntity.ok(R.success(token));
+        String token = authService.invite(request, admin.getUserId();
+        return ApiResult.success(token);
     }
 
     @PostMapping("/accept-invite")
@@ -143,9 +142,9 @@ public class AuthController {
         @ApiResponse(responseCode = "200", description = "Invitation accepted — agent registered with ROLE_AGENT"),
         @ApiResponse(responseCode = "400", description = "Invitation token expired, already used, or not found")
     })
-    public ResponseEntity<R<AuthResponse>> acceptInvite(
+    public ApiResult<AuthResponse> acceptInvite(
             @Valid @RequestBody AcceptInviteRequest request) {
         AuthResponse response = authService.acceptInvite(request);
-        return ResponseEntity.ok(R.success(response));
+        return ApiResult.success(response);
     }
 }

@@ -2,7 +2,7 @@ package com.ticket.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ticket.common.constant.ErrorCode;
-import com.ticket.dto.response.R;
+import com.ticket.dto.response.ApiResult;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,7 +66,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             log.warn("Rate limit exceeded: ip={}, path={}, count={}", clientIp, path, count);
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            R<Void> errorResponse = R.error(
+            ApiResult<Void> errorResponse = ApiResult.error(
                     ErrorCode.RATE_LIMIT_EXCEEDED.getCode(),
                     ErrorCode.RATE_LIMIT_EXCEEDED.getDefaultMessage());
             objectMapper.writeValue(response.getWriter(), errorResponse);

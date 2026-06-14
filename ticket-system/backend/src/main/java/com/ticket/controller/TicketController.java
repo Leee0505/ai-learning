@@ -24,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -160,6 +161,25 @@ public class TicketController {
         TicketDetailResponse response = ticketService.updateTicket(
                 id, request, userDetails.getUserId(), userDetails.getRole());
         return ApiResult.success(response);
+    }
+
+    // ── Batch Delete ──
+
+    @DeleteMapping("/tickets/batch")
+    @PreAuthorize("hasRole('" + RoleConstants.ADMIN + "')")
+    @Operation(
+        summary = "Batch delete tickets (admin only)",
+        description = "Deletes multiple tickets by their IDs. Attachments are cleaned up before deletion."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Tickets deleted — returns count of deleted records"),
+        @ApiResponse(responseCode = "403", description = "Forbidden — requires ADMIN role")
+    })
+    public ApiResult<Integer> deleteBatchTickets(
+            @Parameter(description = "List of ticket IDs to delete", required = true)
+            @RequestBody List<Long> ids) {
+        int deleted = ticketService.deleteBatchTickets(ids);
+        return ApiResult.success(deleted);
     }
 
     // ── Delete ──

@@ -420,6 +420,28 @@ public class TicketServiceImpl implements TicketService {
     }
 
     // ──────────────────────────────────────────────
+    //  Batch Delete
+    // ──────────────────────────────────────────────
+
+    @Override
+    @Transactional
+    public int deleteBatchTickets(List<Long> ticketIds) {
+        if (ticketIds == null || ticketIds.isEmpty()) return 0;
+
+        // Clean up attachment files before deleting records
+        LambdaQueryWrapper<TicketAttachment> attachWrapper = new LambdaQueryWrapper<TicketAttachment>()
+                .in(TicketAttachment::getTicketId, ticketIds);
+        List<TicketAttachment> attachments = ticketAttachmentMapper.selectList(attachWrapper);
+        for (TicketAttachment att : attachments) {
+            fileStorage.delete(att.getStoragePath());
+        }
+
+        int deleted = ticketMapper.deleteBatchIds(ticketIds);
+        log.info("Batch deleted {} tickets: ids={}", deleted, ticketIds);
+        return deleted;
+    }
+
+    // ──────────────────────────────────────────────
     //  Dashboard Stats
     // ──────────────────────────────────────────────
 

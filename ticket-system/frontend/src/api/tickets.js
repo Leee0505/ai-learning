@@ -20,6 +20,10 @@ export function deleteTicket(id) {
   return request.delete(`/tickets/${id}`)
 }
 
+export function deleteBatchTickets(ids) {
+  return request.delete('/tickets/batch', { data: ids })
+}
+
 export function changeTicketStatus(id, data) {
   return request.patch(`/tickets/${id}/status`, data)
 }

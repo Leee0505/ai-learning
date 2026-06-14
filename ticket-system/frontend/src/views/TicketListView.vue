@@ -66,9 +66,20 @@
         <p>No tickets found</p>
         <button class="ticket-list-create-btn" @click="goCreate">Create your first ticket</button>
       </div>
+      <!-- Batch action bar -->
+      <div v-if="authStore.isAdmin && selectedIds.length > 0" class="ticket-list-batch-bar">
+        <span>{{ selectedIds.length }} selected</span>
+        <button class="ticket-list-batch-delete" :disabled="batchLoading" @click="handleBatchDelete">
+          {{ batchLoading ? 'Deleting...' : 'Delete Selected' }}
+        </button>
+      </div>
+
       <table v-else class="ticket-list-table">
         <thead>
           <tr>
+            <th v-if="authStore.isAdmin" class="ticket-list-check-col">
+              <input type="checkbox" :checked="selectedIds.length === store.tickets.length && store.tickets.length > 0" @change="toggleSelectAll" />
+            </th>
             <th>ID</th>
             <th>Title</th>
             <th>Status</th>
@@ -89,6 +100,9 @@
             class="ticket-list-row"
             @click="goDetail(ticket.id)"
           >
+            <td v-if="authStore.isAdmin" class="ticket-list-check-col" @click.stop>
+              <input type="checkbox" :checked="selectedIds.includes(ticket.id)" @change="toggleSelect(ticket.id)" />
+            </td>
             <td class="ticket-list-id">#{{ ticket.id }}</td>
             <td class="ticket-list-title-cell">{{ ticket.title }}</td>
             <td>
@@ -129,16 +143,51 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
+import { deleteBatchTickets } from '@/api/tickets'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const store = useTicketStore()
 const authStore = useAuthStore()
 const router = useRouter()
 
+const selectedIds = ref([])
+const batchLoading = ref(false)
 const totalPages = computed(() => Math.max(1, Math.ceil(store.total / store.size)))
+
+function toggleSelect(id) {
+  const idx = selectedIds.value.indexOf(id)
+  if (idx >= 0) selectedIds.value.splice(idx, 1)
+  else selectedIds.value.push(id)
+}
+
+function toggleSelectAll() {
+  if (selectedIds.value.length === store.tickets.length) {
+    selectedIds.value = []
+  } else {
+    selectedIds.value = store.tickets.map(t => t.id)
+  }
+}
+
+async function handleBatchDelete() {
+  try {
+    await ElMessageBox.confirm(
+      `Delete ${selectedIds.value.length} selected ticket(s)? This action cannot be undone.`,
+      'Batch Delete', { confirmButtonText: 'Delete', cancelButtonText: 'Cancel', type: 'warning' }
+    )
+    batchLoading.value = true
+    const { data } = await deleteBatchTickets(selectedIds.value)
+    if (data.code === 200) {
+      ElMessage.success(`${data.data} ticket(s) deleted`)
+      selectedIds.value = []
+      store.fetchTickets()
+    }
+  } catch { /* cancelled or error */ }
+  finally { batchLoading.value = false }
+}
 
 onMounted(() => {
   store.fetchTickets()
@@ -317,6 +366,25 @@ function priorityClass(priority) {
   box-shadow: var(--shadow-sm);
   overflow-x: auto;
 }
+
+/* Batch action bar */
+.ticket-list-batch-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: var(--color-primary-bg);
+  border-bottom: 1px solid var(--color-primary);
+  font-size: var(--text-sm); color: var(--color-primary); font-weight: 500;
+}
+.ticket-list-batch-delete {
+  padding: 6px 16px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body);
+  color: var(--color-white); background: var(--color-danger);
+  border: none; border-radius: var(--radius-md); cursor: pointer;
+}
+.ticket-list-batch-delete:hover:not(:disabled) { opacity: 0.9; }
+.ticket-list-batch-delete:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Checkbox column */
+.ticket-list-check-col { width: 40px; text-align: center; }
+.ticket-list-check-col input { accent-color: var(--color-primary); cursor: pointer; }
 
 .ticket-list-loading {
   text-align: center;

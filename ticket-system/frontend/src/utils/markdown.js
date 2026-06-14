@@ -1,12 +1,11 @@
 import { marked } from 'marked'
 
-// Configure marked for safe rendering
-marked.setOptions({
-  breaks: true,       // single line breaks → <br>
-  gfm: true,          // GitHub Flavored Markdown (tables, task lists, strikethrough)
-  mangle: false,      // don't obfuscate email addresses
-  headerIds: false    // don't add id attributes to headings
-})
+const MARKED_OPTS = {
+  breaks: true,      // single line breaks → <br>
+  gfm: true,         // GitHub Flavored Markdown (tables, task lists, strikethrough)
+  mangle: false,     // don't obfuscate email addresses
+  headerIds: false   // don't add id attributes to headings
+}
 
 // Strip dangerous HTML tags/attributes after markdown rendering
 function sanitize(html) {
@@ -22,7 +21,7 @@ function sanitize(html) {
 export function renderMarkdown(text) {
   if (!text) return ''
   try {
-    return sanitize(marked.parse(text))
+    return sanitize(marked.parse(text, MARKED_OPTS))
   } catch {
     return text // fallback to plain text on parse error
   }

@@ -1,0 +1,409 @@
+<template>
+  <div class="ticket-list">
+    <!-- Page Header -->
+    <div class="ticket-list-header">
+      <div>
+        <h1 class="ticket-list-title">Tickets</h1>
+        <p class="ticket-list-subtitle">
+          {{ authStore.isAdmin || authStore.isAgent ? 'All tickets in the system' : 'Your submitted tickets' }}
+        </p>
+      </div>
+      <button class="ticket-list-create-btn" @click="goCreate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        New Ticket
+      </button>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="ticket-list-filters">
+      <select v-model="store.filters.status" class="ticket-list-select" @change="store.fetchTickets()">
+        <option value="">All Statuses</option>
+        <option value="OPEN">Open</option>
+        <option value="IN_PROGRESS">In Progress</option>
+        <option value="RESOLVED">Resolved</option>
+        <option value="CLOSED">Closed</option>
+      </select>
+      <select v-model="store.filters.priority" class="ticket-list-select" @change="store.fetchTickets()">
+        <option value="">All Priorities</option>
+        <option value="LOW">Low</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="HIGH">High</option>
+        <option value="URGENT">Urgent</option>
+      </select>
+      <select v-model="store.filters.category" class="ticket-list-select" @change="store.fetchTickets()">
+        <option value="">All Categories</option>
+        <option value="BUG">Bug</option>
+        <option value="FEATURE_REQUEST">Feature Request</option>
+        <option value="GENERAL_QUESTION">General Question</option>
+        <option value="ACCOUNT_ISSUE">Account Issue</option>
+        <option value="OTHER">Other</option>
+      </select>
+      <div class="ticket-list-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ticket-list-search-icon" aria-hidden="true">
+          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          v-model="store.filters.keyword"
+          placeholder="Search by title..."
+          class="ticket-list-search-input"
+          @keyup.enter="store.fetchTickets()"
+        />
+      </div>
+      <button class="ticket-list-filter-btn" @click="store.fetchTickets()">Search</button>
+      <button class="ticket-list-reset-btn" @click="store.resetFilters()">Reset</button>
+    </div>
+
+    <!-- Table -->
+    <div class="ticket-list-table-card">
+      <div v-if="store.loading" class="ticket-list-loading">Loading...</div>
+      <div v-else-if="store.tickets.length === 0" class="ticket-list-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="ticket-list-empty-icon" aria-hidden="true">
+          <path d="M19.5 12.572V8.5a2 2 0 0 0-2-2h-12a2 2 0 0 0-2 2v4.072a2 2 0 0 1 0 3.856V20.5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4.072a2 2 0 0 1 0-3.856Z" />
+          <path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4" />
+        </svg>
+        <p>No tickets found</p>
+        <button class="ticket-list-create-btn" @click="goCreate">Create your first ticket</button>
+      </div>
+      <table v-else class="ticket-list-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th>Category</th>
+            <th>Created By</th>
+            <th>Assignee</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="ticket in store.tickets"
+            :key="ticket.id"
+            class="ticket-list-row"
+            @click="goDetail(ticket.id)"
+          >
+            <td class="ticket-list-id">#{{ ticket.id }}</td>
+            <td class="ticket-list-title-cell">{{ ticket.title }}</td>
+            <td>
+              <span :class="['ticket-list-badge', statusClass(ticket.status)]">{{ statusLabel(ticket.status) }}</span>
+            </td>
+            <td>
+              <span :class="['ticket-list-badge', priorityClass(ticket.priority)]">{{ ticket.priority }}</span>
+            </td>
+            <td>{{ ticket.category }}</td>
+            <td>{{ ticket.createdByName }}</td>
+            <td>{{ ticket.assignedToName || '—' }}</td>
+            <td class="ticket-list-date">{{ formatDate(ticket.createdDate) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div v-if="store.total > store.size" class="ticket-list-pagination">
+      <button
+        :disabled="store.page <= 1"
+        class="ticket-list-page-btn"
+        @click="store.setPage(store.page - 1)"
+      >Previous</button>
+      <span class="ticket-list-page-info">
+        Page {{ store.page }} of {{ totalPages }} ({{ store.total }} total)
+      </span>
+      <button
+        :disabled="store.page >= totalPages"
+        class="ticket-list-page-btn"
+        @click="store.setPage(store.page + 1)"
+      >Next</button>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useTicketStore } from '@/stores/tickets'
+import { useAuthStore } from '@/stores/auth'
+
+const store = useTicketStore()
+const authStore = useAuthStore()
+const router = useRouter()
+
+const totalPages = computed(() => Math.max(1, Math.ceil(store.total / store.size)))
+
+onMounted(() => {
+  store.fetchTickets()
+})
+
+function goCreate() { router.push('/tickets/new') }
+function goDetail(id) { router.push(`/tickets/${id}`) }
+
+function formatDate(ts) {
+  if (!ts) return '—'
+  return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function statusClass(status) {
+  return {
+    'OPEN': 'badge-open',
+    'IN_PROGRESS': 'badge-progress',
+    'RESOLVED': 'badge-resolved',
+    'CLOSED': 'badge-closed'
+  }[status] || ''
+}
+
+function statusLabel(status) {
+  return {
+    'OPEN': 'Open',
+    'IN_PROGRESS': 'In Progress',
+    'RESOLVED': 'Resolved',
+    'CLOSED': 'Closed'
+  }[status] || status
+}
+
+function priorityClass(priority) {
+  return {
+    'LOW': 'badge-low',
+    'MEDIUM': 'badge-medium',
+    'HIGH': 'badge-high',
+    'URGENT': 'badge-urgent'
+  }[priority] || ''
+}
+</script>
+
+<style scoped>
+/* ── Layout ── */
+.ticket-list {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-lg);
+}
+
+/* ── Header ── */
+.ticket-list-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+
+.ticket-list-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.ticket-list-subtitle {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/* ── Buttons ── */
+.ticket-list-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px 20px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-family: var(--font-body);
+  color: var(--color-white);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.ticket-list-create-btn svg { width: 16px; height: 16px; }
+.ticket-list-create-btn:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35); }
+
+.ticket-list-filter-btn {
+  padding: 8px 16px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-family: var(--font-body);
+  color: var(--color-white);
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+.ticket-list-filter-btn:hover { opacity: 0.9; }
+
+.ticket-list-reset-btn {
+  padding: 8px 16px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-family: var(--font-body);
+  color: var(--color-text-secondary);
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.ticket-list-reset-btn:hover { background: var(--color-gray-50); }
+
+/* ── Filters ── */
+.ticket-list-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.ticket-list-select {
+  padding: 8px 12px;
+  font-size: var(--text-sm);
+  font-family: var(--font-body);
+  color: var(--color-text-primary);
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  outline: none;
+}
+.ticket-list-select:focus { border-color: var(--color-primary); }
+
+.ticket-list-search {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+.ticket-list-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+.ticket-list-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 32px;
+  font-size: var(--text-sm);
+  font-family: var(--font-body);
+  color: var(--color-text-primary);
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  outline: none;
+  box-sizing: border-box;
+}
+.ticket-list-search-input:focus { border-color: var(--color-primary); }
+.ticket-list-search-input::placeholder { color: var(--color-text-muted); }
+
+/* ── Table Card ── */
+.ticket-list-table-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+
+.ticket-list-loading {
+  text-align: center;
+  padding: var(--space-2xl);
+  color: var(--color-text-secondary);
+}
+
+.ticket-list-empty {
+  text-align: center;
+  padding: var(--space-3xl) var(--space-lg);
+  color: var(--color-text-secondary);
+}
+.ticket-list-empty-icon { width: 48px; height: 48px; color: var(--color-gray-300); margin-bottom: var(--space-md); }
+.ticket-list-empty p { margin: 0 0 var(--space-md); }
+
+/* ── Table ── */
+.ticket-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.ticket-list-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-gray-50);
+  border-bottom: 1px solid var(--color-gray-200);
+  white-space: nowrap;
+}
+.ticket-list-table td {
+  padding: 12px 16px;
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.ticket-list-row {
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.ticket-list-row:hover { background: var(--color-primary-bg); }
+.ticket-list-row:last-child td { border-bottom: none; }
+
+.ticket-list-id { color: var(--color-text-muted); font-family: var(--font-mono); font-size: var(--text-xs); }
+.ticket-list-title-cell { font-weight: 500; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ticket-list-date { white-space: nowrap; color: var(--color-text-secondary); font-size: var(--text-xs); }
+
+/* ── Badges ── */
+.ticket-list-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+.badge-open { background: #DBEAFE; color: #1D4ED8; }
+.badge-progress { background: #FEF3C7; color: #B45309; }
+.badge-resolved { background: #D1FAE5; color: #047857; }
+.badge-closed { background: var(--color-gray-100); color: var(--color-text-secondary); }
+.badge-low { background: var(--color-gray-100); color: var(--color-text-secondary); }
+.badge-medium { background: #DBEAFE; color: #1D4ED8; }
+.badge-high { background: #FED7AA; color: #C2410C; }
+.badge-urgent { background: #FEE2E2; color: #B91C1C; }
+
+/* ── Pagination ── */
+.ticket-list-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+.ticket-list-page-btn {
+  padding: 8px 16px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-family: var(--font-body);
+  color: var(--color-text-primary);
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.ticket-list-page-btn:hover:not(:disabled) { background: var(--color-gray-50); }
+.ticket-list-page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ticket-list-page-info { font-size: var(--text-sm); color: var(--color-text-secondary); }
+
+@media (max-width: 768px) {
+  .ticket-list { padding: var(--space-lg) var(--space-md); }
+  .ticket-list-header { flex-direction: column; gap: var(--space-md); }
+  .ticket-list-filters { flex-direction: column; }
+  .ticket-list-search { min-width: 100%; }
+}
+</style>

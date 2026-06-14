@@ -24,3 +24,8 @@ rate-limit:
 jwt:
   access-token-expiration: 7200000
   refresh-token-expiration: 604800000
+
+file:
+  upload:
+    path: ./uploads
+    max-size: 10485760

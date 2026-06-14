@@ -40,6 +40,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/accept-invite").permitAll()
                 .requestMatchers("/api/auth/invite").hasRole(RoleConstants.ADMIN)
                 .requestMatchers("/api/auth/**").authenticated()
+                .requestMatchers("/api/tickets/**").authenticated()
+                .requestMatchers("/api/attachments/**").authenticated()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)

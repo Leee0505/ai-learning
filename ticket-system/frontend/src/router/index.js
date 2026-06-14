@@ -13,6 +13,24 @@ const routes = [
     name: 'Dashboard',
     component: () => import('@/views/DashboardPlaceholder.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/tickets',
+    name: 'Tickets',
+    component: () => import('@/views/TicketListView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/tickets/new',
+    name: 'TicketNew',
+    component: () => import('@/views/TicketCreateView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/tickets/:id',
+    name: 'TicketDetail',
+    component: () => import('@/views/TicketDetailView.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

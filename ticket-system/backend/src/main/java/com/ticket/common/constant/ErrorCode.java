@@ -10,6 +10,14 @@ public enum ErrorCode {
     INVITE_TOKEN_NOT_FOUND(40005, "invitation link not found"),
     USER_NOT_FOUND(40006, "user not found"),
     RATE_LIMIT_EXCEEDED(40007, "too many requests, please try again later"),
+    TICKET_NOT_FOUND(40008, "ticket not found"),
+    TICKET_ACCESS_DENIED(40009, "you do not have permission to access this ticket"),
+    TICKET_STATUS_INVALID(40010, "invalid ticket status transition"),
+    TICKET_ASSIGN_INVALID(40011, "ticket assignment target must be an agent"),
+    TICKET_ATTACHMENT_NOT_FOUND(40012, "attachment not found"),
+    TICKET_ATTACHMENT_TOO_LARGE(40013, "attachment exceeds maximum size of 10 MB"),
+    TICKET_ATTACHMENT_TYPE_DENIED(40014, "this file type is not allowed"),
+    REPLY_NOT_FOUND(40015, "reply not found"),
 
     // 401xx Auth Errors
     INVALID_CREDENTIALS(40100, "invalid credentials"),

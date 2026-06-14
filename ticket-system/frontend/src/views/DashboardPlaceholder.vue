@@ -13,6 +13,12 @@
           <span class="dashboard-brand-text">Ticket System</span>
         </div>
 
+        <!-- Nav links -->
+        <nav class="dashboard-nav-links">
+          <router-link to="/" class="dashboard-nav-link dashboard-nav-link--active">Dashboard</router-link>
+          <router-link to="/tickets" class="dashboard-nav-link">Tickets</router-link>
+        </nav>
+
         <!-- User section -->
         <div class="dashboard-user">
           <div class="dashboard-user-avatar" aria-hidden="true">
@@ -44,13 +50,13 @@
           Welcome back, {{ authStore.user?.username }}
         </h1>
         <p class="dashboard-welcome-subtitle">
-          Phase 2 dashboard is coming soon. Your ticket management workspace is being built.
+          Your ticket management workspace. Manage and track all support tickets in one place.
         </p>
       </div>
 
       <!-- Quick stats placeholder cards -->
       <div class="dashboard-stats">
-        <div class="dashboard-stat-card">
+        <div class="dashboard-stat-card" @click="$router.push('/tickets')">
           <div class="dashboard-stat-icon dashboard-stat-icon--tickets">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M19.5 12.572V8.5a2 2 0 0 0-2-2h-12a2 2 0 0 0-2 2v4.072a2 2 0 0 1 0 3.856V20.5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4.072a2 2 0 0 1 0-3.856Z" />
@@ -63,7 +69,7 @@
           </div>
         </div>
 
-        <div class="dashboard-stat-card">
+        <div class="dashboard-stat-card" @click="$router.push('/tickets')">
           <div class="dashboard-stat-icon dashboard-stat-icon--pending">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <circle cx="12" cy="12" r="10" />
@@ -76,7 +82,7 @@
           </div>
         </div>
 
-        <div class="dashboard-stat-card">
+        <div class="dashboard-stat-card" @click="$router.push('/tickets')">
           <div class="dashboard-stat-icon dashboard-stat-icon--completed">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -89,7 +95,7 @@
           </div>
         </div>
 
-        <div class="dashboard-stat-card">
+        <div class="dashboard-stat-card" @click="$router.push('/tickets')">
           <div class="dashboard-stat-icon dashboard-stat-icon--response">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <polyline points="22,12 18,12 15,21 9,3 6,12 2,12" />
@@ -177,6 +183,29 @@ async function handleLogout() {
   font-size: var(--text-base);
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+/* Nav links */
+.dashboard-nav-links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.dashboard-nav-link {
+  padding: 6px 12px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-family: var(--font-body);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.dashboard-nav-link:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-bg);
 }
 
 /* User */

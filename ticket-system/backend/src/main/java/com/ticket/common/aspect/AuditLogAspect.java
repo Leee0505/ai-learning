@@ -1,6 +1,9 @@
 package com.ticket.common.aspect;
 
 import com.ticket.common.constant.AuditConstants;
+import com.ticket.dto.response.TicketAttachmentResponse;
+import com.ticket.dto.response.TicketDetailResponse;
+import com.ticket.dto.response.TicketReplyResponse;
 import com.ticket.entity.AuditLog;
 import com.ticket.mapper.AuditLogMapper;
 import com.ticket.security.UserDetailsImpl;
@@ -51,6 +54,65 @@ public class AuditLogAspect {
     @AfterReturning("execution(* com.ticket.service.impl.AuthServiceImpl.acceptInvite(..))")
     public void logAcceptInvite(JoinPoint joinPoint) {
         writeAudit(AuditConstants.ACTION_ACCEPT_INVITE, AuditConstants.TARGET_USER, null, null);
+    }
+
+    // === Ticket operations ===
+
+    @AfterReturning(value = "execution(* com.ticket.service.impl.TicketServiceImpl.createTicket(..))",
+            returning = "result")
+    public void logCreateTicket(JoinPoint joinPoint, Object result) {
+        if (result instanceof TicketDetailResponse r) {
+            writeAudit(AuditConstants.ACTION_CREATE_TICKET, AuditConstants.TARGET_TICKET, r.getId(), "Ticket created");
+        }
+    }
+
+    @AfterReturning(value = "execution(* com.ticket.service.impl.TicketServiceImpl.updateTicket(..))",
+            returning = "result")
+    public void logUpdateTicket(JoinPoint joinPoint, Object result) {
+        if (result instanceof TicketDetailResponse r) {
+            writeAudit(AuditConstants.ACTION_UPDATE_TICKET, AuditConstants.TARGET_TICKET, r.getId(), "Ticket updated");
+        }
+    }
+
+    @AfterReturning("execution(* com.ticket.service.impl.TicketServiceImpl.deleteTicket(..)) && args(ticketId)")
+    public void logDeleteTicket(Long ticketId) {
+        writeAudit(AuditConstants.ACTION_DELETE_TICKET, AuditConstants.TARGET_TICKET, ticketId, "Ticket deleted");
+    }
+
+    @AfterReturning(value = "execution(* com.ticket.service.impl.TicketServiceImpl.changeStatus(..))",
+            returning = "result")
+    public void logChangeTicketStatus(JoinPoint joinPoint, Object result) {
+        if (result instanceof TicketDetailResponse r) {
+            writeAudit(AuditConstants.ACTION_CHANGE_TICKET_STATUS, AuditConstants.TARGET_TICKET,
+                    r.getId(), "Status changed to " + r.getStatus());
+        }
+    }
+
+    @AfterReturning(value = "execution(* com.ticket.service.impl.TicketServiceImpl.assignTicket(..))",
+            returning = "result")
+    public void logAssignTicket(JoinPoint joinPoint, Object result) {
+        if (result instanceof TicketDetailResponse r) {
+            writeAudit(AuditConstants.ACTION_ASSIGN_TICKET, AuditConstants.TARGET_TICKET,
+                    r.getId(), "Assigned to userId=" + r.getAssignedTo());
+        }
+    }
+
+    @AfterReturning(value = "execution(* com.ticket.service.impl.TicketServiceImpl.addReply(..))",
+            returning = "result")
+    public void logReplyTicket(JoinPoint joinPoint, Object result) {
+        if (result instanceof TicketReplyResponse r) {
+            writeAudit(AuditConstants.ACTION_REPLY_TICKET, AuditConstants.TARGET_TICKET_REPLY,
+                    r.getId(), r.getIsInternal() ? "Internal note" : "Public reply");
+        }
+    }
+
+    @AfterReturning(value = "execution(* com.ticket.service.impl.TicketServiceImpl.uploadAttachment(..))",
+            returning = "result")
+    public void logUploadAttachment(JoinPoint joinPoint, Object result) {
+        if (result instanceof TicketAttachmentResponse r) {
+            writeAudit(AuditConstants.ACTION_UPLOAD_ATTACHMENT, AuditConstants.TARGET_TICKET_ATTACHMENT,
+                    r.getId(), "File: " + r.getOriginalFilename());
+        }
     }
 
     private void writeAudit(String action, String targetType, Long targetId, String detail) {

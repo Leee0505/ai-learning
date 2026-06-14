@@ -63,19 +63,36 @@
         <!-- Reply Input -->
         <div class="detail-card">
           <h2 class="detail-card-title">Add Reply</h2>
+          <!-- Preview mode -->
+          <div v-if="previewMode" class="detail-reply-preview" v-html="renderMarkdown(replyContent || '*Nothing to preview*')"></div>
           <textarea
+            v-else
             v-model="replyContent"
+            ref="replyTextarea"
             class="detail-reply-input"
-            placeholder="Type your reply..."
-            rows="4"
+            placeholder="Type your reply... (Markdown supported)"
+            rows="5"
             :disabled="replyLoading"
           />
+          <!-- Formatting toolbar -->
+          <div class="detail-reply-toolbar">
+            <button type="button" class="toolbar-btn" title="Bold (Ctrl+B)" @click="insertMarkdown('**', '**', 'bold')"><b>B</b></button>
+            <button type="button" class="toolbar-btn" title="Italic (Ctrl+I)" @click="insertMarkdown('*', '*', 'italic')"><i>I</i></button>
+            <button type="button" class="toolbar-btn" title="Code" @click="insertMarkdown('`', '`', 'code')">&lt;/&gt;</button>
+            <button type="button" class="toolbar-btn" title="Strikethrough" @click="insertMarkdown('~~', '~~', 'strike')"><s>S</s></button>
+            <span class="toolbar-sep"></span>
+            <button type="button" class="toolbar-btn" title="Quote" @click="insertMarkdown('> ', '', 'quote')">❝</button>
+            <button type="button" class="toolbar-btn" title="Bullet list" @click="insertMarkdown('- ', '', 'list')">•</button>
+            <button type="button" class="toolbar-btn" title="Link" @click="insertLink()">🔗</button>
+            <span class="toolbar-sep"></span>
+            <button type="button" class="toolbar-btn" :class="{ 'toolbar-btn--active': previewMode }" title="Preview" @click="previewMode = !previewMode">👁 Preview</button>
+          </div>
           <div class="detail-reply-actions">
             <label v-if="authStore.isAgent || authStore.isAdmin" class="detail-reply-internal">
-              <input v-model="isInternal" type="checkbox" /> Internal Note (not visible to user)
+              <input v-model="isInternal" type="checkbox" /> Internal Note
             </label>
             <div class="detail-reply-btns">
-              <button v-if="replyContent" class="detail-reply-cancel" @click="replyContent = ''; isInternal = false">Cancel</button>
+              <button v-if="replyContent" class="detail-reply-cancel" @click="replyContent = ''; isInternal = false; previewMode = false">Clear</button>
               <button class="detail-reply-submit" :disabled="replyLoading || !replyContent.trim()" @click="handleReply">
                 <span v-if="!replyLoading">Send Reply</span>
                 <span v-else>Sending...</span>
@@ -242,6 +259,8 @@ const authStore = useAuthStore()
 const replyContent = ref('')
 const isInternal = ref(false)
 const replyLoading = ref(false)
+const previewMode = ref(false)
+const replyTextarea = ref(null)
 const downloadingId = ref(null)
 const selectedStatus = ref('')
 const assignTargetId = ref('')
@@ -285,12 +304,48 @@ async function loadThumbnails() {
 }
 
 function handleQuote(reply) {
-  // Don't double-nest: if content already has >, keep as-is
   const quoted = reply.content.split('\n').map(line => line.startsWith('>') ? line : `> ${line}`).join('\n')
-  const quote = `**${reply.username}** said:\n${quoted}\n\n`
+  const quote = `> **${reply.username}** said:\n${quoted}\n\n`
   replyContent.value = replyContent.value ? replyContent.value + quote : quote
-  const textarea = document.querySelector('.detail-reply-input')
-  if (textarea) { textarea.focus(); textarea.scrollIntoView({ behavior: 'smooth' }) }
+  previewMode.value = false
+  focusTextarea()
+}
+
+// ── Toolbar helpers ──
+
+function focusTextarea() {
+  if (replyTextarea.value) {
+    replyTextarea.value.focus()
+    replyTextarea.value.scrollIntoView({ behavior: 'smooth' })
+  }
+}
+
+function insertMarkdown(before, after, placeholder) {
+  previewMode.value = false
+  const el = replyTextarea.value
+  if (!el) return
+  const start = el.selectionStart
+  const end = el.selectionEnd
+  const selected = replyContent.value.substring(start, end) || placeholder
+  replyContent.value = replyContent.value.substring(0, start) + before + selected + after + replyContent.value.substring(end)
+  // Restore cursor position after inserted text
+  setTimeout(() => {
+    el.focus()
+    const pos = start + before.length + selected.length + after.length
+    el.setSelectionRange(pos, pos)
+  }, 0)
+}
+
+function insertLink() {
+  previewMode.value = false
+  const el = replyTextarea.value
+  if (!el) return
+  const url = prompt('URL:')
+  if (!url) return
+  const start = el.selectionStart
+  const end = el.selectionEnd
+  const selected = replyContent.value.substring(start, end) || 'link'
+  replyContent.value = replyContent.value.substring(0, start) + `[${selected}](${url})` + replyContent.value.substring(end)
 }
 
 async function handleReply() {
@@ -616,10 +671,36 @@ function handleLightboxDownload() {
 .detail-reply-content :deep(img) { max-width: 100%; border-radius: var(--radius-md); }
 
 /* Reply Input */
-.detail-reply-input { width: 100%; padding: 10px 12px; font-size: var(--text-base); font-family: var(--font-body); color: var(--color-text-primary); background: var(--color-gray-50); border: 1.5px solid var(--color-gray-200); border-radius: var(--radius-md); outline: none; box-sizing: border-box; resize: vertical; min-height: 100px; }
+.detail-reply-input { width: 100%; padding: 10px 12px; font-size: var(--text-base); font-family: var(--font-mono); color: var(--color-text-primary); background: var(--color-gray-50); border: 1.5px solid var(--color-gray-200); border-radius: var(--radius-md) var(--radius-md) 0 0; outline: none; box-sizing: border-box; resize: vertical; min-height: 100px; }
 .detail-reply-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12); }
-.detail-reply-actions { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-md); gap: var(--space-md); }
-.detail-reply-internal { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer; }
+
+/* Toolbar */
+.detail-reply-toolbar {
+  display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+  padding: 6px 8px; background: var(--color-gray-50);
+  border: 1.5px solid var(--color-gray-200); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+.toolbar-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 28px; padding: 0 6px;
+  font-size: var(--text-xs); font-family: var(--font-body);
+  color: var(--color-text-secondary); background: transparent;
+  border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.toolbar-btn:hover { background: var(--color-white); border-color: var(--color-gray-200); color: var(--color-text-primary); }
+.toolbar-btn--active { background: var(--color-primary-bg); border-color: var(--color-primary); color: var(--color-primary); }
+.toolbar-sep { width: 1px; height: 18px; background: var(--color-gray-200); margin: 0 4px; }
+
+/* Preview */
+.detail-reply-preview {
+  min-height: 130px; padding: 12px; background: var(--color-gray-50);
+  border: 1.5px solid var(--color-gray-200); border-radius: var(--radius-md);
+  font-size: var(--text-base); line-height: 1.6; color: var(--color-text-primary);
+}
+
+.detail-reply-actions { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-sm); gap: var(--space-md); }
+.detail-reply-internal { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--text-xs); color: var(--color-text-secondary); cursor: pointer; }
 .detail-reply-internal input { accent-color: var(--color-warning); }
 .detail-reply-submit { padding: 10px 20px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); border: none; border-radius: var(--radius-md); cursor: pointer; transition: opacity var(--transition-fast); }
 .detail-reply-submit:hover:not(:disabled) { opacity: 0.92; }

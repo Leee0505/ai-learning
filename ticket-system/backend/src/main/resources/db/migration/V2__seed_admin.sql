@@ -7,7 +7,7 @@ VALUES (
     'admin',
     'admin@ticket.local',
     NULL,
-    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+    '$2b$10$PAoQ1fY8qFNLysbwyfl74e9RTwgm9N2H8s0vSNXqnCbmb3y4wIMKi',
     'ROLE_ADMIN',
     1,
     0,

@@ -7,8 +7,5 @@
 </script>
 
 <style>
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
+/* Global styles are in styles/global.css — this file only contains App-level rules */
 </style>

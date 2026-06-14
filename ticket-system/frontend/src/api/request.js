@@ -53,6 +53,14 @@ request.interceptors.response.use(
       isRefreshing = true
 
       const authStore = useAuthStore()
+
+      // Guard: do not attempt refresh without a token
+      if (!authStore.refreshToken) {
+        authStore.clearAuth()
+        router.push('/login')
+        return Promise.reject(error)
+      }
+
       try {
         const { data } = await axios.post('/api/auth/refresh', {
           refreshToken: authStore.refreshToken

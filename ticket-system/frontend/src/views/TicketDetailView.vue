@@ -199,7 +199,8 @@
   <Teleport to="body">
     <div v-if="lightboxAtt" class="lightbox" @click="closeLightbox">
       <img
-        :src="`/api/attachments/${lightboxAtt.id}`"
+        v-if="lightboxSrc"
+        :src="lightboxSrc"
         :alt="lightboxAtt.originalFilename"
         class="lightbox-img"
         @click.stop
@@ -207,9 +208,9 @@
       <button class="lightbox-close" @click="closeLightbox" title="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
-      <a :href="`/api/attachments/${lightboxAtt.id}`" class="lightbox-download" download :title="lightboxAtt.originalFilename">
+      <button class="lightbox-download" @click="handleLightboxDownload" title="Download">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      </a>
+      </button>
     </div>
   </Teleport>
 </template>
@@ -235,6 +236,7 @@ const downloadingId = ref(null)
 const selectedStatus = ref('')
 const assignTargetId = ref('')
 const lightboxAtt = ref(null)
+const lightboxSrc = ref('')
 const thumbnails = ref({})  // attachmentId → blob URL (loaded via axios for JWT auth)
 
 const ticketId = computed(() => route.params.id)
@@ -391,8 +393,26 @@ function priorityClass(p) { return { 'LOW': 'badge-low', 'MEDIUM': 'badge-medium
 
 function isImage(contentType) { return contentType && contentType.startsWith('image/') }
 
-function openLightbox(att) { lightboxAtt.value = att }
-function closeLightbox() { lightboxAtt.value = null }
+async function openLightbox(att) {
+  lightboxAtt.value = att
+  lightboxSrc.value = ''
+  try {
+    const res = await request.get(`/attachments/${att.id}`, { responseType: 'blob' })
+    lightboxSrc.value = URL.createObjectURL(res.data)
+  } catch {
+    ElMessage.error('Failed to load image')
+    lightboxAtt.value = null
+  }
+}
+function closeLightbox() {
+  if (lightboxSrc.value) URL.revokeObjectURL(lightboxSrc.value)
+  lightboxAtt.value = null
+  lightboxSrc.value = ''
+}
+
+function handleLightboxDownload() {
+  if (lightboxAtt.value) handleDownload(lightboxAtt.value)
+}
 </script>
 
 <style scoped>
@@ -526,6 +546,7 @@ function closeLightbox() { lightboxAtt.value = null }
   width: 48px; height: 48px; padding: 0;
   background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
   border-radius: var(--radius-full); color: var(--color-white); cursor: pointer;
+  font-family: var(--font-body);
 }
 .lightbox-download svg { width: 24px; height: 24px; }
 .lightbox-download:hover { background: rgba(255,255,255,0.25); }

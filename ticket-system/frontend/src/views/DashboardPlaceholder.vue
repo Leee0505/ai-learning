@@ -19,7 +19,7 @@
           </svg>
         </div>
         <div class="dashboard-stat-body">
-          <span class="dashboard-stat-value">—</span>
+          <span class="dashboard-stat-value">{{ stats.total }}</span>
           <span class="dashboard-stat-label">My Tickets</span>
         </div>
       </div>
@@ -32,7 +32,7 @@
           </svg>
         </div>
         <div class="dashboard-stat-body">
-          <span class="dashboard-stat-value">—</span>
+          <span class="dashboard-stat-value">{{ stats.open + stats.inProgress }}</span>
           <span class="dashboard-stat-label">Pending</span>
         </div>
       </div>
@@ -45,7 +45,7 @@
           </svg>
         </div>
         <div class="dashboard-stat-body">
-          <span class="dashboard-stat-value">—</span>
+          <span class="dashboard-stat-value">{{ stats.resolved + stats.closed }}</span>
           <span class="dashboard-stat-label">Completed</span>
         </div>
       </div>
@@ -66,11 +66,24 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { getDashboardStats } from '@/api/tickets'
 
 const authStore = useAuthStore()
 const router = useRouter()
+
+const stats = ref({ total: 0, open: 0, inProgress: 0, resolved: 0, closed: 0 })
+
+onMounted(async () => {
+  try {
+    const { data } = await getDashboardStats()
+    if (data.code === 200) {
+      stats.value = data.data
+    }
+  } catch { /* keep defaults */ }
+})
 </script>
 
 <style scoped>

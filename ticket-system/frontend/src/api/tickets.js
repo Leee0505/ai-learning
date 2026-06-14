@@ -39,6 +39,10 @@ export function uploadAttachment(id, file) {
   return request.post(`/tickets/${id}/attachments`, formData)
 }
 
+export function getDashboardStats() {
+  return request.get('/tickets/stats')
+}
+
 export function downloadAttachment(id) {
   return request.get(`/attachments/${id}`, { responseType: 'blob' })
 }

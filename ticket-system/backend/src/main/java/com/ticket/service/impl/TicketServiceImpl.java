@@ -416,6 +416,30 @@ public class TicketServiceImpl implements TicketService {
     }
 
     // ──────────────────────────────────────────────
+    //  Dashboard Stats
+    // ──────────────────────────────────────────────
+
+    @Override
+    public DashboardStatsResponse getDashboardStats(Long userId, String role) {
+        LambdaQueryWrapper<Ticket> wrapper = new LambdaQueryWrapper<>();
+        // Regular users see only their own tickets
+        if (RoleConstants.ROLE_USER.equals(role)) {
+            wrapper.eq(Ticket::getCreatedBy, userId);
+        }
+
+        List<Ticket> tickets = ticketMapper.selectList(wrapper);
+        long open = 0, inProgress = 0, resolved = 0, closed = 0;
+        for (Ticket t : tickets) {
+            String s = t.getStatus();
+            if (BusinessConstants.TICKET_STATUS_OPEN.equals(s)) open++;
+            else if (BusinessConstants.TICKET_STATUS_IN_PROGRESS.equals(s)) inProgress++;
+            else if (BusinessConstants.TICKET_STATUS_RESOLVED.equals(s)) resolved++;
+            else if (BusinessConstants.TICKET_STATUS_CLOSED.equals(s)) closed++;
+        }
+        return new DashboardStatsResponse(tickets.size(), open, inProgress, resolved, closed);
+    }
+
+    // ──────────────────────────────────────────────
     //  Private Helpers
     // ──────────────────────────────────────────────
 

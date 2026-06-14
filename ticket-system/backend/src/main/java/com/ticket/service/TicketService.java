@@ -17,4 +17,6 @@ public interface TicketService {
     TicketReplyResponse addReply(Long ticketId, CreateReplyRequest request, Long userId);
     TicketAttachmentResponse uploadAttachment(Long ticketId, MultipartFile file, Long userId);
     Resource downloadAttachment(Long attachmentId);
+
+    DashboardStatsResponse getDashboardStats(Long userId, String role);
 }

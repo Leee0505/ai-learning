@@ -58,6 +58,26 @@ public class TicketController {
         return ApiResult.success(response);
     }
 
+    // ── Dashboard Stats ──
+
+    @GetMapping("/tickets/stats")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Get dashboard statistics",
+        description = "Returns ticket counts grouped by status. "
+                    + "Regular users see only their own tickets; agents/admins see all."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Dashboard statistics"),
+        @ApiResponse(responseCode = "401", description = "Not authenticated")
+    })
+    public ApiResult<DashboardStatsResponse> getDashboardStats(
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        DashboardStatsResponse stats = ticketService.getDashboardStats(
+                userDetails.getUserId(), userDetails.getRole());
+        return ApiResult.success(stats);
+    }
+
     // ── List ──
 
     @GetMapping("/tickets")

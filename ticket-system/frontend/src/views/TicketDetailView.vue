@@ -29,37 +29,6 @@
           <p class="detail-desc">{{ store.currentTicket.description || 'No description provided.' }}</p>
         </div>
 
-        <!-- Attachments -->
-        <div v-if="store.currentTicket.attachments?.length" class="detail-card">
-          <h2 class="detail-card-title">
-            Attachments
-            <span class="detail-card-count">{{ store.currentTicket.attachments.length }}</span>
-          </h2>
-          <ul class="detail-attach-list">
-            <li v-for="att in store.currentTicket.attachments" :key="att.id" class="detail-attach-item">
-              <div class="detail-attach-filetype" :class="fileTypeClass(att.contentType)" aria-hidden="true">
-                {{ fileTypeLabel(att.contentType) }}
-              </div>
-              <div class="detail-attach-info">
-                <span class="detail-attach-name">{{ att.originalFilename }}</span>
-                <span class="detail-attach-meta">{{ formatSize(att.fileSize) }} · {{ formatDate(att.createdDate) }}</span>
-              </div>
-              <button
-                class="detail-attach-download"
-                @click="handleDownload(att)"
-                :disabled="downloadingId === att.id"
-                :title="'Download ' + att.originalFilename"
-              >
-                <svg v-if="downloadingId !== att.id" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="detail-attach-dl-icon" aria-hidden="true">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7,10 12,15 17,10" /><line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                <span v-else>...</span>
-              </button>
-            </li>
-          </ul>
-        </div>
-
         <!-- Reply Timeline -->
         <div class="detail-card">
           <h2 class="detail-card-title">Activity</h2>
@@ -169,6 +138,53 @@
             <button class="detail-delete-btn" @click="handleDelete">Delete Ticket</button>
           </div>
         </div>
+
+        <!-- Attachments -->
+        <div v-if="store.currentTicket.attachments?.length" class="detail-card">
+          <h2 class="detail-card-title">
+            Attachments
+            <span class="detail-card-count">{{ store.currentTicket.attachments.length }}</span>
+          </h2>
+          <div class="detail-attach-scroll">
+            <div
+              v-for="att in store.currentTicket.attachments"
+              :key="att.id"
+              class="detail-attach-item"
+              :class="{ 'detail-attach-item--image': isImage(att.contentType) }"
+            >
+              <!-- Image thumbnail -->
+              <img
+                v-if="isImage(att.contentType)"
+                :src="thumbnailUrl(att.id)"
+                :alt="att.originalFilename"
+                class="detail-attach-thumb"
+                @click="openLightbox(att)"
+              />
+              <!-- Non-image file type badge -->
+              <div v-else class="detail-attach-filetype" :class="fileTypeClass(att.contentType)" aria-hidden="true">
+                {{ fileTypeLabel(att.contentType) }}
+              </div>
+              <div class="detail-attach-info">
+                <span class="detail-attach-name" :title="att.originalFilename">{{ att.originalFilename }}</span>
+                <span class="detail-attach-meta">{{ formatSize(att.fileSize) }}</span>
+              </div>
+              <button
+                class="detail-attach-download"
+                @click="isImage(att.contentType) ? openLightbox(att) : handleDownload(att)"
+                :disabled="downloadingId === att.id"
+                :title="isImage(att.contentType) ? 'View full size' : 'Download ' + att.originalFilename"
+              >
+                <svg v-if="isImage(att.contentType)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="detail-attach-dl-icon" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="detail-attach-dl-icon" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7,10 12,15 17,10" /><line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -178,6 +194,24 @@
     <p v-if="store.loading">Loading...</p>
     <p v-else>Ticket not found.</p>
   </div>
+
+  <!-- Lightbox — after v-if/v-else to avoid breaking adjacency -->
+  <Teleport to="body">
+    <div v-if="lightboxAtt" class="lightbox" @click="closeLightbox">
+      <img
+        :src="`/api/attachments/${lightboxAtt.id}`"
+        :alt="lightboxAtt.originalFilename"
+        class="lightbox-img"
+        @click.stop
+      />
+      <button class="lightbox-close" @click="closeLightbox" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <a :href="`/api/attachments/${lightboxAtt.id}`" class="lightbox-download" download :title="lightboxAtt.originalFilename">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </a>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -186,7 +220,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
-import { downloadAttachment } from '@/api/tickets'
+import { downloadAttachment, thumbnailUrl } from '@/api/tickets'
 
 const route = useRoute()
 const router = useRouter()
@@ -199,6 +233,7 @@ const replyLoading = ref(false)
 const downloadingId = ref(null)
 const selectedStatus = ref('')
 const assignTargetId = ref('')
+const lightboxAtt = ref(null)
 
 const ticketId = computed(() => route.params.id)
 
@@ -340,6 +375,11 @@ function formatSize(bytes) {
 function statusClass(s) { return { 'OPEN': 'badge-open', 'IN_PROGRESS': 'badge-progress', 'RESOLVED': 'badge-resolved', 'CLOSED': 'badge-closed' }[s] || '' }
 function statusLabel(s) { return { 'OPEN': 'Open', 'IN_PROGRESS': 'In Progress', 'RESOLVED': 'Resolved', 'CLOSED': 'Closed' }[s] || s }
 function priorityClass(p) { return { 'LOW': 'badge-low', 'MEDIUM': 'badge-medium', 'HIGH': 'badge-high', 'URGENT': 'badge-urgent' }[p] || '' }
+
+function isImage(contentType) { return contentType && contentType.startsWith('image/') }
+
+function openLightbox(att) { lightboxAtt.value = att }
+function closeLightbox() { lightboxAtt.value = null }
 </script>
 
 <style scoped>
@@ -387,17 +427,34 @@ function priorityClass(p) { return { 'LOW': 'badge-low', 'MEDIUM': 'badge-medium
   margin-left: var(--space-xs); vertical-align: middle;
 }
 
-/* Attachments */
-.detail-attach-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-xs); }
+/* Sidebar Attachments */
+.detail-attach-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--space-xs);
+  padding-right: 2px; /* room for scrollbar */
+}
+.detail-attach-scroll::-webkit-scrollbar { width: 4px; }
+.detail-attach-scroll::-webkit-scrollbar-thumb { background: var(--color-gray-300); border-radius: 2px; }
+
 .detail-attach-item {
-  display: flex; align-items: center; gap: var(--space-md);
-  padding: var(--space-md); background: var(--color-gray-50);
+  display: flex; align-items: center; gap: var(--space-sm);
+  padding: var(--space-sm); background: var(--color-gray-50);
   border: 1px solid var(--color-gray-100); border-radius: var(--radius-md);
   font-size: var(--text-sm); transition: border-color var(--transition-fast);
 }
 .detail-attach-item:hover { border-color: var(--color-primary); }
+.detail-attach-item--image { align-items: flex-start; }
 
-/* File type badge */
+/* Thumbnail */
+.detail-attach-thumb {
+  width: 48px; height: 48px; object-fit: cover;
+  border-radius: var(--radius-sm); flex-shrink: 0; cursor: pointer;
+  border: 1px solid var(--color-gray-200);
+}
+.detail-attach-thumb:hover { border-color: var(--color-primary); opacity: 0.85; }
+
+/* File type badge (non-image) */
 .detail-attach-filetype {
   width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; font-family: var(--font-mono); letter-spacing: 0.5px;
@@ -419,7 +476,7 @@ function priorityClass(p) { return { 'LOW': 'badge-low', 'MEDIUM': 'badge-medium
 
 .detail-attach-download {
   display: flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; padding: 0;
+  width: 32px; height: 32px; padding: 0;
   background: var(--color-white); border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-md); cursor: pointer; flex-shrink: 0;
   color: var(--color-primary); transition: all var(--transition-fast);
@@ -428,7 +485,37 @@ function priorityClass(p) { return { 'LOW': 'badge-low', 'MEDIUM': 'badge-medium
   background: var(--color-primary); color: var(--color-white); border-color: var(--color-primary);
 }
 .detail-attach-download:disabled { opacity: 0.5; cursor: not-allowed; }
-.detail-attach-dl-icon { width: 18px; height: 18px; }
+.detail-attach-dl-icon { width: 16px; height: 16px; }
+
+/* Lightbox */
+.lightbox {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex; align-items: center; justify-content: center;
+}
+.lightbox-img {
+  max-width: 90vw; max-height: 90vh; object-fit: contain;
+  border-radius: var(--radius-md);
+}
+.lightbox-close {
+  position: absolute; top: var(--space-lg); right: var(--space-lg);
+  display: flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; padding: 0;
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  border-radius: var(--radius-full); color: var(--color-white); cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.lightbox-close svg { width: 24px; height: 24px; }
+.lightbox-close:hover { background: rgba(255,255,255,0.25); }
+.lightbox-download {
+  position: absolute; bottom: var(--space-xl); right: var(--space-xl);
+  display: flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; padding: 0;
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  border-radius: var(--radius-full); color: var(--color-white); cursor: pointer;
+}
+.lightbox-download svg { width: 24px; height: 24px; }
+.lightbox-download:hover { background: rgba(255,255,255,0.25); }
 
 /* Timeline */
 .detail-timeline { display: flex; flex-direction: column; }

@@ -291,4 +291,44 @@ public class TicketController {
                         "attachment; filename*=UTF-8''" + encodedFilename)
                 .body(resource);
     }
+
+    // ── Thumbnail ──
+
+    @GetMapping("/attachments/{id}/thumbnail")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Get attachment thumbnail",
+        description = "Returns a resized thumbnail (JPEG) of the attachment. "
+                    + "Only works for image attachments (image/*). "
+                    + "Uses Lanczos3 interpolation with EXIF orientation correction."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Thumbnail image",
+                     content = @Content(mediaType = MediaType.IMAGE_JPEG_VALUE)),
+        @ApiResponse(responseCode = "400", description = "Attachment not found or not an image"),
+        @ApiResponse(responseCode = "401", description = "Not authenticated")
+    })
+    public ResponseEntity<Resource> getThumbnail(
+            @Parameter(description = "Attachment ID", required = true)
+            @PathVariable Long id,
+            @Parameter(description = "Thumbnail max dimension in pixels (default 200)")
+            @RequestParam(defaultValue = "200") int size) {
+        Resource original = ticketService.downloadAttachment(id);
+        try {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            net.coobird.thumbnailator.Thumbnails.of(original.getInputStream())
+                    .size(size, size)
+                    .outputFormat("jpg")
+                    .toOutputStream(out);
+            byte[] thumbBytes = out.toByteArray();
+            org.springframework.core.io.ByteArrayResource thumbResource =
+                    new org.springframework.core.io.ByteArrayResource(thumbBytes);
+            return ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.IMAGE_JPEG)
+                    .body(thumbResource);
+        } catch (Exception e) {
+            throw new com.ticket.common.exception.BusinessException(
+                    com.ticket.common.constant.ErrorCode.TICKET_ATTACHMENT_NOT_FOUND);
+        }
+    }
 }

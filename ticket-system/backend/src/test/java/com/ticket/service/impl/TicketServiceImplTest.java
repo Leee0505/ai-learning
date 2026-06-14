@@ -11,14 +11,12 @@ import com.ticket.dto.request.*;
 import com.ticket.dto.response.*;
 import com.ticket.entity.*;
 import com.ticket.mapper.*;
+import com.ticket.storage.FileStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.nio.file.Path;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.*;
@@ -34,9 +32,7 @@ class TicketServiceImplTest {
     private TicketReplyMapper ticketReplyMapper;
     private TicketAttachmentMapper ticketAttachmentMapper;
     private UserMapper userMapper;
-
-    @TempDir
-    Path tempDir;
+    private FileStorageService fileStorage;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -44,13 +40,10 @@ class TicketServiceImplTest {
         ticketReplyMapper = mock(TicketReplyMapper.class);
         ticketAttachmentMapper = mock(TicketAttachmentMapper.class);
         userMapper = mock(UserMapper.class);
+        fileStorage = mock(FileStorageService.class);
 
-        service = new TicketServiceImpl(ticketMapper, ticketReplyMapper, ticketAttachmentMapper, userMapper);
-
-        // Inject temp upload path
-        Field uploadPathField = TicketServiceImpl.class.getDeclaredField("uploadPath");
-        uploadPathField.setAccessible(true);
-        uploadPathField.set(service, tempDir.toString());
+        service = new TicketServiceImpl(ticketMapper, ticketReplyMapper, ticketAttachmentMapper,
+                userMapper, fileStorage);
     }
 
     // ──────────────────────────────────────────────
@@ -437,13 +430,13 @@ class TicketServiceImplTest {
 
         TicketAttachment att = new TicketAttachment();
         att.setId(20L);
-        att.setStoragePath(tempDir.resolve("test-file.dat").toString());
+        att.setStoragePath("minio/test-file.dat");
         when(ticketAttachmentMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(List.of(att));
         when(ticketMapper.deleteById(1L)).thenReturn(1);
 
         assertThatCode(() -> service.deleteTicket(1L)).doesNotThrowAnyException();
-        // File didn't exist, so deleteIfExists is a no-op — should not throw
+        verify(fileStorage).delete("minio/test-file.dat");
         verify(ticketMapper).deleteById(1L);
     }
 
@@ -690,13 +683,14 @@ class TicketServiceImplTest {
         when(file.getSize()).thenReturn(1024L);
         when(file.getOriginalFilename()).thenReturn("screenshot.png");
         when(file.getContentType()).thenReturn("image/png");
+        when(fileStorage.store(file)).thenReturn("/path/to/stored.png");
 
         TicketAttachmentResponse response = service.uploadAttachment(1L, file, 1L);
 
         assertThat(response.getId()).isEqualTo(200L);
         assertThat(response.getOriginalFilename()).isEqualTo("screenshot.png");
         assertThat(response.getFileSize()).isEqualTo(1024L);
-        verify(file).transferTo(any(java.io.File.class));
+        verify(fileStorage).store(file);
     }
 
     @Test
@@ -748,21 +742,20 @@ class TicketServiceImplTest {
 
     @Test
     void downloadAttachmentShouldReturnResource() throws IOException {
-        // Create a real file for download
-        Path filePath = tempDir.resolve("test-attachment.dat");
-        java.nio.file.Files.write(filePath, "test content".getBytes());
-
         TicketAttachment att = new TicketAttachment();
         att.setId(300L);
-        att.setStoragePath(filePath.toString());
-        att.setFilename("test-attachment.dat");
+        att.setStoragePath("minio/test-attachment.dat");
         when(ticketAttachmentMapper.selectById(300L)).thenReturn(att);
+        when(fileStorage.load("minio/test-attachment.dat"))
+                .thenReturn(new org.springframework.core.io.ByteArrayResource("test".getBytes()) {
+                    @Override
+                    public String getFilename() { return "test-attachment.dat"; }
+                });
 
         org.springframework.core.io.Resource resource = service.downloadAttachment(300L);
 
         assertThat(resource).isNotNull();
         assertThat(resource.exists()).isTrue();
-        assertThat(resource.getFilename()).isEqualTo("test-attachment.dat");
     }
 
     @Test
@@ -779,8 +772,9 @@ class TicketServiceImplTest {
     void downloadAttachmentShouldThrowWhenFileMissingOnDisk() {
         TicketAttachment att = new TicketAttachment();
         att.setId(301L);
-        att.setStoragePath(tempDir.resolve("nonexistent.dat").toString());
+        att.setStoragePath("minio/nonexistent.dat");
         when(ticketAttachmentMapper.selectById(301L)).thenReturn(att);
+        when(fileStorage.load("minio/nonexistent.dat")).thenThrow(new RuntimeException("not found"));
 
         assertThatThrownBy(() -> service.downloadAttachment(301L))
                 .isInstanceOf(BusinessException.class)

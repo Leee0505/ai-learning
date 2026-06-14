@@ -15,3 +15,9 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET:dev-secret-key-that-is-at-least-256-bits-long-for-hs256}
+
+# Local disk storage — matches storage.type=local (default)
+storage:
+  type: local
+  local:
+    upload-dir: ./uploads

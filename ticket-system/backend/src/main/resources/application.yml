@@ -27,5 +27,4 @@ jwt:
 
 file:
   upload:
-    path: ./uploads
     max-size: 10485760

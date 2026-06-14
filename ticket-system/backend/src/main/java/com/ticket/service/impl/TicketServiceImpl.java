@@ -13,19 +13,15 @@ import com.ticket.dto.response.*;
 import com.ticket.entity.*;
 import com.ticket.mapper.*;
 import com.ticket.service.TicketService;
+import com.ticket.storage.FileStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -64,16 +60,16 @@ public class TicketServiceImpl implements TicketService {
     private final TicketReplyMapper ticketReplyMapper;
     private final TicketAttachmentMapper ticketAttachmentMapper;
     private final UserMapper userMapper;
-
-    @Value("${file.upload.path:./uploads}")
-    private String uploadPath;
+    private final FileStorageService fileStorage;
 
     public TicketServiceImpl(TicketMapper ticketMapper, TicketReplyMapper ticketReplyMapper,
-                             TicketAttachmentMapper ticketAttachmentMapper, UserMapper userMapper) {
+                             TicketAttachmentMapper ticketAttachmentMapper, UserMapper userMapper,
+                             FileStorageService fileStorage) {
         this.ticketMapper = ticketMapper;
         this.ticketReplyMapper = ticketReplyMapper;
         this.ticketAttachmentMapper = ticketAttachmentMapper;
         this.userMapper = userMapper;
+        this.fileStorage = fileStorage;
     }
 
     // ──────────────────────────────────────────────
@@ -250,18 +246,12 @@ public class TicketServiceImpl implements TicketService {
     public void deleteTicket(Long ticketId) {
         findTicketOrFail(ticketId);
 
-        // Clean up attachment files on disk before cascade deletes DB rows
+        // Clean up attachment files via storage backend before cascade deletes DB rows
         LambdaQueryWrapper<TicketAttachment> attachWrapper = new LambdaQueryWrapper<TicketAttachment>()
                 .eq(TicketAttachment::getTicketId, ticketId);
         List<TicketAttachment> attachments = ticketAttachmentMapper.selectList(attachWrapper);
         for (TicketAttachment att : attachments) {
-            try {
-                Path filePath = Paths.get(att.getStoragePath());
-                Files.deleteIfExists(filePath);
-                log.debug("Deleted attachment file: {}", att.getStoragePath());
-            } catch (IOException e) {
-                log.warn("Failed to delete attachment file: {} — {}", att.getStoragePath(), e.getMessage());
-            }
+            fileStorage.delete(att.getStoragePath());
         }
 
         ticketMapper.deleteById(ticketId);
@@ -383,30 +373,27 @@ public class TicketServiceImpl implements TicketService {
             throw new BusinessException(ErrorCode.TICKET_ATTACHMENT_TYPE_DENIED);
         }
 
-        // Generate storage filename and save
-        String storageFilename = UUID.randomUUID().toString() + "." + extension;
+        // Delegate file storage to the active backend (local / MinIO / OSS)
+        String storageKey;
         try {
-            Path uploadDir = Paths.get(uploadPath);
-            Files.createDirectories(uploadDir);
-            Path targetPath = uploadDir.resolve(storageFilename);
-            file.transferTo(targetPath.toFile());
+            storageKey = fileStorage.store(file);
         } catch (IOException e) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "failed to save file");
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "failed to store file");
         }
 
         // Create attachment entity
         TicketAttachment attachment = new TicketAttachment();
         attachment.setTicketId(ticketId);
         attachment.setReplyId(null);
-        attachment.setFilename(storageFilename);
+        attachment.setFilename(storageKey);
         attachment.setOriginalFilename(originalFilename);
         attachment.setFileSize(file.getSize());
         attachment.setContentType(file.getContentType());
-        attachment.setStoragePath(uploadPath + "/" + storageFilename);
+        attachment.setStoragePath(storageKey);
         ticketAttachmentMapper.insert(attachment);
 
-        log.info("Attachment uploaded: ticketId={} filename={} size={} by userId={}",
-                ticketId, storageFilename, file.getSize(), userId);
+        log.info("Attachment uploaded: ticketId={} storageKey={} size={} by userId={}",
+                ticketId, storageKey, file.getSize(), userId);
         return TicketAttachmentResponse.from(attachment);
     }
 
@@ -421,12 +408,11 @@ public class TicketServiceImpl implements TicketService {
             throw new BusinessException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND);
         }
 
-        Path filePath = Paths.get(attachment.getStoragePath());
-        if (!Files.exists(filePath)) {
+        try {
+            return fileStorage.load(attachment.getStoragePath());
+        } catch (Exception e) {
             throw new BusinessException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND);
         }
-
-        return new FileSystemResource(filePath.toFile());
     }
 
     // ──────────────────────────────────────────────

@@ -78,7 +78,7 @@
         <thead>
           <tr>
             <th v-if="authStore.isAdmin" class="ticket-list-check-col">
-              <input type="checkbox" :checked="selectedIds.length === store.tickets.length && store.tickets.length > 0" @click.stop @change="toggleSelectAll" />
+              <span class="check-box" :class="{ 'check-box--on': allChecked }" @click.stop="toggleSelectAll"></span>
             </th>
             <th>ID</th>
             <th>Title</th>
@@ -98,10 +98,10 @@
             v-for="ticket in store.tickets"
             :key="ticket.id"
             class="ticket-list-row"
-            @click="goDetail(ticket.id, $event)"
+            @click="goDetail(ticket.id)"
           >
             <td v-if="authStore.isAdmin" class="ticket-list-check-col">
-              <input type="checkbox" :checked="selectedIds.includes(ticket.id)" @click.stop @change="toggleSelect(ticket.id)" />
+              <span class="check-box" :class="{ 'check-box--on': selectedIds.includes(ticket.id) }" @click.stop="toggleSelect(ticket.id)"></span>
             </td>
             <td class="ticket-list-id">#{{ ticket.id }}</td>
             <td class="ticket-list-title-cell">{{ ticket.title }}</td>
@@ -143,7 +143,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
@@ -156,6 +156,7 @@ const router = useRouter()
 
 const selectedIds = ref([])
 const batchLoading = ref(false)
+const allChecked = computed(() => store.tickets.length > 0 && selectedIds.value.length === store.tickets.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(store.total / store.size)))
 
 function toggleSelect(id) {
@@ -194,11 +195,7 @@ onMounted(() => {
 })
 
 function goCreate() { router.push('/tickets/new') }
-function goDetail(id, event) {
-  // Ignore clicks on checkboxes or inside the checkbox column
-  if (event.target.type === 'checkbox') return
-  router.push(`/tickets/${id}`)
-}
+function goDetail(id) { router.push(`/tickets/${id}`) }
 
 function formatDate(ts) {
   if (!ts) return '—'
@@ -386,9 +383,24 @@ function priorityClass(priority) {
 .ticket-list-batch-delete:hover:not(:disabled) { opacity: 0.9; }
 .ticket-list-batch-delete:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* Checkbox column */
+/* Custom checkbox */
 .ticket-list-check-col { width: 40px; text-align: center; }
-.ticket-list-check-col input { accent-color: var(--color-primary); cursor: pointer; }
+.check-box {
+  display: inline-block; width: 18px; height: 18px;
+  border: 2px solid var(--color-gray-300); border-radius: 3px;
+  background: var(--color-white); cursor: pointer;
+  vertical-align: middle; transition: all var(--transition-fast);
+}
+.check-box:hover { border-color: var(--color-primary); }
+.check-box--on {
+  background: var(--color-primary); border-color: var(--color-primary);
+  position: relative;
+}
+.check-box--on::after {
+  content: ''; position: absolute; left: 5px; top: 2px;
+  width: 5px; height: 9px; border: solid white; border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
 
 .ticket-list-loading {
   text-align: center;

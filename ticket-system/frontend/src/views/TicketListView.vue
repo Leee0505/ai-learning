@@ -9,9 +9,20 @@
         </p>
       </div>
       <div class="ticket-list-header-btns">
-        <div class="ticket-list-export">
-          <button class="ticket-list-export-btn" @click="handleExport('csv')" title="Export as CSV">CSV</button>
-          <button class="ticket-list-export-btn" @click="handleExport('excel')" title="Export as Excel">Excel</button>
+        <div class="ticket-list-export" ref="exportRef">
+          <button class="ticket-list-export-btn" @click="showExportMenu = !showExportMenu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ticket-list-export-icon" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ticket-list-export-caret" aria-hidden="true">
+              <polyline points="6,9 12,15 18,9"/>
+            </svg>
+          </button>
+          <div v-if="showExportMenu" class="ticket-list-export-menu">
+            <button @click="handleExport('csv'); showExportMenu = false">CSV (.csv)</button>
+            <button @click="handleExport('excel'); showExportMenu = false">Excel (.xlsx)</button>
+          </div>
         </div>
         <button class="ticket-list-create-btn" @click="goCreate">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -156,7 +167,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
@@ -170,6 +181,8 @@ const router = useRouter()
 
 const selectedIds = ref([])
 const batchLoading = ref(false)
+const showExportMenu = ref(false)
+const exportRef = ref(null)
 const allChecked = computed(() => store.tickets.length > 0 && selectedIds.value.length === store.tickets.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(store.total / store.size)))
 
@@ -206,7 +219,17 @@ async function handleBatchDelete() {
 
 onMounted(() => {
   store.fetchTickets()
+  document.addEventListener('click', onClickOutside)
 })
+onUnmounted(() => {
+  document.removeEventListener('click', onClickOutside)
+})
+
+function onClickOutside(e) {
+  if (exportRef.value && !exportRef.value.contains(e.target)) {
+    showExportMenu.value = false
+  }
+}
 
 function goCreate() { router.push('/tickets/new') }
 
@@ -307,15 +330,32 @@ function priorityClass(priority) {
 /* ── Header buttons ── */
 .ticket-list-header-btns { display: flex; align-items: center; gap: var(--space-sm); }
 
-/* Export */
-.ticket-list-export { display: flex; gap: 0; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); overflow: hidden; }
+/* Export dropdown */
+.ticket-list-export { position: relative; }
 .ticket-list-export-btn {
-  padding: 8px 14px; font-size: var(--text-xs); font-weight: 600; font-family: var(--font-body);
-  color: var(--color-text-secondary); background: var(--color-white); border: none; cursor: pointer;
-  border-right: 1px solid var(--color-gray-200); transition: background var(--transition-fast);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; font-size: var(--text-sm); font-weight: 500; font-family: var(--font-body);
+  color: var(--color-text-secondary); background: var(--color-white);
+  border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer;
+  transition: all var(--transition-fast);
 }
-.ticket-list-export-btn:last-child { border-right: none; }
-.ticket-list-export-btn:hover { background: var(--color-gray-50); color: var(--color-primary); }
+.ticket-list-export-btn:hover { background: var(--color-gray-50); color: var(--color-primary); border-color: var(--color-primary); }
+.ticket-list-export-icon, .ticket-list-export-caret { width: 16px; height: 16px; }
+.ticket-list-export-caret { width: 14px; height: 14px; }
+
+.ticket-list-export-menu {
+  position: absolute; top: 100%; right: 0; margin-top: 4px; z-index: 20;
+  background: var(--color-white); border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+  overflow: hidden; min-width: 140px;
+}
+.ticket-list-export-menu button {
+  display: block; width: 100%; padding: 10px 14px; font-size: var(--text-sm);
+  font-family: var(--font-body); color: var(--color-text-primary);
+  background: none; border: none; cursor: pointer; text-align: left;
+  transition: background var(--transition-fast);
+}
+.ticket-list-export-menu button:hover { background: var(--color-primary-bg); color: var(--color-primary); }
 
 .ticket-list-create-btn {
   display: inline-flex;
@@ -334,6 +374,7 @@ function priorityClass(priority) {
 }
 .ticket-list-create-btn svg { width: 16px; height: 16px; }
 .ticket-list-create-btn:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35); }
+.ticket-list-create-btn:active:not(:disabled) { transform: translateY(0); opacity: 0.85; }
 
 .ticket-list-filter-btn {
   padding: 8px 16px;

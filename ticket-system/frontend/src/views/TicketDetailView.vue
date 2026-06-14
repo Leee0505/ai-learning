@@ -215,10 +215,18 @@
     </div>
   </div>
 
-  <!-- Loading / Not Found -->
+  <!-- Loading Skeleton -->
+  <div v-else-if="store.loading" class="detail-skeleton">
+    <div class="skeleton-line skeleton-line--title"></div>
+    <div class="skeleton-line skeleton-line--meta"></div>
+    <div class="skeleton-line skeleton-line--full"></div>
+    <div class="skeleton-line skeleton-line--full"></div>
+    <div class="skeleton-line skeleton-line--half"></div>
+  </div>
+
+  <!-- Not Found -->
   <div v-else class="detail-center">
-    <p v-if="store.loading">Loading...</p>
-    <p v-else>Ticket not found.</p>
+    <p>Ticket not found.</p>
   </div>
 
   <!-- Lightbox — after v-if/v-else to avoid breaking adjacency -->
@@ -494,6 +502,18 @@ function handleLightboxDownload() {
 .detail { max-width: 1200px; margin: 0 auto; padding: var(--space-xl) var(--space-lg); }
 .detail-center { text-align: center; padding: var(--space-3xl); color: var(--color-text-secondary); }
 
+/* Skeleton loading */
+.detail-skeleton { max-width: 1200px; margin: 0 auto; padding: var(--space-xl) var(--space-lg); }
+.skeleton-line { height: 16px; background: var(--color-gray-200); border-radius: var(--radius-sm); margin-bottom: var(--space-md); animation: skeleton-pulse 1.5s ease-in-out infinite; }
+.skeleton-line--title { width: 60%; height: 28px; }
+.skeleton-line--meta { width: 30%; }
+.skeleton-line--full { width: 100%; }
+.skeleton-line--half { width: 50%; }
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 /* Header */
 .detail-header { margin-bottom: var(--space-lg); }
 .detail-back { display: inline-flex; align-items: center; gap: var(--space-xs); padding: 0; border: none; background: none; color: var(--color-primary); font-size: var(--text-sm); font-family: var(--font-body); cursor: pointer; margin-bottom: var(--space-sm); }
@@ -643,12 +663,14 @@ function handleLightboxDownload() {
 
 /* Quote button */
 .detail-reply-quote-btn {
-  display: inline-flex; align-items: center; padding: 2px 6px; margin-left: auto;
+  display: inline-flex; align-items: center; padding: 4px 8px; margin-left: auto;
   background: none; border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm);
   color: var(--color-text-muted); cursor: pointer; transition: all var(--transition-fast);
+  min-width: 32px; min-height: 32px;
 }
 .detail-reply-quote-btn:hover { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-bg); }
-.detail-reply-quote-icon { width: 14px; height: 14px; }
+.detail-reply-quote-btn:active { transform: scale(0.95); }
+.detail-reply-quote-icon { width: 16px; height: 16px; }
 .detail-reply-content { font-size: var(--text-base); line-height: 1.6; color: var(--color-text-primary); }
 .detail-reply-content :deep(p) { margin: 0 0 0.5em; }
 .detail-reply-content :deep(p:last-child) { margin-bottom: 0; }
@@ -683,13 +705,14 @@ function handleLightboxDownload() {
 }
 .toolbar-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 28px; height: 28px; padding: 0 6px;
+  min-width: 36px; height: 36px; padding: 0 8px;
   font-size: var(--text-xs); font-family: var(--font-body);
   color: var(--color-text-secondary); background: transparent;
   border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer;
   transition: all var(--transition-fast);
 }
 .toolbar-btn:hover { background: var(--color-white); border-color: var(--color-gray-200); color: var(--color-text-primary); }
+.toolbar-btn:active { transform: scale(0.95); }
 .toolbar-btn--active { background: var(--color-primary-bg); border-color: var(--color-primary); color: var(--color-primary); }
 .toolbar-sep { width: 1px; height: 18px; background: var(--color-gray-200); margin: 0 4px; }
 
@@ -703,8 +726,9 @@ function handleLightboxDownload() {
 .detail-reply-actions { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-sm); gap: var(--space-md); }
 .detail-reply-internal { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--text-xs); color: var(--color-text-secondary); cursor: pointer; }
 .detail-reply-internal input { accent-color: var(--color-warning); }
-.detail-reply-submit { padding: 10px 20px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); border: none; border-radius: var(--radius-md); cursor: pointer; transition: opacity var(--transition-fast); }
+.detail-reply-submit { padding: 10px 20px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); border: none; border-radius: var(--radius-md); cursor: pointer; transition: opacity var(--transition-fast), transform var(--transition-fast); }
 .detail-reply-submit:hover:not(:disabled) { opacity: 0.92; }
+.detail-reply-submit:active:not(:disabled) { transform: scale(0.97); }
 .detail-reply-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* Sidebar */

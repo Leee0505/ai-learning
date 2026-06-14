@@ -54,7 +54,7 @@
                     </svg>
                   </button>
                 </div>
-                <p class="detail-reply-content">{{ reply.content }}</p>
+                <div class="detail-reply-content" v-html="renderMarkdown(reply.content)"></div>
               </div>
             </div>
           </div>
@@ -229,6 +229,7 @@ import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
 import { downloadAttachment } from '@/api/tickets'
 import request from '@/api/request'
+import { renderMarkdown } from '@/utils/markdown'
 
 const route = useRoute()
 const router = useRouter()
@@ -589,7 +590,27 @@ function handleLightboxDownload() {
 }
 .detail-reply-quote-btn:hover { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-bg); }
 .detail-reply-quote-icon { width: 14px; height: 14px; }
-.detail-reply-content { margin: 0; font-size: var(--text-base); line-height: 1.6; color: var(--color-text-primary); white-space: pre-wrap; }
+.detail-reply-content { font-size: var(--text-base); line-height: 1.6; color: var(--color-text-primary); }
+.detail-reply-content :deep(p) { margin: 0 0 0.5em; }
+.detail-reply-content :deep(p:last-child) { margin-bottom: 0; }
+.detail-reply-content :deep(blockquote) {
+  margin: 0.5em 0; padding: 0.4em 0.8em;
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-bg); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--color-text-secondary);
+}
+.detail-reply-content :deep(code) {
+  padding: 1px 4px; background: var(--color-gray-100); border-radius: 3px;
+  font-family: var(--font-mono); font-size: 0.9em;
+}
+.detail-reply-content :deep(pre) {
+  margin: 0.5em 0; padding: 0.8em; background: #1e1e2e; color: #cdd6f4;
+  border-radius: var(--radius-md); overflow-x: auto; font-size: var(--text-sm);
+}
+.detail-reply-content :deep(pre code) { padding: 0; background: none; }
+.detail-reply-content :deep(ul), .detail-reply-content :deep(ol) { margin: 0.5em 0; padding-left: 1.5em; }
+.detail-reply-content :deep(a) { color: var(--color-primary); }
+.detail-reply-content :deep(img) { max-width: 100%; border-radius: var(--radius-md); }
 
 /* Reply Input */
 .detail-reply-input { width: 100%; padding: 10px 12px; font-size: var(--text-base); font-family: var(--font-body); color: var(--color-text-primary); background: var(--color-gray-50); border: 1.5px solid var(--color-gray-200); border-radius: var(--radius-md); outline: none; box-sizing: border-box; resize: vertical; min-height: 100px; }

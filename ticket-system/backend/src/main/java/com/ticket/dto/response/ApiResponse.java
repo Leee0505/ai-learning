@@ -1,11 +1,19 @@
 package com.ticket.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Standard API response envelope — all endpoints return this wrapper")
 public class ApiResponse<T> {
+
+    @Schema(description = "HTTP status code. 200 = success, 4xxxx = client error, 50000 = server error.", example = "200")
     private int code;
+
+    @Schema(description = "Human-readable message", example = "success")
     private String message;
+
+    @Schema(description = "Response payload — type varies by endpoint. Null on error or void responses.")
     private T data;
 
     private ApiResponse(int code, String message, T data) {

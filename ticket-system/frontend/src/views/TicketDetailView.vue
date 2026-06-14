@@ -304,8 +304,9 @@ async function loadThumbnails() {
 }
 
 function handleQuote(reply) {
-  const quoted = reply.content.split('\n').map(line => line.startsWith('>') ? line : `> ${line}`).join('\n')
-  const quote = `> **${reply.username}** said:\n${quoted}\n\n`
+  // Put attribution outside blockquote, content inside — visually distinct
+  const quoted = reply.content.split('\n').map(line => `> ${line}`).join('\n')
+  const quote = `**↩ ${reply.username}** said:\n\n${quoted}\n\n`
   replyContent.value = replyContent.value ? replyContent.value + quote : quote
   previewMode.value = false
   focusTextarea()

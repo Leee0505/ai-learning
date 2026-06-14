@@ -98,26 +98,25 @@
             v-for="ticket in store.tickets"
             :key="ticket.id"
             class="ticket-list-row"
-            @click="goDetail(ticket.id)"
           >
             <td v-if="authStore.isAdmin" class="ticket-list-check-col">
-              <span class="check-box" :class="{ 'check-box--on': selectedIds.includes(ticket.id) }" @click.stop="toggleSelect(ticket.id)"></span>
+              <span class="check-box" :class="{ 'check-box--on': selectedIds.includes(ticket.id) }" @click="toggleSelect(ticket.id)"></span>
             </td>
-            <td class="ticket-list-id">#{{ ticket.id }}</td>
-            <td class="ticket-list-title-cell">{{ ticket.title }}</td>
-            <td>
+            <td class="ticket-list-id" @click="goDetail(ticket.id)">#{{ ticket.id }}</td>
+            <td class="ticket-list-title-cell" @click="goDetail(ticket.id)">{{ ticket.title }}</td>
+            <td @click="goDetail(ticket.id)">
               <span :class="['ticket-list-badge', statusClass(ticket.status)]">{{ statusLabel(ticket.status) }}</span>
             </td>
-            <td>
+            <td @click="goDetail(ticket.id)">
               <span :class="['ticket-list-badge', priorityClass(ticket.priority)]">{{ ticket.priority }}</span>
             </td>
-            <td>{{ ticket.category }}</td>
-            <td>{{ ticket.createdByName }}</td>
-            <td class="ticket-list-assignee">
+            <td @click="goDetail(ticket.id)">{{ ticket.category }}</td>
+            <td @click="goDetail(ticket.id)">{{ ticket.createdByName }}</td>
+            <td class="ticket-list-assignee" @click="goDetail(ticket.id)">
               <span v-if="ticket.assignedToName">{{ ticket.assignedToName }}</span>
               <span v-else class="ticket-list-unassigned">Unassigned</span>
             </td>
-            <td class="ticket-list-date">{{ formatDate(ticket.createdDate) }}</td>
+            <td class="ticket-list-date" @click="goDetail(ticket.id)">{{ formatDate(ticket.createdDate) }}</td>
           </tr>
         </tbody>
       </table>

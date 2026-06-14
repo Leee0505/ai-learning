@@ -98,7 +98,7 @@
             v-for="ticket in store.tickets"
             :key="ticket.id"
             class="ticket-list-row"
-            @click="goDetail(ticket.id)"
+            @click="goDetail(ticket.id, $event)"
           >
             <td v-if="authStore.isAdmin" class="ticket-list-check-col">
               <input type="checkbox" :checked="selectedIds.includes(ticket.id)" @click.stop @change="toggleSelect(ticket.id)" />
@@ -194,7 +194,11 @@ onMounted(() => {
 })
 
 function goCreate() { router.push('/tickets/new') }
-function goDetail(id) { router.push(`/tickets/${id}`) }
+function goDetail(id, event) {
+  // Ignore clicks on checkboxes or inside the checkbox column
+  if (event.target.type === 'checkbox') return
+  router.push(`/tickets/${id}`)
+}
 
 function formatDate(ts) {
   if (!ts) return '—'

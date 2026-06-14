@@ -74,10 +74,13 @@
             <label v-if="authStore.isAgent || authStore.isAdmin" class="detail-reply-internal">
               <input v-model="isInternal" type="checkbox" /> Internal Note (not visible to user)
             </label>
-            <button class="detail-reply-submit" :disabled="replyLoading || !replyContent.trim()" @click="handleReply">
-              <span v-if="!replyLoading">Send Reply</span>
-              <span v-else>Sending...</span>
-            </button>
+            <div class="detail-reply-btns">
+              <button v-if="replyContent" class="detail-reply-cancel" @click="replyContent = ''; isInternal = false">Cancel</button>
+              <button class="detail-reply-submit" :disabled="replyLoading || !replyContent.trim()" @click="handleReply">
+                <span v-if="!replyLoading">Send Reply</span>
+                <span v-else>Sending...</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -282,10 +285,10 @@ async function loadThumbnails() {
 }
 
 function handleQuote(reply) {
-  const lines = reply.content.split('\n').map(line => `> ${line}`).join('\n')
-  const quote = `> **${reply.username}** said:\n${lines}\n\n`
-  replyContent.value = replyContent.value ? replyContent.value + '\n' + quote : quote
-  // Focus the textarea
+  // Don't double-nest: if content already has >, keep as-is
+  const quoted = reply.content.split('\n').map(line => line.startsWith('>') ? line : `> ${line}`).join('\n')
+  const quote = `**${reply.username}** said:\n${quoted}\n\n`
+  replyContent.value = replyContent.value ? replyContent.value + quote : quote
   const textarea = document.querySelector('.detail-reply-input')
   if (textarea) { textarea.focus(); textarea.scrollIntoView({ behavior: 'smooth' }) }
 }
@@ -645,4 +648,38 @@ function handleLightboxDownload() {
   .detail-grid { grid-template-columns: 1fr; }
   .detail { padding: var(--space-lg) var(--space-md); }
 }
+</style>
+
+<style>
+/* Markdown-rendered reply content — must be unscoped for v-html to inherit */
+.detail-reply-content p { margin: 0 0 0.5em; }
+.detail-reply-content p:last-child { margin-bottom: 0; }
+.detail-reply-content blockquote {
+  margin: 0.5em 0; padding: 0.4em 0.8em;
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-bg); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--color-text-secondary);
+}
+.detail-reply-content code {
+  padding: 1px 4px; background: var(--color-gray-100); border-radius: 3px;
+  font-family: var(--font-mono); font-size: 0.9em;
+}
+.detail-reply-content pre {
+  margin: 0.5em 0; padding: 0.8em; background: #1e1e2e; color: #cdd6f4;
+  border-radius: var(--radius-md); overflow-x: auto; font-size: var(--text-sm);
+}
+.detail-reply-content pre code { padding: 0; background: none; }
+.detail-reply-content ul, .detail-reply-content ol { margin: 0.5em 0; padding-left: 1.5em; }
+.detail-reply-content a { color: var(--color-primary); }
+.detail-reply-content img { max-width: 100%; border-radius: var(--radius-md); }
+
+/* Cancel button */
+.detail-reply-cancel {
+  padding: 10px 16px; font-size: var(--text-sm); font-weight: 500; font-family: var(--font-body);
+  color: var(--color-text-secondary); background: var(--color-white);
+  border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer;
+}
+.detail-reply-cancel:hover { background: var(--color-gray-50); }
+
+.detail-reply-btns { display: flex; gap: var(--space-sm); }
 </style>

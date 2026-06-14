@@ -92,6 +92,7 @@ public class TicketServiceImpl implements TicketService {
         ticket.setPriority(request.getPriority());
         ticket.setCategory(request.getCategory());
         ticket.setStatus(BusinessConstants.TICKET_STATUS_OPEN);
+        ticket.setCreatedBy(userId); // Explicit owner; MetaObjectHandler fallback
         ticketMapper.insert(ticket);
 
         TicketDetailResponse response = TicketDetailResponse.from(ticket);
@@ -247,7 +248,22 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional
     public void deleteTicket(Long ticketId) {
-        Ticket ticket = findTicketOrFail(ticketId);
+        findTicketOrFail(ticketId);
+
+        // Clean up attachment files on disk before cascade deletes DB rows
+        LambdaQueryWrapper<TicketAttachment> attachWrapper = new LambdaQueryWrapper<TicketAttachment>()
+                .eq(TicketAttachment::getTicketId, ticketId);
+        List<TicketAttachment> attachments = ticketAttachmentMapper.selectList(attachWrapper);
+        for (TicketAttachment att : attachments) {
+            try {
+                Path filePath = Paths.get(att.getStoragePath());
+                Files.deleteIfExists(filePath);
+                log.debug("Deleted attachment file: {}", att.getStoragePath());
+            } catch (IOException e) {
+                log.warn("Failed to delete attachment file: {} — {}", att.getStoragePath(), e.getMessage());
+            }
+        }
+
         ticketMapper.deleteById(ticketId);
         log.info("Ticket deleted: id={}", ticketId);
     }
@@ -455,16 +471,13 @@ public class TicketServiceImpl implements TicketService {
     }
 
     private Map<Long, String> getUsernameMap(Set<Long> userIds) {
-        if (userIds.isEmpty()) return Collections.emptyMap();
-        Map<Long, String> map = new HashMap<>();
-        for (Long id : userIds) {
-            if (id != null && id != 0L) {
-                User user = userMapper.selectById(id);
-                if (user != null) {
-                    map.put(id, user.getUsername());
-                }
-            }
-        }
-        return map;
+        // Filter out null and sentinel values
+        Set<Long> validIds = userIds.stream()
+                .filter(id -> id != null && id != 0L)
+                .collect(Collectors.toSet());
+        if (validIds.isEmpty()) return Collections.emptyMap();
+        // Batch query — single DB round-trip instead of N+1
+        return userMapper.selectBatchIds(validIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
     }
 }

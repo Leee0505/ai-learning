@@ -76,7 +76,10 @@
             <th>Category</th>
             <th>Created By</th>
             <th>Assignee</th>
-            <th>Created</th>
+            <th class="ticket-list-sortable" @click="store.toggleSort()">
+              Created
+              <span class="sort-arrow">{{ store.sortOrder === 'asc' ? '↑' : '↓' }}</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -96,7 +99,10 @@
             </td>
             <td>{{ ticket.category }}</td>
             <td>{{ ticket.createdByName }}</td>
-            <td>{{ ticket.assignedToName || '—' }}</td>
+            <td class="ticket-list-assignee">
+              <span v-if="ticket.assignedToName">{{ ticket.assignedToName }}</span>
+              <span v-else class="ticket-list-unassigned">Unassigned</span>
+            </td>
             <td class="ticket-list-date">{{ formatDate(ticket.createdDate) }}</td>
           </tr>
         </tbody>
@@ -357,6 +363,17 @@ function priorityClass(priority) {
 .ticket-list-id { color: var(--color-text-muted); font-family: var(--font-mono); font-size: var(--text-xs); }
 .ticket-list-title-cell { font-weight: 500; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ticket-list-date { white-space: nowrap; color: var(--color-text-secondary); font-size: var(--text-xs); }
+
+.ticket-list-sortable {
+  cursor: pointer; user-select: none;
+}
+.ticket-list-sortable:hover { color: var(--color-primary); }
+.sort-arrow {
+  color: var(--color-primary); font-size: var(--text-xs); margin-left: 2px;
+}
+
+/* Assignee */
+.ticket-list-unassigned { color: var(--color-text-muted); font-style: italic; }
 
 /* ── Badges ── */
 .ticket-list-badge {

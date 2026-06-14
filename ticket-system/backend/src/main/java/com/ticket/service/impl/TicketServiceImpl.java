@@ -108,7 +108,7 @@ public class TicketServiceImpl implements TicketService {
     @Override
     public PageResponse<TicketResponse> listTickets(String status, String priority, String category,
                                                      String keyword, int pageNum, int size,
-                                                     Long userId, String role) {
+                                                     Long userId, String role, String sortOrder) {
         LambdaQueryWrapper<Ticket> wrapper = new LambdaQueryWrapper<>();
 
         // Role-based visibility: ROLE_USER sees only own tickets
@@ -129,7 +129,11 @@ public class TicketServiceImpl implements TicketService {
         if (keyword != null && !keyword.isBlank()) {
             wrapper.like(Ticket::getTitle, keyword);
         }
-        wrapper.orderByDesc(Ticket::getCreatedDate);
+        if ("asc".equalsIgnoreCase(sortOrder)) {
+            wrapper.orderByAsc(Ticket::getCreatedDate);
+        } else {
+            wrapper.orderByDesc(Ticket::getCreatedDate);
+        }
 
         Page<Ticket> pageResult = ticketMapper.selectPage(
                 new Page<>(pageNum, size), wrapper);

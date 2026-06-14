@@ -104,10 +104,12 @@ public class TicketController {
             @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "Page size (1-100)")
             @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort order for created date: asc or desc (default)")
+            @RequestParam(defaultValue = "desc") String sortOrder,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         PageResponse<TicketResponse> response = ticketService.listTickets(
                 status, priority, category, keyword, page, size,
-                userDetails.getUserId(), userDetails.getRole());
+                userDetails.getUserId(), userDetails.getRole(), sortOrder);
         return ApiResult.success(response);
     }
 

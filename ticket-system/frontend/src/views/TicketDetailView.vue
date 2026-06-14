@@ -266,12 +266,12 @@ onMounted(async () => {
 
 async function loadThumbnails() {
   const images = (store.currentTicket?.attachments || []).filter(a => isImage(a.contentType))
-  for (const att of images) {
+  await Promise.all(images.map(async att => {
     try {
       const res = await request.get(`/attachments/${att.id}/thumbnail?size=200`, { responseType: 'blob' })
       thumbnails.value[att.id] = URL.createObjectURL(res.data)
-    } catch { /* ignore failed thumbnails */ }
-  }
+    } catch { /* ignore failed thumbnail */ }
+  }))
 }
 
 async function handleReply() {

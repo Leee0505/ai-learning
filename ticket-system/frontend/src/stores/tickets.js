@@ -21,6 +21,8 @@ export const useTicketStore = defineStore('tickets', () => {
     keyword: ''
   })
 
+  const sortOrder = ref('desc')
+
   // ── Actions ──
 
   async function fetchTickets() {
@@ -32,7 +34,8 @@ export const useTicketStore = defineStore('tickets', () => {
         status: filters.status || undefined,
         priority: filters.priority || undefined,
         category: filters.category || undefined,
-        keyword: filters.keyword || undefined
+        keyword: filters.keyword || undefined,
+        sortOrder: sortOrder.value
       })
       if (data.code === 200) {
         tickets.value = data.data.records
@@ -122,12 +125,17 @@ export const useTicketStore = defineStore('tickets', () => {
     fetchTickets()
   }
 
+  function toggleSort() {
+    sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
+    fetchTickets()
+  }
+
   return {
-    tickets, currentTicket, loading, total, page, size, filters,
+    tickets, currentTicket, loading, total, page, size, filters, sortOrder,
     fetchTickets, fetchTicketDetail,
     createNewTicket, updateExistingTicket, removeTicket,
     changeTicketStatusAction, assignTicketAction,
     addReplyAction, uploadFile,
-    setFilters, resetFilters, setPage, setSize
+    setFilters, resetFilters, setPage, setSize, toggleSort
   }
 })

@@ -5,7 +5,7 @@ export function createTicket(data) {
 }
 
 export function listTickets(params) {
-  return request.get('/tickets', { params })
+  return request.get('/tickets', { params: { sortOrder: 'desc', ...params } })
 }
 
 export function getTicketDetail(id) {

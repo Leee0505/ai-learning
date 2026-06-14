@@ -7,10 +7,6 @@ spring:
 server:
   port: 8080
 
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html
-
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

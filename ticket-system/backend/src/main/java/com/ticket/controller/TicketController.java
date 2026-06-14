@@ -7,7 +7,6 @@ import com.ticket.security.UserDetailsImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -47,8 +46,7 @@ public class TicketController {
                     + "The authenticated user becomes the ticket owner. Status defaults to OPEN."
     )
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Ticket created successfully",
-                     content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+        @ApiResponse(responseCode = "200", description = "Ticket created successfully"),
         @ApiResponse(responseCode = "400", description = "Validation error — missing required fields"),
         @ApiResponse(responseCode = "401", description = "Not authenticated")
     })

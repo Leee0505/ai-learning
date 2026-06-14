@@ -6,31 +6,34 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: () => import('@/views/LoginView.vue'),
-    meta: { requiresAuth: false, layout: 'auth' }
+    meta: { requiresAuth: false }
   },
   {
     path: '/',
-    name: 'Dashboard',
-    component: () => import('@/views/DashboardPlaceholder.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/tickets',
-    name: 'Tickets',
-    component: () => import('@/views/TicketListView.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/tickets/new',
-    name: 'TicketNew',
-    component: () => import('@/views/TicketCreateView.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/tickets/:id',
-    name: 'TicketDetail',
-    component: () => import('@/views/TicketDetailView.vue'),
-    meta: { requiresAuth: true }
+    component: () => import('@/layouts/AppLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'Dashboard',
+        component: () => import('@/views/DashboardPlaceholder.vue')
+      },
+      {
+        path: 'tickets',
+        name: 'Tickets',
+        component: () => import('@/views/TicketListView.vue')
+      },
+      {
+        path: 'tickets/new',
+        name: 'TicketNew',
+        component: () => import('@/views/TicketCreateView.vue')
+      },
+      {
+        path: 'tickets/:id',
+        name: 'TicketDetail',
+        component: () => import('@/views/TicketDetailView.vue')
+      }
+    ]
   }
 ]
 

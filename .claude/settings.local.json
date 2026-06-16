@@ -13,7 +13,31 @@
       "Bash(mvn --version)",
       "Bash(mvn compile *)",
       "Bash(where mvn *)",
-      "Bash(where mvnw *)"
+      "Bash(where mvnw *)",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(mvn test *)",
+      "Bash(java -version)",
+      "Bash(python3 *)",
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"enterprise ticket management saas dashboard helpdesk\" --design-system --persist -p \"Ticket Management System\")",
+      "Bash(where python *)",
+      "Bash(where python3 *)",
+      "Read(//c/Users/19202/AppData/Local/Microsoft/WindowsApps/**)",
+      "Bash(winget install *)",
+      "Bash(python -c \"print\\('hello'\\)\")",
+      "Read(//c/Users/19202/AppData/Local/Programs/Python//**)",
+      "Read(//c/Users/19202/AppData/Local/Programs/Python/**)",
+      "Read(//c/Users/**)",
+      "Bash(/c/Users/19202/AppData/Local/Programs/Python/Python312/python.exe *)",
+      "Bash(npx vite *)",
+      "Bash(mvn test-compile *)",
+      "Bash(python *)",
+      "Bash(./mvnw compile *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/api/auth/me)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(curl -s http://localhost:8080/api/admin/users?page=1\\\\&size=10)",
+      "Bash(curl -s http://localhost:8080/api/admin/users?page=1\\\\&size=10 -H \"Accept: application/json\")",
+      "Bash(pip install *)"
     ]
   }
 }

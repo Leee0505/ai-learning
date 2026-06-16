@@ -324,6 +324,7 @@ function initVditor() {
   vditorInstance.value = new Vditor(vditorRef.value, {
     mode: 'wysiwyg',
     height: 140,
+    lang: 'en_US',
     placeholder: 'Type your reply...',
     toolbar: ['bold', 'italic', 'strikethrough', '|', 'quote', 'list', 'ordered-list', 'code', '|', 'link', '|', 'undo', 'redo'],
     toolbarConfig: { pin: true },

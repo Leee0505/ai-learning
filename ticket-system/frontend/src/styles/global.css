@@ -258,10 +258,18 @@ img {
   color: var(--color-primary) !important;
 }
 
-/* Toolbar icons — match button size */
+/* Toolbar icons — match button size, bolder stroke */
 .vditor-toolbar__item svg {
   width: 18px !important;
   height: 18px !important;
+}
+/* Make SVG paths slightly bolder for visual weight */
+.vditor-toolbar__item svg path,
+.vditor-toolbar__item svg line,
+.vditor-toolbar__item svg polyline,
+.vditor-toolbar__item svg circle,
+.vditor-toolbar__item svg rect {
+  stroke-width: 1.5 !important;
 }
 
 /* Bold / Italic text-based buttons */

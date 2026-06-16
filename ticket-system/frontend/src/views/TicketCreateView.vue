@@ -162,6 +162,7 @@ onMounted(async () => {
     vditorInstance.value = new Vditor(vditorRef.value, {
       mode: 'wysiwyg',
       height: 200,
+      lang: 'en_US',
       placeholder: 'Detailed description of your issue...',
       toolbar: ['bold', 'italic', 'strikethrough', '|', 'quote', 'list', 'ordered-list', 'code', '|', 'link', '|', 'undo', 'redo'],
       toolbarConfig: { pin: true },

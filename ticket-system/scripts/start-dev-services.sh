@@ -14,6 +14,13 @@ NETWORK=ticket-dev
 docker network inspect ${NETWORK} >/dev/null 2>&1 || \
   docker network create ${NETWORK}
 
+# ── Ensure data directories exist with correct permissions ──
+mkdir -p ${DATA_ROOT}/mysql/log ${DATA_ROOT}/mysql/conf ${DATA_ROOT}/mysql/data
+mkdir -p ${DATA_ROOT}/redis/data
+mkdir -p ${DATA_ROOT}/kafka/data
+# Kafka container runs as appuser (uid=1000)
+chown -R 1000:1000 ${DATA_ROOT}/kafka/data 2>/dev/null || true
+
 # ── Helpers ──
 replace_container() {
   local name=$1

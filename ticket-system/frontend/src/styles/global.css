@@ -211,3 +211,95 @@ img {
     scroll-behavior: auto !important;
   }
 }
+
+/* ================================================================
+   Vditor Toolbar Overrides — match design system
+   ================================================================ */
+
+/* Toolbar container */
+.vditor-toolbar {
+  background: var(--color-gray-50) !important;
+  border-bottom: 1px solid var(--color-gray-200) !important;
+  padding: 4px 6px !important;
+  flex-wrap: wrap !important;
+}
+
+/* Individual toolbar buttons */
+.vditor-toolbar__item {
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 0 6px !important;
+  font-size: var(--text-xs) !important;
+  font-family: var(--font-body) !important;
+  color: var(--color-text-secondary) !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--radius-sm) !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: all var(--transition-fast) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.vditor-toolbar__item:hover {
+  background: var(--color-white) !important;
+  border-color: var(--color-gray-200) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.vditor-toolbar__item--active,
+.vditor-toolbar__item[aria-pressed="true"] {
+  background: var(--color-primary-bg) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+}
+
+/* Toolbar icons — normalize size */
+.vditor-toolbar__item svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Separator between button groups */
+.vditor-toolbar__divider {
+  width: 1px !important;
+  height: 20px !important;
+  background: var(--color-gray-200) !important;
+  margin: 0 4px !important;
+}
+
+/* Toolbar tooltips */
+.vditor-tooltip {
+  font-family: var(--font-body) !important;
+  font-size: var(--text-xs) !important;
+  background: var(--color-gray-800) !important;
+  color: var(--color-white) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 4px 8px !important;
+}
+
+/* Content area */
+.vditor-content {
+  font-family: var(--font-body) !important;
+  font-size: var(--text-base) !important;
+  line-height: 1.6 !important;
+  color: var(--color-text-primary) !important;
+  min-height: 100px !important;
+}
+
+.vditor-content:focus {
+  outline: none !important;
+}
+
+/* Placeholder */
+.vditor-content:empty::before {
+  color: var(--color-text-muted) !important;
+  font-family: var(--font-body) !important;
+}
+
+/* Reset Vditor editor wrapper border (handled by container) */
+.vditor {
+  border: none !important;
+  border-radius: 0 !important;
+}

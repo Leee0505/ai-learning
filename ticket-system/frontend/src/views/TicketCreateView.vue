@@ -160,10 +160,11 @@ onMounted(async () => {
   await nextTick()
   if (vditorRef.value) {
     vditorInstance.value = new Vditor(vditorRef.value, {
-      mode: 'ir',
+      mode: 'wysiwyg',
       height: 200,
-      placeholder: 'Detailed description of your issue... (Markdown supported)',
+      placeholder: 'Detailed description of your issue...',
       toolbar: ['bold', 'italic', 'strikethrough', '|', 'quote', 'list', 'ordered-list', 'code', '|', 'link', '|', 'undo', 'redo'],
+      toolbarConfig: { pin: true },
       cache: { enable: false }
     })
   }

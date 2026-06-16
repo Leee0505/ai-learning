@@ -322,14 +322,12 @@ onUnmounted(() => {
 function initVditor() {
   if (!vditorRef.value) return
   vditorInstance.value = new Vditor(vditorRef.value, {
-    mode: 'ir',
+    mode: 'wysiwyg',
     height: 140,
-    placeholder: 'Type your reply... (Markdown supported)',
+    placeholder: 'Type your reply...',
     toolbar: ['bold', 'italic', 'strikethrough', '|', 'quote', 'list', 'ordered-list', 'code', '|', 'link', '|', 'undo', 'redo'],
-    cache: { enable: false },
-    after: () => {
-      // Toolbar doesn't include headings for reply; keep it compact
-    }
+    toolbarConfig: { pin: true },
+    cache: { enable: false }
   })
 }
 

@@ -147,4 +147,24 @@ public class AuthController {
         AuthResponse response = authService.acceptInvite(request);
         return ApiResult.success(response);
     }
+
+    // ── Change Password ──
+
+    @PutMapping("/password")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(
+        summary = "Change password",
+        description = "Changes the authenticated user's password. Requires current password for verification."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Password changed successfully"),
+        @ApiResponse(responseCode = "400", description = "Current password is incorrect or new password too short")
+    })
+    public ApiResult<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        authService.changePassword(userDetails.getUserId(), request);
+        return ApiResult.success(null);
+    }
 }

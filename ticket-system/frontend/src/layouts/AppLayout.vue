@@ -36,6 +36,7 @@
           </div>
           <span class="app-user-name">{{ authStore.user?.username }}</span>
           <span class="app-user-role">{{ roleLabel }}</span>
+          <router-link to="/profile" class="app-profile-link" title="Profile">Profile</router-link>
           <button
             class="app-logout-btn"
             @click="handleLogout"
@@ -199,6 +200,13 @@ async function handleLogout() {
   padding: 2px 8px;
   border-radius: var(--radius-full);
 }
+
+.app-profile-link {
+  font-size: var(--text-xs); color: var(--color-text-secondary); text-decoration: none;
+  padding: 2px 8px; border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.app-profile-link:hover { color: var(--color-primary); background: var(--color-primary-bg); }
 
 .app-logout-btn {
   display: flex;

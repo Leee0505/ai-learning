@@ -10,6 +10,7 @@ public interface AuthService {
     void logout(String accessToken);
     AuthResponse refresh(RefreshRequest request);
     UserResponse getCurrentUser(Long userId);
+    void changePassword(Long userId, ChangePasswordRequest request);
     String invite(InviteRequest request, Long adminId);
     AuthResponse acceptInvite(AcceptInviteRequest request);
 }

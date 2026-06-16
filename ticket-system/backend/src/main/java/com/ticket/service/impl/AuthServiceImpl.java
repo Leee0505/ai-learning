@@ -144,6 +144,23 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        // Verify current password
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "current password is incorrect");
+        }
+        // Update to new password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userMapper.updateById(user);
+        log.info("Password changed for user {}", userId);
+    }
+
+    @Override
+    @Transactional
     public String invite(InviteRequest request, Long adminId) {
         String token = UUID.randomUUID().toString();
         long now = System.currentTimeMillis();

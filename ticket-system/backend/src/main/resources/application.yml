@@ -8,19 +8,26 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: placeholder-will-be-overridden-by-profile
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: 1
+      # ── Reliability: idempotent producer (no duplicates from retries) ──
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
     consumer:
       group-id: ticket-system
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "com.ticket.event"
+      # ── Reliability: manual ack after record processed ──
+      enable-auto-commit: false
+      max-poll-records: 50
     listener:
       missing-topics-fatal: false
+      ack-mode: record
 
 server:
   port: 8080

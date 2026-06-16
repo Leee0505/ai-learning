@@ -1,6 +1,10 @@
 # UAT environment — Linux with MinIO object storage
 
 spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
   datasource:
     url: ${MYSQL_URL:jdbc:mysql://localhost:3306/ticket_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC}
     username: ${MYSQL_USER:ticket}

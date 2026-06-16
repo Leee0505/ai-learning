@@ -1,4 +1,9 @@
 spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      # Dev: single broker, acks=1 is sufficient
+      acks: 1
   datasource:
     url: jdbc:mysql://192.168.50.208:3306/ticket_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC
     username: root

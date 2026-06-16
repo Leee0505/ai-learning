@@ -2,15 +2,28 @@
 # ================================================================
 # Start development services on 192.168.50.208 (Debian)
 # Data directory: /home/dev/mydata/
+# Usage: bash start-dev-services.sh
 # ================================================================
 
 set -e
 
 DATA_ROOT=/home/dev/mydata
+NETWORK=ticket-dev
+
+# ── Ensure network exists ──
+docker network inspect ${NETWORK} >/dev/null 2>&1 || \
+  docker network create ${NETWORK}
+
+# ── Remove old containers if they exist ──
+docker rm -f mysql   2>/dev/null || true
+docker rm -f redis   2>/dev/null || true
+docker rm -f kafka   2>/dev/null || true
 
 echo "=== Starting MySQL ==="
 docker run -d \
   --name mysql \
+  --network ${NETWORK} \
+  --restart unless-stopped \
   -p 3306:3306 \
   -v ${DATA_ROOT}/mysql/log:/var/log/mysql \
   -v ${DATA_ROOT}/mysql/conf:/etc/mysql/conf.d \
@@ -21,13 +34,17 @@ docker run -d \
 echo "=== Starting Redis ==="
 docker run -d \
   --name redis \
+  --network ${NETWORK} \
+  --restart unless-stopped \
   -p 6379:6379 \
   -v ${DATA_ROOT}/redis/data:/data \
-  redis:latest
+  redis:7-alpine
 
 echo "=== Starting Kafka (KRaft — no Zookeeper) ==="
 docker run -d \
   --name kafka \
+  --network ${NETWORK} \
+  --restart unless-stopped \
   -p 9092:9092 \
   -e KAFKA_NODE_ID=1 \
   -e KAFKA_PROCESS_ROLES=broker,controller \
@@ -47,7 +64,7 @@ echo ""
 echo "=== All services started ==="
 echo "MySQL:    192.168.50.208:3306"
 echo "Redis:    192.168.50.208:6379"
-echo "Kafka:    192.168.50.208:9092 (KRaft — no Zookeeper)"
+echo "Kafka:    192.168.50.208:9092  (KRaft)"
 echo ""
-echo "Check status:  docker ps"
+echo "Check status:  docker ps --filter 'name=mysql|redis|kafka'"
 echo "Kafka test:    docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list"

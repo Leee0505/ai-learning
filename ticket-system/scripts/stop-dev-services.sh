@@ -1,12 +1,20 @@
 #!/bin/bash
 # ================================================================
 # Stop development services
+# Usage: bash stop-dev-services.sh
 # ================================================================
 
 echo "Stopping services..."
 
-docker stop kafka 2>/dev/null && docker rm kafka 2>/dev/null && echo "Kafka stopped"
-docker stop redis 2>/dev/null && docker rm redis 2>/dev/null && echo "Redis stopped"
-docker stop mysql 2>/dev/null && docker rm mysql 2>/dev/null && echo "MySQL stopped"
+for svc in kafka redis mysql; do
+  if docker ps -a --format '{{.Names}}' | grep -q "^${svc}$"; then
+    docker stop ${svc} && docker rm ${svc} && echo "${svc} stopped"
+  else
+    echo "${svc} not running — skipped"
+  fi
+done
 
-echo "All services stopped."
+# Optionally remove network
+docker network rm ticket-dev 2>/dev/null && echo "network removed" || true
+
+echo "Done."

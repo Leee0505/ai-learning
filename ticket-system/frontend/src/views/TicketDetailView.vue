@@ -89,10 +89,18 @@
               <input v-model="isInternal" type="checkbox" /> Internal Note
             </label>
             <div class="detail-reply-templates" v-if="authStore.isAgent || authStore.isAdmin" @click.stop>
-              <button class="detail-reply-templates-btn" @click="showTemplates = !showTemplates">Templates ▾</button>
+              <button class="detail-reply-templates-btn" @click="showTemplates = !showTemplates; showKnowledge = false">Templates ▾</button>
               <div v-if="showTemplates" class="detail-reply-templates-dropdown">
                 <div v-if="templates.length === 0" class="detail-reply-templates-empty">No templates yet</div>
                 <button v-for="t in templates" :key="t.id" @click="insertTemplate(t)">{{ t.title }}</button>
+              </div>
+            </div>
+            <div class="detail-reply-templates" v-if="authStore.isAgent || authStore.isAdmin" @click.stop>
+              <button class="detail-reply-templates-btn" @click="toggleKnowledge">Knowledge ▾</button>
+              <div v-if="showKnowledge" class="detail-reply-knowledge-dropdown">
+                <input v-model="kbKeyword" class="kb-popover-search" placeholder="Search knowledge..." @keyup="searchKnowledge" />
+                <div v-if="kbArticles.length === 0" class="detail-reply-templates-empty">No results</div>
+                <button v-for="a in kbArticles" :key="a.id" @click="insertKnowledge(a)" :title="a.title">{{ a.title }} <span class="kb-popover-cat">{{ a.category }}</span></button>
               </div>
             </div>
             <div class="detail-reply-btns">
@@ -298,6 +306,11 @@ const editTextarea = ref(null)
 const showTemplates = ref(false)
 const templates = ref([])
 
+// ── Knowledge popover ──
+const showKnowledge = ref(false)
+const kbArticles = ref([])
+const kbKeyword = ref('')
+
 const ticketId = computed(() => route.params.id)
 
 const TRANSITIONS = {
@@ -425,6 +438,7 @@ function toggleReplyMenu(replyId) {
 function onClickOutside() {
   openMenuId.value = null
   showTemplates.value = false
+  showKnowledge.value = false
 }
 
 // ── Templates ──
@@ -439,6 +453,27 @@ function insertTemplate(t) {
   if (vditorInstance.value) {
     vditorInstance.value.insertValue(t.content)
     showTemplates.value = false
+  }
+}
+
+// ── Knowledge popover ──
+function toggleKnowledge() {
+  showKnowledge.value = !showKnowledge.value
+  showTemplates.value = false
+  if (showKnowledge.value) searchKnowledge()
+}
+
+async function searchKnowledge() {
+  try {
+    const { data } = await request.get('/knowledge', { params: { keyword: kbKeyword.value || undefined } })
+    if (data.code === 200) kbArticles.value = data.data.slice(0, 8)
+  } catch { /* ignore */ }
+}
+
+function insertKnowledge(a) {
+  if (vditorInstance.value) {
+    vditorInstance.value.insertValue(a.content)
+    showKnowledge.value = false
   }
 }
 
@@ -919,6 +954,29 @@ function handleLightboxDownload() {
 .detail-reply-templates-empty {
   padding: 12px; font-size: var(--text-sm); color: var(--color-text-muted); text-align: center;
 }
+
+/* Knowledge popover */
+.detail-reply-knowledge-dropdown {
+  position: absolute; bottom: 100%; left: 0; margin-bottom: 4px; z-index: var(--z-dropdown);
+  background: var(--color-white); border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+  width: 360px; max-height: 320px; overflow-y: auto;
+}
+.kb-popover-search {
+  width: 100%; padding: 8px 12px; font-size: var(--text-sm); font-family: var(--font-body);
+  color: var(--color-text-primary); background: var(--color-gray-50);
+  border: none; border-bottom: 1px solid var(--color-gray-200); outline: none; box-sizing: border-box;
+}
+.detail-reply-knowledge-dropdown button {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 8px 12px; font-size: var(--text-sm); font-family: var(--font-body);
+  color: var(--color-text-primary); background: none; border: none; cursor: pointer; text-align: left;
+  border-bottom: 1px solid var(--color-gray-100);
+  transition: background var(--transition-fast);
+}
+.detail-reply-knowledge-dropdown button:last-child { border-bottom: none; }
+.detail-reply-knowledge-dropdown button:hover { background: var(--color-primary-bg); color: var(--color-primary); }
+.kb-popover-cat { font-size: var(--text-xs); color: var(--color-text-muted); font-weight: 400; }
 .detail-reply-internal { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--text-xs); color: var(--color-text-secondary); cursor: pointer; }
 .detail-reply-internal input { accent-color: var(--color-warning); }
 .detail-reply-submit { padding: 10px 20px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); border: none; border-radius: var(--radius-md); cursor: pointer; transition: opacity var(--transition-fast), transform var(--transition-fast); }

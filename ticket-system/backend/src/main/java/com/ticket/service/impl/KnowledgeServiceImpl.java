@@ -64,6 +64,17 @@ public class KnowledgeServiceImpl implements KnowledgeService {
 
     @Override
     public ReplyTemplateResponse create(CreateTemplateRequest request, Long userId) {
+        // Validate title uniqueness
+        Long count = mapper.selectCount(
+                new LambdaQueryWrapper<KnowledgeArticle>()
+                        .eq(KnowledgeArticle::getTitle, request.getTitle()));
+        if (count > 0) {
+            throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
+        }
+        if (request.getContent().length() > 50000) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under 50000 characters");
+        }
+
         KnowledgeArticle a = new KnowledgeArticle();
         a.setTitle(request.getTitle());
         a.setContent(request.getContent());
@@ -81,6 +92,18 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     public ReplyTemplateResponse update(Long id, CreateTemplateRequest request, Long userId) {
         KnowledgeArticle a = mapper.selectById(id);
         if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
+        // Validate title uniqueness (exclude self)
+        Long count = mapper.selectCount(
+                new LambdaQueryWrapper<KnowledgeArticle>()
+                        .eq(KnowledgeArticle::getTitle, request.getTitle())
+                        .ne(KnowledgeArticle::getId, id));
+        if (count > 0) {
+            throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
+        }
+        if (request.getContent().length() > 50000) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under 50000 characters");
+        }
+
         a.setTitle(request.getTitle());
         a.setContent(request.getContent());
         if (request.getCategory() != null) a.setCategory(request.getCategory());

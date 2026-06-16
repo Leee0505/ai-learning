@@ -79,6 +79,19 @@ public class TicketController {
         return ApiResult.success(stats);
     }
 
+    // ── Agent Performance Stats ──
+
+    @GetMapping(value = "/tickets/stats/agent")
+    @PreAuthorize("hasAnyRole('" + com.ticket.common.constant.RoleConstants.AGENT + "', '" + com.ticket.common.constant.RoleConstants.ADMIN + "')")
+    @Operation(
+        summary = "Get agent performance statistics",
+        description = "Returns today's completed count, average processing time, pending queue size, and 7-day completion chart for the current agent."
+    )
+    public ApiResult<com.ticket.dto.response.AgentStatsResponse> getAgentStats(
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        return ApiResult.success(ticketService.getAgentStats(userDetails.getUserId()));
+    }
+
     // ── Export ──
 
     @GetMapping("/tickets/export")

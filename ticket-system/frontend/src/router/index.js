@@ -51,6 +51,12 @@ const routes = [
         meta: { requiresAuth: true, requiresAgent: true }
       },
       {
+        path: 'performance',
+        name: 'Performance',
+        component: () => import('@/views/AgentDashboardView.vue'),
+        meta: { requiresAuth: true, requiresAgent: true }
+      },
+      {
         path: 'admin/users',
         name: 'AdminUsers',
         component: () => import('@/views/admin/UserListView.vue'),

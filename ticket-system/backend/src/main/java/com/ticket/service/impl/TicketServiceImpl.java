@@ -589,6 +589,67 @@ public class TicketServiceImpl implements TicketService {
     }
 
     // ──────────────────────────────────────────────
+    //  Agent Performance Stats
+    // ──────────────────────────────────────────────
+
+    @Override
+    public AgentStatsResponse getAgentStats(Long userId) {
+        long todayStart = java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault())
+                .toInstant().toEpochMilli();
+
+        // Today's completed (resolved + closed by this agent)
+        var doneWrapper = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Ticket>()
+                .select("count(*) as cnt")
+                .eq("assigned_to", userId)
+                .in("status", "RESOLVED", "CLOSED")
+                .ge("resolved_date", todayStart);
+        long todayDone = ((Number) ticketMapper.selectMaps(doneWrapper).get(0).getOrDefault("cnt", 0L)).longValue();
+
+        // Average processing time (ms → minutes) for today's completions
+        var avgWrapper = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Ticket>()
+                .select("avg(resolved_date - created_date) as avg_ms")
+                .eq("assigned_to", userId)
+                .in("status", "RESOLVED", "CLOSED")
+                .ge("resolved_date", todayStart)
+                .isNotNull("created_date");
+        var avgResult = ticketMapper.selectMaps(avgWrapper).get(0).get("avg_ms");
+        double avgMinutes = avgResult != null ? ((Number) avgResult).doubleValue() / 60000.0 : 0;
+
+        // Pending queue (unassigned)
+        long pendingCount = ticketMapper.selectCount(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Ticket>()
+                        .eq(Ticket::getStatus, "OPEN")
+                        .isNull(Ticket::getAssignedTo));
+
+        // Active assigned to this agent
+        long activeCount = ticketMapper.selectCount(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Ticket>()
+                        .eq(Ticket::getAssignedTo, userId)
+                        .in(Ticket::getStatus, "OPEN", "IN_PROGRESS"));
+
+        // Last 7 days completion chart
+        String[] labels = new String[7];
+        long[] values = new long[7];
+        java.time.LocalDate today = java.time.LocalDate.now();
+        for (int i = 6; i >= 0; i--) {
+            java.time.LocalDate day = today.minusDays(i);
+            long start = day.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+            long end = day.plusDays(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+            labels[6 - i] = day.format(java.time.format.DateTimeFormatter.ofPattern("MM/dd"));
+            var dayWrapper = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Ticket>()
+                    .select("count(*) as cnt")
+                    .eq("assigned_to", userId)
+                    .in("status", "RESOLVED", "CLOSED")
+                    .ge("resolved_date", start)
+                    .lt("resolved_date", end);
+            values[6 - i] = ((Number) ticketMapper.selectMaps(dayWrapper).get(0).getOrDefault("cnt", 0L)).longValue();
+        }
+
+        return new AgentStatsResponse(todayDone, Math.round(avgMinutes * 10.0) / 10.0,
+                pendingCount, activeCount, labels, values);
+    }
+
+    // ──────────────────────────────────────────────
     //  Dashboard Stats (SQL GROUP BY — O(1M) rows → 4 rows in response)
     // ──────────────────────────────────────────────
 

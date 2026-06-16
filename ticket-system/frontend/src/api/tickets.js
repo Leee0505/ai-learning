@@ -55,6 +55,10 @@ export function getDashboardStats() {
   return request.get('/tickets/stats')
 }
 
+export function getAgentStats() {
+  return request.get('/tickets/stats/agent')
+}
+
 export function downloadAttachment(id) {
   return request.get(`/attachments/${id}`, { responseType: 'blob' })
 }

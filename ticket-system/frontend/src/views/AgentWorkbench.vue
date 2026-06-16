@@ -59,7 +59,9 @@
                 <td class="td-muted">{{ t.category }}</td>
                 <td class="td-muted td-mono">{{ formatDate(t.createdDate) }}</td>
                 <td @click.stop>
-                  <button class="btn-take" @click="handleTake(t.id)">Take</button>
+                  <button class="btn-take" :disabled="takingIds.has(t.id)" @click="handleTake(t.id)">
+                    {{ takingIds.has(t.id) ? '...' : 'Take' }}
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -136,7 +138,9 @@ const active = ref([])
 const activeTotal = ref(0)
 const activeLoading = ref(true)
 const todayDone = ref(0)
+const takingIds = ref(new Set())
 
+// ── Initial load ──
 onMounted(async () => {
   await Promise.all([fetchPending(), fetchActive(), fetchStats()])
 })
@@ -173,15 +177,52 @@ async function fetchStats() {
   } catch { /* ignore */ }
 }
 
+// ── Take ticket with optimistic UI update ──
 async function handleTake(id) {
+  const idx = pending.value.findIndex(t => t.id === id)
+  if (idx === -1) return
+
+  const ticket = pending.value[idx]
+  const currentUser = authStore.user
+
+  // Optimistic: remove from pending
+  pending.value.splice(idx, 1)
+  pendingTotal.value = Math.max(0, pendingTotal.value - 1)
+
+  // Optimistic: prepend to active (cap at display limit)
+  const claimed = {
+    ...ticket,
+    status: 'IN_PROGRESS',
+    assignedTo: currentUser.id,
+    assignedToName: currentUser.username,
+    lastModifiedDate: Date.now()
+  }
+  active.value.unshift(claimed)
+  if (active.value.length > 5) active.value.pop()
+  activeTotal.value += 1
+
+  takingIds.value.add(id)
+
   try {
-    const { data } = await assignTicket(id, { assignedTo: authStore.user?.id })
+    const { data } = await assignTicket(id, { assignedTo: currentUser.id })
     if (data.code === 200) {
       ElMessage.success('Ticket claimed')
-      fetchPending()
-      fetchActive()
+    } else {
+      throw new Error(data.message || 'Claim failed')
     }
-  } catch { /* ignore */ }
+  } catch {
+    // Rollback on failure
+    pending.value.splice(idx, 0, ticket)
+    pendingTotal.value += 1
+    const rollbackIdx = active.value.findIndex(t => t.id === id)
+    if (rollbackIdx !== -1) {
+      active.value.splice(rollbackIdx, 1)
+      activeTotal.value = Math.max(0, activeTotal.value - 1)
+    }
+    ElMessage.error('Failed to claim ticket')
+  } finally {
+    takingIds.value.delete(id)
+  }
 }
 
 function goDetail(id) { router.push(`/tickets/${id}`) }
@@ -252,8 +293,9 @@ function statusLabel(s) {
 
 /* ── Take Button ── */
 .btn-take { padding: 8px 18px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); border: none; border-radius: var(--radius-md); cursor: pointer; min-width: 60px; min-height: 44px; transition: opacity var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast); }
-.btn-take:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35); }
-.btn-take:active { transform: translateY(0); opacity: 0.85; }
+.btn-take:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35); }
+.btn-take:active:not(:disabled) { transform: translateY(0); opacity: 0.85; }
+.btn-take:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
 /* ── Loading ── */
 .table-loading { padding: var(--space-md); display: flex; flex-direction: column; gap: 10px; }

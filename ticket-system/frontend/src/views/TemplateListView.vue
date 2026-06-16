@@ -112,8 +112,9 @@ async function handleSave() {
       closeDialog()
       await fetchList()
     }
-  } catch { ElMessage.error('Save failed') }
-  finally { saving.value = false }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Save failed')
+  } finally { saving.value = false }
 }
 
 async function handleDelete(t) {
@@ -121,9 +122,13 @@ async function handleDelete(t) {
     await ElMessageBox.confirm(`Delete template "${t.title}"?`, 'Confirm Delete', {
       confirmButtonText: 'Delete', cancelButtonText: 'Cancel', type: 'warning'
     })
+  } catch { return /* cancelled */ }
+  try {
     const { data } = await deleteTemplate(t.id)
     if (data.code === 200) { ElMessage.success('Template deleted'); await fetchList() }
-  } catch { /* cancelled */ }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Delete failed')
+  }
 }
 
 function truncate(text, max) { return text && text.length > max ? text.slice(0, max) + '...' : text }

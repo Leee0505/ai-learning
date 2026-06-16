@@ -107,9 +107,10 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public PageResponse<TicketResponse> listTickets(String status, String priority, String category,
-                                                     String keyword, int pageNum, int size,
+                                                     String keyword, String assignedTo,
+                                                     int pageNum, int size,
                                                      Long userId, String role, String sortOrder) {
-        LambdaQueryWrapper<Ticket> wrapper = buildFilterWrapper(status, priority, category, keyword, userId, role);
+        LambdaQueryWrapper<Ticket> wrapper = buildFilterWrapper(status, priority, category, keyword, assignedTo, userId, role);
         if ("asc".equalsIgnoreCase(sortOrder)) {
             wrapper.orderByAsc(Ticket::getCreatedDate);
         } else {
@@ -430,9 +431,9 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public Resource exportTickets(String format, String status, String priority, String category,
-                                  String keyword, Long userId, String role) {
+                                  String keyword, String assignedTo, Long userId, String role) {
         // Query without pagination — export all matching tickets
-        LambdaQueryWrapper<Ticket> wrapper = buildFilterWrapper(status, priority, category, keyword, userId, role);
+        LambdaQueryWrapper<Ticket> wrapper = buildFilterWrapper(status, priority, category, keyword, assignedTo, userId, role);
         wrapper.orderByDesc(Ticket::getCreatedDate);
         List<Ticket> tickets = ticketMapper.selectList(wrapper);
 
@@ -503,7 +504,8 @@ public class TicketServiceImpl implements TicketService {
     }
 
     private LambdaQueryWrapper<Ticket> buildFilterWrapper(String status, String priority, String category,
-                                                           String keyword, Long userId, String role) {
+                                                           String keyword, String assignedTo,
+                                                           Long userId, String role) {
         LambdaQueryWrapper<Ticket> wrapper = new LambdaQueryWrapper<>();
         if (RoleConstants.ROLE_USER.equals(role)) {
             wrapper.eq(Ticket::getCreatedBy, userId);
@@ -512,6 +514,12 @@ public class TicketServiceImpl implements TicketService {
         if (priority != null && !priority.isBlank()) wrapper.eq(Ticket::getPriority, priority);
         if (category != null && !category.isBlank()) wrapper.eq(Ticket::getCategory, category);
         if (keyword != null && !keyword.isBlank()) wrapper.like(Ticket::getTitle, keyword);
+        // Assignee filter: "unassigned" = no agent assigned, otherwise filter by specific user ID
+        if ("unassigned".equalsIgnoreCase(assignedTo)) {
+            wrapper.isNull(Ticket::getAssignedTo);
+        } else if (assignedTo != null && !assignedTo.isBlank()) {
+            wrapper.eq(Ticket::getAssignedTo, Long.parseLong(assignedTo));
+        }
         return wrapper;
     }
 
@@ -529,27 +537,28 @@ public class TicketServiceImpl implements TicketService {
     }
 
     // ──────────────────────────────────────────────
-    //  Dashboard Stats
+    //  Dashboard Stats (SQL GROUP BY — O(1M) rows → 4 rows in response)
     // ──────────────────────────────────────────────
 
     @Override
     public DashboardStatsResponse getDashboardStats(Long userId, String role) {
-        LambdaQueryWrapper<Ticket> wrapper = new LambdaQueryWrapper<>();
-        // Regular users see only their own tickets
+        var qw = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Ticket>()
+                .select("status", "count(*) as cnt")
+                .groupBy("status");
         if (RoleConstants.ROLE_USER.equals(role)) {
-            wrapper.eq(Ticket::getCreatedBy, userId);
+            qw.eq("created_by", userId);
         }
 
-        List<Ticket> tickets = ticketMapper.selectList(wrapper);
         long open = 0, inProgress = 0, resolved = 0, closed = 0;
-        for (Ticket t : tickets) {
-            String s = t.getStatus();
-            if (BusinessConstants.TICKET_STATUS_OPEN.equals(s)) open++;
-            else if (BusinessConstants.TICKET_STATUS_IN_PROGRESS.equals(s)) inProgress++;
-            else if (BusinessConstants.TICKET_STATUS_RESOLVED.equals(s)) resolved++;
-            else if (BusinessConstants.TICKET_STATUS_CLOSED.equals(s)) closed++;
+        for (var row : ticketMapper.selectMaps(qw)) {
+            String s = (String) row.get("status");
+            long cnt = ((Number) row.get("cnt")).longValue();
+            if (BusinessConstants.TICKET_STATUS_OPEN.equals(s)) open = cnt;
+            else if (BusinessConstants.TICKET_STATUS_IN_PROGRESS.equals(s)) inProgress = cnt;
+            else if (BusinessConstants.TICKET_STATUS_RESOLVED.equals(s)) resolved = cnt;
+            else if (BusinessConstants.TICKET_STATUS_CLOSED.equals(s)) closed = cnt;
         }
-        return new DashboardStatsResponse(tickets.size(), open, inProgress, resolved, closed);
+        return new DashboardStatsResponse(open + inProgress + resolved + closed, open, inProgress, resolved, closed);
     }
 
     // ──────────────────────────────────────────────

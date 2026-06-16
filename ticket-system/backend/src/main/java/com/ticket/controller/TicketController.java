@@ -103,9 +103,11 @@ public class TicketController {
             @RequestParam(required = false) String category,
             @Parameter(description = "Search keyword")
             @RequestParam(required = false) String keyword,
+            @Parameter(description = "Filter by assignee")
+            @RequestParam(required = false) String assignedTo,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         Resource resource = ticketService.exportTickets(
-                format, status, priority, category, keyword,
+                format, status, priority, category, keyword, assignedTo,
                 userDetails.getUserId(), userDetails.getRole());
         String filename = "tickets-" + java.time.LocalDate.now() + "." + (format.equals("excel") ? "xlsx" : "csv");
         MediaType mediaType = format.equals("excel")
@@ -140,6 +142,8 @@ public class TicketController {
             @RequestParam(required = false) String category,
             @Parameter(description = "Search keyword — matches against ticket title (LIKE)")
             @RequestParam(required = false) String keyword,
+            @Parameter(description = "Filter by assignee: 'unassigned' for unclaimed tickets, or a specific user ID")
+            @RequestParam(required = false) String assignedTo,
             @Parameter(description = "Page number (1-based)")
             @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "Page size (1-100)")
@@ -148,7 +152,7 @@ public class TicketController {
             @RequestParam(defaultValue = "desc") String sortOrder,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         PageResponse<TicketResponse> response = ticketService.listTickets(
-                status, priority, category, keyword, page, size,
+                status, priority, category, keyword, assignedTo, page, size,
                 userDetails.getUserId(), userDetails.getRole(), sortOrder);
         return ApiResult.success(response);
     }

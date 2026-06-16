@@ -18,6 +18,11 @@ public enum ErrorCode {
     TICKET_ATTACHMENT_TOO_LARGE(40013, "attachment exceeds maximum size of 10 MB"),
     TICKET_ATTACHMENT_TYPE_DENIED(40014, "this file type is not allowed"),
     REPLY_NOT_FOUND(40015, "reply not found"),
+    CANNOT_DELETE_SELF(40016, "cannot delete your own account"),
+    CANNOT_DISABLE_SELF(40017, "cannot disable your own account"),
+    CANNOT_CHANGE_OWN_ROLE(40018, "cannot change your own role"),
+    USER_ALREADY_DISABLED(40019, "user account is disabled"),
+    ROLE_INVALID(40020, "invalid role specified"),
 
     // 401xx Auth Errors
     INVALID_CREDENTIALS(40100, "invalid credentials"),

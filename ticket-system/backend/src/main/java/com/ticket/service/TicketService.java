@@ -10,7 +10,8 @@ import java.util.List;
 public interface TicketService {
     TicketDetailResponse createTicket(CreateTicketRequest request, Long userId);
     PageResponse<TicketResponse> listTickets(String status, String priority, String category,
-                                              String keyword, int page, int size,
+                                              String keyword, String assignedTo,
+                                              int page, int size,
                                               Long userId, String role, String sortOrder);
     TicketDetailResponse getTicketDetail(Long ticketId, Long userId, String role);
     TicketDetailResponse updateTicket(Long ticketId, UpdateTicketRequest request, Long userId, String role);
@@ -25,5 +26,5 @@ public interface TicketService {
     DashboardStatsResponse getDashboardStats(Long userId, String role);
 
     Resource exportTickets(String format, String status, String priority, String category,
-                           String keyword, Long userId, String role);
+                           String keyword, String assignedTo, Long userId, String role);
 }

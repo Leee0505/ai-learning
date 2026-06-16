@@ -327,7 +327,7 @@ function initVditor() {
     lang: 'en_US',
     placeholder: 'Type your reply...',
     toolbar: [
-      'bold', 'italic', 'strikethrough', 'underline', '|',
+      'bold', 'italic', '|',
       'quote', 'list', 'ordered-list', 'code', '|',
       'link', 'upload', 'table', 'line', '|',
       'undo', 'redo'

@@ -89,8 +89,8 @@
               <input v-model="isInternal" type="checkbox" /> Internal Note
             </label>
             <div class="detail-reply-btns">
-              <button v-if="vditorInstance?.getValue()" class="detail-reply-cancel" @click="clearReply">Clear</button>
-              <button class="detail-reply-submit" :disabled="replyLoading || !vditorInstance?.getValue()?.trim()" @click="handleReply">
+              <button v-if="replyContent" class="detail-reply-cancel" @click="clearReply">Clear</button>
+              <button class="detail-reply-submit" :disabled="replyLoading || !replyContent.trim()" @click="handleReply">
                 <span v-if="!replyLoading">Send Reply</span>
                 <span v-else>Sending...</span>
               </button>
@@ -276,6 +276,7 @@ const thumbnails = ref({})
 // ── Vditor ──
 const vditorRef = ref(null)
 const vditorInstance = ref(null)
+const replyContent = ref('')  // reactive bridge for template bindings
 
 // ── Reply actions menu ──
 const openMenuId = ref(null)
@@ -334,6 +335,9 @@ function initVditor() {
     ],
     toolbarConfig: { pin: true },
     cache: { enable: false },
+    input(value) {
+      replyContent.value = value
+    },
     upload: {
       accept: 'image/*',
       multiple: false,
@@ -369,6 +373,7 @@ function initVditor() {
 
 function clearReply() {
   if (vditorInstance.value) vditorInstance.value.setValue('')
+  replyContent.value = ''
   isInternal.value = false
 }
 
@@ -383,12 +388,12 @@ function handleQuote(reply) {
 
 // ── Reply ──
 async function handleReply() {
-  const content = vditorInstance.value?.getValue()
-  if (!content?.trim()) return
+  if (!replyContent.value.trim()) return
   replyLoading.value = true
   try {
-    await store.addReplyAction(ticketId.value, content.trim(), isInternal.value)
+    await store.addReplyAction(ticketId.value, replyContent.value.trim(), isInternal.value)
     vditorInstance.value.setValue('')
+    replyContent.value = ''
     isInternal.value = false
     ElMessage.success('Reply sent')
     await store.fetchTicketDetail(ticketId.value)

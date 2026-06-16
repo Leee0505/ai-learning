@@ -288,3 +288,9 @@ img {
 .vditor-content {
   border-radius: 0 0 var(--radius-md) var(--radius-md) !important;
 }
+
+/* Reset contenteditable indentation */
+.vditor-reset {
+  padding: 0 !important;
+  margin: 0 !important;
+}

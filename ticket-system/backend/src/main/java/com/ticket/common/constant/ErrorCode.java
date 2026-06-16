@@ -18,6 +18,7 @@ public enum ErrorCode {
     TICKET_ATTACHMENT_TOO_LARGE(40013, "attachment exceeds maximum size of 10 MB"),
     TICKET_ATTACHMENT_TYPE_DENIED(40014, "this file type is not allowed"),
     REPLY_NOT_FOUND(40015, "reply not found"),
+    TEMPLATE_NOT_FOUND(40021, "template not found"),
     CANNOT_DELETE_SELF(40016, "cannot delete your own account"),
     CANNOT_DISABLE_SELF(40017, "cannot disable your own account"),
     CANNOT_CHANGE_OWN_ROLE(40018, "cannot change your own role"),

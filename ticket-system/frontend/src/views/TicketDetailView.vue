@@ -88,6 +88,13 @@
             <label v-if="authStore.isAgent || authStore.isAdmin" class="detail-reply-internal">
               <input v-model="isInternal" type="checkbox" /> Internal Note
             </label>
+            <div class="detail-reply-templates" v-if="authStore.isAgent || authStore.isAdmin" @click.stop>
+              <button class="detail-reply-templates-btn" @click="showTemplates = !showTemplates">Templates ▾</button>
+              <div v-if="showTemplates" class="detail-reply-templates-dropdown">
+                <div v-if="templates.length === 0" class="detail-reply-templates-empty">No templates yet</div>
+                <button v-for="t in templates" :key="t.id" @click="insertTemplate(t)">{{ t.title }}</button>
+              </div>
+            </div>
             <div class="detail-reply-btns">
               <button v-if="replyContent" class="detail-reply-cancel" @click="clearReply">Clear</button>
               <button class="detail-reply-submit" :disabled="replyLoading || !replyContent.trim()" @click="handleReply">
@@ -253,6 +260,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
 import { downloadAttachment, editReply, deleteReply } from '@/api/tickets'
+import { listTemplates } from '@/api/templates'
 import request from '@/api/request'
 import { renderMarkdown } from '@/utils/markdown'
 import { formatDate, formatRelative, formatDateTime } from '@/utils/date'
@@ -286,6 +294,10 @@ const editingReplyId = ref(null)
 const editReplyContent = ref('')
 const editTextarea = ref(null)
 
+// ── Templates ──
+const showTemplates = ref(false)
+const templates = ref([])
+
 const ticketId = computed(() => route.params.id)
 
 const TRANSITIONS = {
@@ -309,6 +321,7 @@ const visibleReplies = computed(() => {
 onMounted(async () => {
   await store.fetchTicketDetail(ticketId.value)
   await loadThumbnails()
+  fetchTemplates()
   await nextTick()
   initVditor()
   document.addEventListener('click', onClickOutside)
@@ -411,6 +424,22 @@ function toggleReplyMenu(replyId) {
 
 function onClickOutside() {
   openMenuId.value = null
+  showTemplates.value = false
+}
+
+// ── Templates ──
+async function fetchTemplates() {
+  try {
+    const { data } = await listTemplates()
+    if (data.code === 200) templates.value = data.data
+  } catch { /* ignore */ }
+}
+
+function insertTemplate(t) {
+  if (vditorInstance.value) {
+    vditorInstance.value.insertValue(t.content)
+    showTemplates.value = false
+  }
 }
 
 // ── Inline edit ──
@@ -858,6 +887,34 @@ function handleLightboxDownload() {
 .detail-reply-edit-cancel:hover { background: var(--color-gray-50); }
 
 .detail-reply-actions { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-sm); gap: var(--space-md); }
+
+/* Templates dropdown */
+.detail-reply-templates { position: relative; }
+.detail-reply-templates-btn {
+  padding: 6px 12px; font-size: var(--text-xs); font-weight: 500; font-family: var(--font-body);
+  color: var(--color-text-secondary); background: var(--color-white);
+  border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.detail-reply-templates-btn:hover { background: var(--color-gray-50); color: var(--color-primary); border-color: var(--color-primary); }
+.detail-reply-templates-dropdown {
+  position: absolute; bottom: 100%; left: 0; margin-bottom: 4px; z-index: var(--z-dropdown);
+  background: var(--color-white); border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+  min-width: 220px; max-height: 200px; overflow-y: auto;
+}
+.detail-reply-templates-dropdown button {
+  display: block; width: 100%; padding: 8px 12px; font-size: var(--text-sm); font-family: var(--font-body);
+  color: var(--color-text-primary); background: none; border: none; cursor: pointer; text-align: left;
+  border-bottom: 1px solid var(--color-gray-100);
+  transition: background var(--transition-fast);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.detail-reply-templates-dropdown button:last-child { border-bottom: none; }
+.detail-reply-templates-dropdown button:hover { background: var(--color-primary-bg); color: var(--color-primary); }
+.detail-reply-templates-empty {
+  padding: 12px; font-size: var(--text-sm); color: var(--color-text-muted); text-align: center;
+}
 .detail-reply-internal { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--text-xs); color: var(--color-text-secondary); cursor: pointer; }
 .detail-reply-internal input { accent-color: var(--color-warning); }
 .detail-reply-submit { padding: 10px 20px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); border: none; border-radius: var(--radius-md); cursor: pointer; transition: opacity var(--transition-fast), transform var(--transition-fast); }

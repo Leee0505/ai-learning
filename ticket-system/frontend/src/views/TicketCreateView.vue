@@ -163,8 +163,14 @@ onMounted(async () => {
       mode: 'wysiwyg',
       height: 200,
       lang: 'en_US',
-      placeholder: 'Detailed description of your issue...',
-      toolbar: ['bold', 'italic', 'strikethrough', '|', 'quote', 'list', 'ordered-list', 'code', '|', 'link', '|', 'undo', 'redo'],
+      placeholder: 'Detailed description of your issue... (attach images after creating the ticket)',
+      toolbar: [
+        'bold', 'italic', 'strikethrough', 'underline', '|',
+        'quote', 'list', 'ordered-list', 'code', '|',
+        'link', 'image', '|',
+        'table', 'hr', '|',
+        'undo', 'redo'
+      ],
       toolbarConfig: { pin: true },
       cache: { enable: false }
     })

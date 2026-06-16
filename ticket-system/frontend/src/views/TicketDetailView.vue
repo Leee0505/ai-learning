@@ -326,9 +326,45 @@ function initVditor() {
     height: 140,
     lang: 'en_US',
     placeholder: 'Type your reply...',
-    toolbar: ['bold', 'italic', 'strikethrough', '|', 'quote', 'list', 'ordered-list', 'code', '|', 'link', '|', 'undo', 'redo'],
+    toolbar: [
+      'bold', 'italic', 'strikethrough', 'underline', '|',
+      'quote', 'list', 'ordered-list', 'code', '|',
+      'link', 'image', '|',
+      'table', 'hr', '|',
+      'undo', 'redo'
+    ],
     toolbarConfig: { pin: true },
-    cache: { enable: false }
+    cache: { enable: false },
+    upload: {
+      accept: 'image/*',
+      multiple: false,
+      file: async (files) => {
+        const file = files[0]
+        if (!file) return ''
+        if (file.size > 10 * 1024 * 1024) {
+          ElMessage.warning(`File ${file.name} exceeds 10MB limit`)
+          return ''
+        }
+        const formData = new FormData()
+        formData.append('file', file)
+        try {
+          const res = await fetch(`/api/tickets/${ticketId.value}/attachments`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authStore.accessToken}` },
+            body: formData
+          })
+          const json = await res.json()
+          if (json.code === 200) {
+            return `/api/attachments/${json.data.id}`
+          }
+          ElMessage.error('Image upload failed')
+          return ''
+        } catch {
+          ElMessage.error('Image upload failed')
+          return ''
+        }
+      }
+    }
   })
 }
 

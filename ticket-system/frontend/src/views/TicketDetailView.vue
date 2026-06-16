@@ -26,7 +26,7 @@
         <!-- Description Card -->
         <div class="detail-card">
           <h2 class="detail-card-title">Description</h2>
-          <p class="detail-desc">{{ store.currentTicket.description || 'No description provided.' }}</p>
+          <div class="detail-desc" v-html="renderMarkdown(store.currentTicket.description || '*No description provided.*')"></div>
         </div>
 
         <!-- Reply Timeline -->
@@ -46,15 +46,35 @@
                 <div class="detail-reply-meta">
                   <span class="detail-reply-author">{{ reply.username }}</span>
                   <span v-if="reply.isInternal" class="detail-reply-internal-badge">Internal Note</span>
-                  <span class="detail-reply-time">{{ formatDateTime(reply.createdDate) }}</span>
+                  <span v-if="reply.isEdited" class="detail-reply-edited-badge" :title="'Edited ' + formatDateTime(reply.lastModifiedDate)">edited</span>
+                  <span class="detail-reply-time" :title="formatDateTime(reply.createdDate)">{{ formatRelative(reply.createdDate) }}</span>
                   <button class="detail-reply-quote-btn" @click="handleQuote(reply)" title="Quote this reply">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="detail-reply-quote-icon" aria-hidden="true">
                       <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/>
                       <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
                     </svg>
                   </button>
+                  <!-- Actions menu (own replies only) -->
+                  <div v-if="reply.userId === authStore.user?.id" class="detail-reply-actions-menu" @click.stop>
+                    <button class="detail-reply-more-btn" @click="toggleReplyMenu(reply.id)" title="More actions">
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                    </button>
+                    <div v-if="openMenuId === reply.id" class="detail-reply-menu-dropdown">
+                      <button @click="openMenuId = null; startEditReply(reply)">Edit</button>
+                      <button class="detail-reply-menu-delete" @click="openMenuId = null; handleDeleteReply(reply.id)">Delete</button>
+                    </div>
+                  </div>
                 </div>
-                <div class="detail-reply-content" v-html="renderMarkdown(reply.content)"></div>
+                <!-- Normal display -->
+                <div v-if="editingReplyId !== reply.id" class="detail-reply-content" v-html="renderMarkdown(reply.content)"></div>
+                <!-- Edit mode -->
+                <div v-else class="detail-reply-edit-area" @click.stop>
+                  <textarea v-model="editReplyContent" class="detail-reply-edit-input" rows="4" ref="editTextarea" />
+                  <div class="detail-reply-edit-actions">
+                    <button class="detail-reply-edit-save" @click="saveEditReply(reply.id)" :disabled="!editReplyContent.trim()">Save</button>
+                    <button class="detail-reply-edit-cancel" @click="cancelEditReply">Cancel</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -63,37 +83,14 @@
         <!-- Reply Input -->
         <div class="detail-card">
           <h2 class="detail-card-title">Add Reply</h2>
-          <!-- Preview mode -->
-          <div v-if="previewMode" class="detail-reply-preview" v-html="renderMarkdown(replyContent || '*Nothing to preview*')"></div>
-          <textarea
-            v-else
-            v-model="replyContent"
-            ref="replyTextarea"
-            class="detail-reply-input"
-            placeholder="Type your reply... (Markdown supported)"
-            rows="5"
-            :disabled="replyLoading"
-          />
-          <!-- Formatting toolbar -->
-          <div class="detail-reply-toolbar">
-            <button type="button" class="toolbar-btn" title="Bold (Ctrl+B)" @click="insertMarkdown('**', '**', 'bold')"><b>B</b></button>
-            <button type="button" class="toolbar-btn" title="Italic (Ctrl+I)" @click="insertMarkdown('*', '*', 'italic')"><i>I</i></button>
-            <button type="button" class="toolbar-btn" title="Code" @click="insertMarkdown('`', '`', 'code')">&lt;/&gt;</button>
-            <button type="button" class="toolbar-btn" title="Strikethrough" @click="insertMarkdown('~~', '~~', 'strike')"><s>S</s></button>
-            <span class="toolbar-sep"></span>
-            <button type="button" class="toolbar-btn" title="Quote" @click="insertMarkdown('> ', '', 'quote')">❝</button>
-            <button type="button" class="toolbar-btn" title="Bullet list" @click="insertMarkdown('- ', '', 'list')">•</button>
-            <button type="button" class="toolbar-btn" title="Link" @click="insertLink()">🔗</button>
-            <span class="toolbar-sep"></span>
-            <button type="button" class="toolbar-btn" :class="{ 'toolbar-btn--active': previewMode }" title="Preview" @click="previewMode = !previewMode">👁 Preview</button>
-          </div>
+          <div ref="vditorRef" class="detail-vditor-container"></div>
           <div class="detail-reply-actions">
             <label v-if="authStore.isAgent || authStore.isAdmin" class="detail-reply-internal">
               <input v-model="isInternal" type="checkbox" /> Internal Note
             </label>
             <div class="detail-reply-btns">
-              <button v-if="replyContent" class="detail-reply-cancel" @click="replyContent = ''; isInternal = false; previewMode = false">Clear</button>
-              <button class="detail-reply-submit" :disabled="replyLoading || !replyContent.trim()" @click="handleReply">
+              <button v-if="vditorInstance?.getValue()" class="detail-reply-cancel" @click="clearReply">Clear</button>
+              <button class="detail-reply-submit" :disabled="replyLoading || !vditorInstance?.getValue()?.trim()" @click="handleReply">
                 <span v-if="!replyLoading">Send Reply</span>
                 <span v-else>Sending...</span>
               </button>
@@ -250,31 +247,43 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
-import { downloadAttachment } from '@/api/tickets'
+import { downloadAttachment, editReply, deleteReply } from '@/api/tickets'
 import request from '@/api/request'
 import { renderMarkdown } from '@/utils/markdown'
+import { formatDate, formatRelative, formatDateTime } from '@/utils/date'
+import Vditor from 'vditor'
+import 'vditor/dist/index.css'
 
 const route = useRoute()
 const router = useRouter()
 const store = useTicketStore()
 const authStore = useAuthStore()
 
-const replyContent = ref('')
 const isInternal = ref(false)
 const replyLoading = ref(false)
-const previewMode = ref(false)
-const replyTextarea = ref(null)
 const downloadingId = ref(null)
 const selectedStatus = ref('')
 const assignTargetId = ref('')
 const lightboxAtt = ref(null)
 const lightboxSrc = ref('')
-const thumbnails = ref({})  // attachmentId → blob URL (loaded via axios for JWT auth)
+const thumbnails = ref({})
+
+// ── Vditor ──
+const vditorRef = ref(null)
+const vditorInstance = ref(null)
+
+// ── Reply actions menu ──
+const openMenuId = ref(null)
+
+// ── Inline edit ──
+const editingReplyId = ref(null)
+const editReplyContent = ref('')
+const editTextarea = ref(null)
 
 const ticketId = computed(() => route.params.id)
 
@@ -299,70 +308,53 @@ const visibleReplies = computed(() => {
 onMounted(async () => {
   await store.fetchTicketDetail(ticketId.value)
   await loadThumbnails()
+  await nextTick()
+  initVditor()
+  document.addEventListener('click', onClickOutside)
 })
 
-async function loadThumbnails() {
-  const images = (store.currentTicket?.attachments || []).filter(a => isImage(a.contentType))
-  await Promise.all(images.map(async att => {
-    try {
-      const res = await request.get(`/attachments/${att.id}/thumbnail?size=200`, { responseType: 'blob' })
-      thumbnails.value[att.id] = URL.createObjectURL(res.data)
-    } catch { /* ignore failed thumbnail */ }
-  }))
+onUnmounted(() => {
+  document.removeEventListener('click', onClickOutside)
+  if (vditorInstance.value) vditorInstance.value.destroy()
+})
+
+// ── Vditor init ──
+function initVditor() {
+  if (!vditorRef.value) return
+  vditorInstance.value = new Vditor(vditorRef.value, {
+    mode: 'ir',
+    height: 140,
+    placeholder: 'Type your reply... (Markdown supported)',
+    toolbar: ['bold', 'italic', 'strikethrough', '|', 'quote', 'list', 'ordered-list', 'code', '|', 'link', '|', 'undo', 'redo'],
+    cache: { enable: false },
+    after: () => {
+      // Toolbar doesn't include headings for reply; keep it compact
+    }
+  })
 }
 
+function clearReply() {
+  if (vditorInstance.value) vditorInstance.value.setValue('')
+  isInternal.value = false
+}
+
+// ── Quote ──
 function handleQuote(reply) {
-  // Put attribution outside blockquote, content inside — visually distinct
   const quoted = reply.content.split('\n').map(line => `> ${line}`).join('\n')
   const quote = `**↩ ${reply.username}** said:\n\n${quoted}\n\n`
-  replyContent.value = replyContent.value ? replyContent.value + quote : quote
-  previewMode.value = false
-  focusTextarea()
-}
-
-// ── Toolbar helpers ──
-
-function focusTextarea() {
-  if (replyTextarea.value) {
-    replyTextarea.value.focus()
-    replyTextarea.value.scrollIntoView({ behavior: 'smooth' })
+  if (vditorInstance.value) {
+    vditorInstance.value.insertValue(quote)
   }
 }
 
-function insertMarkdown(before, after, placeholder) {
-  previewMode.value = false
-  const el = replyTextarea.value
-  if (!el) return
-  const start = el.selectionStart
-  const end = el.selectionEnd
-  const selected = replyContent.value.substring(start, end) || placeholder
-  replyContent.value = replyContent.value.substring(0, start) + before + selected + after + replyContent.value.substring(end)
-  // Restore cursor position after inserted text
-  setTimeout(() => {
-    el.focus()
-    const pos = start + before.length + selected.length + after.length
-    el.setSelectionRange(pos, pos)
-  }, 0)
-}
-
-function insertLink() {
-  previewMode.value = false
-  const el = replyTextarea.value
-  if (!el) return
-  const url = prompt('URL:')
-  if (!url) return
-  const start = el.selectionStart
-  const end = el.selectionEnd
-  const selected = replyContent.value.substring(start, end) || 'link'
-  replyContent.value = replyContent.value.substring(0, start) + `[${selected}](${url})` + replyContent.value.substring(end)
-}
-
+// ── Reply ──
 async function handleReply() {
-  if (!replyContent.value.trim()) return
+  const content = vditorInstance.value?.getValue()
+  if (!content?.trim()) return
   replyLoading.value = true
   try {
-    await store.addReplyAction(ticketId.value, replyContent.value.trim(), isInternal.value)
-    replyContent.value = ''
+    await store.addReplyAction(ticketId.value, content.trim(), isInternal.value)
+    vditorInstance.value.setValue('')
     isInternal.value = false
     ElMessage.success('Reply sent')
     await store.fetchTicketDetail(ticketId.value)
@@ -372,6 +364,60 @@ async function handleReply() {
     replyLoading.value = false
   }
 }
+
+// ── Reply actions menu ──
+function toggleReplyMenu(replyId) {
+  openMenuId.value = openMenuId.value === replyId ? null : replyId
+}
+
+function onClickOutside() {
+  openMenuId.value = null
+}
+
+// ── Inline edit ──
+function startEditReply(reply) {
+  editingReplyId.value = reply.id
+  editReplyContent.value = reply.content
+  nextTick(() => {
+    if (editTextarea.value) editTextarea.value.focus()
+  })
+}
+
+function cancelEditReply() {
+  editingReplyId.value = null
+  editReplyContent.value = ''
+}
+
+async function saveEditReply(replyId) {
+  if (!editReplyContent.value.trim()) return
+  try {
+    const { data } = await editReply(ticketId.value, replyId, { content: editReplyContent.value.trim() })
+    if (data.code === 200) {
+      ElMessage.success('Reply updated')
+      cancelEditReply()
+      await store.fetchTicketDetail(ticketId.value)
+    }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Failed to update reply')
+  }
+}
+
+async function handleDeleteReply(replyId) {
+  try {
+    await ElMessageBox.confirm('Delete this reply? This action cannot be undone.', 'Delete Reply', {
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel',
+      type: 'warning'
+    })
+    const { data } = await deleteReply(ticketId.value, replyId)
+    if (data.code === 200) {
+      ElMessage.success('Reply deleted')
+      await store.fetchTicketDetail(ticketId.value)
+    }
+  } catch { /* cancelled or error */ }
+}
+
+// ── Ticket actions ──
 
 async function handleStatusChange() {
   if (!selectedStatus.value) return
@@ -409,11 +455,22 @@ async function handleDelete() {
   } catch {}
 }
 
+// ── Attachments ──
+
+async function loadThumbnails() {
+  const images = (store.currentTicket?.attachments || []).filter(a => isImage(a.contentType))
+  await Promise.all(images.map(async att => {
+    try {
+      const res = await request.get(`/attachments/${att.id}/thumbnail?size=200`, { responseType: 'blob' })
+      thumbnails.value[att.id] = URL.createObjectURL(res.data)
+    } catch { /* ignore failed thumbnail */ }
+  }))
+}
+
 async function handleDownload(att) {
   downloadingId.value = att.id
   try {
     const response = await downloadAttachment(att.id)
-    // Build blob URL from response data and trigger browser download
     const blob = new Blob([response.data])
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -423,7 +480,7 @@ async function handleDownload(att) {
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-  } catch (e) {
+  } catch {
     ElMessage.error('Download failed')
   } finally {
     downloadingId.value = null
@@ -456,20 +513,13 @@ function fileTypeClass(contentType) {
   return 'ft-unknown'
 }
 
-function formatDate(ts) {
-  if (!ts) return '—'
-  return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-}
-function formatDateTime(ts) {
-  if (!ts) return '—'
-  return new Date(ts).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
 function formatSize(bytes) {
   if (!bytes) return ''
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
+
 function statusClass(s) { return { 'OPEN': 'badge-open', 'IN_PROGRESS': 'badge-progress', 'RESOLVED': 'badge-resolved', 'CLOSED': 'badge-closed' }[s] || '' }
 function statusLabel(s) { return { 'OPEN': 'Open', 'IN_PROGRESS': 'In Progress', 'RESOLVED': 'Resolved', 'CLOSED': 'Closed' }[s] || s }
 function priorityClass(p) { return { 'LOW': 'badge-low', 'MEDIUM': 'badge-medium', 'HIGH': 'badge-high', 'URGENT': 'badge-urgent' }[p] || '' }
@@ -532,7 +582,15 @@ function handleLightboxDownload() {
 /* Cards */
 .detail-card { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-lg); box-shadow: var(--shadow-sm); }
 .detail-card-title { margin: 0 0 var(--space-md); font-family: var(--font-heading); font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary); }
-.detail-desc { margin: 0; font-size: var(--text-base); line-height: 1.7; color: var(--color-text-primary); white-space: pre-wrap; }
+.detail-desc { margin: 0; font-size: var(--text-base); line-height: 1.7; color: var(--color-text-primary); }
+.detail-desc :deep(p) { margin: 0 0 0.5em; }
+.detail-desc :deep(p:last-child) { margin-bottom: 0; }
+.detail-desc :deep(code) { padding: 1px 4px; background: var(--color-gray-100); border-radius: 3px; font-family: var(--font-mono); font-size: 0.9em; }
+.detail-desc :deep(pre) { margin: 0.5em 0; padding: 0.8em; background: #1e1e2e; color: #cdd6f4; border-radius: var(--radius-md); overflow-x: auto; font-size: var(--text-sm); }
+.detail-desc :deep(pre code) { padding: 0; background: none; }
+.detail-desc :deep(blockquote) { margin: 0.5em 0; padding: 0.4em 0.8em; border-left: 3px solid var(--color-primary); background: var(--color-primary-bg); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--color-text-secondary); }
+.detail-desc :deep(ul), .detail-desc :deep(ol) { margin: 0.5em 0; padding-left: 1.5em; }
+.detail-desc :deep(a) { color: var(--color-primary); }
 .detail-empty { text-align: center; color: var(--color-text-muted); padding: var(--space-lg) 0; }
 
 /* Badges */
@@ -693,35 +751,72 @@ function handleLightboxDownload() {
 .detail-reply-content :deep(a) { color: var(--color-primary); }
 .detail-reply-content :deep(img) { max-width: 100%; border-radius: var(--radius-md); }
 
-/* Reply Input */
-.detail-reply-input { width: 100%; padding: 10px 12px; font-size: var(--text-base); font-family: var(--font-mono); color: var(--color-text-primary); background: var(--color-gray-50); border: 1.5px solid var(--color-gray-200); border-radius: var(--radius-md) var(--radius-md) 0 0; outline: none; box-sizing: border-box; resize: vertical; min-height: 100px; }
-.detail-reply-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12); }
-
-/* Toolbar */
-.detail-reply-toolbar {
-  display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
-  padding: 6px 8px; background: var(--color-gray-50);
-  border: 1.5px solid var(--color-gray-200); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md);
+/* Vditor Container */
+.detail-vditor-container {
+  border: 1.5px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  margin-bottom: 0;
 }
-.toolbar-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 36px; height: 36px; padding: 0 8px;
-  font-size: var(--text-xs); font-family: var(--font-body);
-  color: var(--color-text-secondary); background: transparent;
-  border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer;
+.detail-vditor-container:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+/* Edited badge */
+.detail-reply-edited-badge {
+  font-size: 10px; font-weight: 500; color: var(--color-text-muted);
+  background: var(--color-gray-100); padding: 1px 6px; border-radius: var(--radius-full);
+  cursor: help;
+}
+
+/* Reply actions menu */
+.detail-reply-actions-menu { position: relative; margin-left: auto; }
+.detail-reply-more-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0;
+  background: transparent; border: none; border-radius: var(--radius-sm);
+  color: var(--color-text-muted); cursor: pointer;
   transition: all var(--transition-fast);
 }
-.toolbar-btn:hover { background: var(--color-white); border-color: var(--color-gray-200); color: var(--color-text-primary); }
-.toolbar-btn:active { transform: scale(0.95); }
-.toolbar-btn--active { background: var(--color-primary-bg); border-color: var(--color-primary); color: var(--color-primary); }
-.toolbar-sep { width: 1px; height: 18px; background: var(--color-gray-200); margin: 0 4px; }
-
-/* Preview */
-.detail-reply-preview {
-  min-height: 130px; padding: 12px; background: var(--color-gray-50);
-  border: 1.5px solid var(--color-gray-200); border-radius: var(--radius-md);
-  font-size: var(--text-base); line-height: 1.6; color: var(--color-text-primary);
+.detail-reply-more-btn svg { width: 16px; height: 16px; }
+.detail-reply-more-btn:hover { background: var(--color-gray-100); color: var(--color-text-primary); }
+.detail-reply-menu-dropdown {
+  position: absolute; right: 0; top: 100%; z-index: var(--z-dropdown);
+  background: var(--color-white); border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+  min-width: 120px; overflow: hidden;
 }
+.detail-reply-menu-dropdown button {
+  display: block; width: 100%; padding: 8px 14px; font-size: var(--text-sm); font-family: var(--font-body);
+  color: var(--color-text-primary); background: none; border: none; cursor: pointer; text-align: left;
+  transition: background var(--transition-fast);
+}
+.detail-reply-menu-dropdown button:hover { background: var(--color-gray-50); }
+.detail-reply-menu-delete { color: var(--color-danger) !important; }
+.detail-reply-menu-delete:hover { background: #FEF2F2 !important; }
+
+/* Inline edit */
+.detail-reply-edit-area { margin-top: var(--space-sm); }
+.detail-reply-edit-input {
+  width: 100%; padding: 10px 12px; font-size: var(--text-base); font-family: var(--font-mono);
+  color: var(--color-text-primary); background: var(--color-gray-50);
+  border: 1.5px solid var(--color-primary); border-radius: var(--radius-md);
+  outline: none; box-sizing: border-box; resize: vertical; min-height: 80px;
+}
+.detail-reply-edit-actions { display: flex; gap: var(--space-sm); margin-top: var(--space-sm); }
+.detail-reply-edit-save {
+  padding: 6px 14px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body);
+  color: var(--color-white); background: var(--color-primary); border: none; border-radius: var(--radius-md); cursor: pointer;
+}
+.detail-reply-edit-save:hover:not(:disabled) { opacity: 0.9; }
+.detail-reply-edit-save:disabled { opacity: 0.5; cursor: not-allowed; }
+.detail-reply-edit-cancel {
+  padding: 6px 14px; font-size: var(--text-sm); font-weight: 500; font-family: var(--font-body);
+  color: var(--color-text-secondary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer;
+}
+.detail-reply-edit-cancel:hover { background: var(--color-gray-50); }
 
 .detail-reply-actions { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-sm); gap: var(--space-md); }
 .detail-reply-internal { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--text-xs); color: var(--color-text-secondary); cursor: pointer; }

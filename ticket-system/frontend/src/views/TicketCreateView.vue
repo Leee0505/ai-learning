@@ -73,15 +73,7 @@
         <!-- Description -->
         <div class="create-field">
           <label for="desc-input" class="create-label">Description <span class="create-required">*</span></label>
-          <textarea
-            id="desc-input"
-            v-model="form.description"
-            class="create-textarea"
-            :class="{ 'create-textarea--error': errors.description }"
-            placeholder="Detailed description of your issue..."
-            rows="8"
-            :disabled="loading"
-          />
+          <div ref="vditorRef" class="create-vditor-container" :class="{ 'create-vditor-container--error': errors.description }"></div>
           <p v-if="errors.description" class="create-error">{{ errors.description }}</p>
         </div>
 
@@ -142,10 +134,12 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useTicketStore } from '@/stores/tickets'
+import Vditor from 'vditor'
+import 'vditor/dist/index.css'
 
 const router = useRouter()
 const store = useTicketStore()
@@ -156,8 +150,28 @@ const serverError = ref('')
 const fileInput = ref(null)
 const selectedFiles = ref([])
 
-const form = reactive({ title: '', category: '', priority: 'MEDIUM', description: '' })
+const vditorRef = ref(null)
+const vditorInstance = ref(null)
+
+const form = reactive({ title: '', category: '', priority: 'MEDIUM' })
 const errors = reactive({ title: '', category: '', priority: '', description: '' })
+
+onMounted(async () => {
+  await nextTick()
+  if (vditorRef.value) {
+    vditorInstance.value = new Vditor(vditorRef.value, {
+      mode: 'ir',
+      height: 200,
+      placeholder: 'Detailed description of your issue... (Markdown supported)',
+      toolbar: ['bold', 'italic', 'strikethrough', '|', 'quote', 'list', 'ordered-list', 'code', '|', 'link', '|', 'undo', 'redo'],
+      cache: { enable: false }
+    })
+  }
+})
+
+onUnmounted(() => {
+  if (vditorInstance.value) vditorInstance.value.destroy()
+})
 
 function clearErrors() {
   errors.title = ''; errors.category = ''; errors.priority = ''; errors.description = ''
@@ -170,7 +184,7 @@ function validate() {
   if (!form.title.trim()) { errors.title = 'Title is required'; valid = false }
   if (!form.category) { errors.category = 'Category is required'; valid = false }
   if (!form.priority) { errors.priority = 'Priority is required'; valid = false }
-  if (!form.description.trim()) { errors.description = 'Description is required'; valid = false }
+  if (!vditorInstance.value?.getValue()?.trim()) { errors.description = 'Description is required'; valid = false }
   return valid
 }
 
@@ -182,11 +196,10 @@ async function handleSubmit() {
       title: form.title.trim(),
       category: form.category,
       priority: form.priority,
-      description: form.description.trim()
+      description: vditorInstance.value.getValue().trim()
     })
     if (data.code === 200) {
       const ticketId = data.data.id
-      // Upload attachments if any
       for (const file of selectedFiles.value) {
         try { await store.uploadFile(ticketId, file) } catch {}
       }
@@ -258,16 +271,25 @@ function formatSize(bytes) {
 .create-label { display: block; margin-bottom: var(--space-xs); font-size: var(--text-sm); font-weight: 600; color: var(--color-text-primary); }
 .create-required { color: var(--color-danger); }
 
-.create-input, .create-select, .create-textarea {
+.create-input, .create-select {
   width: 100%; padding: 10px 12px; font-size: var(--text-base); font-family: var(--font-body);
   color: var(--color-text-primary); background: var(--color-gray-50); border: 1.5px solid var(--color-gray-200);
   border-radius: var(--radius-md); outline: none; box-sizing: border-box;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
-.create-input:focus, .create-select:focus, .create-textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12); }
-.create-input--error, .create-select--error, .create-textarea--error { border-color: var(--color-danger); }
-.create-textarea { resize: vertical; min-height: 150px; }
+.create-input:focus, .create-select:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12); }
+.create-input--error, .create-select--error { border-color: var(--color-danger); }
 .create-select { cursor: pointer; }
+
+.create-vditor-container {
+  border: 1.5px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.create-vditor-container:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12); }
+.create-vditor-container--error { border-color: var(--color-danger); }
+.create-vditor-container--error:focus-within { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15); }
 
 .create-error { margin: var(--space-xs) 0 0; font-size: var(--text-xs); color: var(--color-danger); }
 

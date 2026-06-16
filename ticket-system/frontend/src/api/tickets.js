@@ -36,6 +36,14 @@ export function addReply(id, data) {
   return request.post(`/tickets/${id}/replies`, data)
 }
 
+export function editReply(ticketId, replyId, data) {
+  return request.put(`/tickets/${ticketId}/replies/${replyId}`, data)
+}
+
+export function deleteReply(ticketId, replyId) {
+  return request.delete(`/tickets/${ticketId}/replies/${replyId}`)
+}
+
 export function uploadAttachment(id, file) {
   const formData = new FormData()
   formData.append('file', file)

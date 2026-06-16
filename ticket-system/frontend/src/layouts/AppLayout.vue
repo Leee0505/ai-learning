@@ -15,19 +15,19 @@
 
         <!-- Nav links -->
         <nav class="app-nav-links">
-          <router-link to="/" class="app-nav-link" exact-active-class="app-nav-link--active">
+          <router-link to="/" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path === '/' }">
             Dashboard
           </router-link>
-          <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/workbench" class="app-nav-link" active-class="app-nav-link--active">
+          <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/workbench" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/workbench') }">
             Workbench
           </router-link>
-          <router-link to="/tickets" class="app-nav-link" active-class="app-nav-link--active">
+          <router-link to="/tickets" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/tickets') }">
             Tickets
           </router-link>
-          <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/templates" class="app-nav-link" active-class="app-nav-link--active">
+          <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/templates" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/templates') }">
             Templates
           </router-link>
-          <router-link v-if="authStore.isAdmin" to="/admin/users" class="app-nav-link" active-class="app-nav-link--active">
+          <router-link v-if="authStore.isAdmin" to="/admin/users" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/admin/users') }">
             Users
           </router-link>
         </nav>

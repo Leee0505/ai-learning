@@ -40,6 +40,18 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
 
     @Override
     public ReplyTemplateResponse createTemplate(CreateTemplateRequest request, Long userId) {
+        // Validate title uniqueness
+        Long count = templateMapper.selectCount(
+                new LambdaQueryWrapper<ReplyTemplate>()
+                        .eq(ReplyTemplate::getTitle, request.getTitle()));
+        if (count > 0) {
+            throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
+        }
+        // Validate content length (max 5000 chars)
+        if (request.getContent().length() > 5000) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under 5000 characters");
+        }
+
         ReplyTemplate t = new ReplyTemplate();
         t.setTitle(request.getTitle());
         t.setContent(request.getContent());
@@ -56,6 +68,18 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
         if (t == null) {
             throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND);
         }
+        // Validate title uniqueness (exclude self)
+        Long count = templateMapper.selectCount(
+                new LambdaQueryWrapper<ReplyTemplate>()
+                        .eq(ReplyTemplate::getTitle, request.getTitle())
+                        .ne(ReplyTemplate::getId, id));
+        if (count > 0) {
+            throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
+        }
+        if (request.getContent().length() > 5000) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under 5000 characters");
+        }
+
         t.setTitle(request.getTitle());
         t.setContent(request.getContent());
         if (request.getCategory() != null) {

@@ -61,15 +61,18 @@ public class TicketServiceImpl implements TicketService {
     private final TicketAttachmentMapper ticketAttachmentMapper;
     private final UserMapper userMapper;
     private final FileStorageService fileStorage;
+    private final com.ticket.event.EventPublisher eventPublisher;
 
     public TicketServiceImpl(TicketMapper ticketMapper, TicketReplyMapper ticketReplyMapper,
                              TicketAttachmentMapper ticketAttachmentMapper, UserMapper userMapper,
-                             FileStorageService fileStorage) {
+                             FileStorageService fileStorage,
+                             com.ticket.event.EventPublisher eventPublisher) {
         this.ticketMapper = ticketMapper;
         this.ticketReplyMapper = ticketReplyMapper;
         this.ticketAttachmentMapper = ticketAttachmentMapper;
         this.userMapper = userMapper;
         this.fileStorage = fileStorage;
+        this.eventPublisher = eventPublisher;
     }
 
     // ──────────────────────────────────────────────
@@ -98,6 +101,11 @@ public class TicketServiceImpl implements TicketService {
         response.setAttachments(Collections.emptyList());
 
         log.info("Ticket created: id={} by userId={}", ticket.getId(), userId);
+        // Publish Kafka event for async consumers (audit, notification)
+        eventPublisher.publishTicketCreated(
+                new com.ticket.event.TicketCreatedEvent(
+                        ticket.getId(), ticket.getTitle(),
+                        ticket.getPriority(), ticket.getCategory(), userId));
         return response;
     }
 
@@ -309,6 +317,8 @@ public class TicketServiceImpl implements TicketService {
         ticketMapper.updateById(ticket);
 
         log.info("Ticket assigned: id={} to agentId={} by userId={}", ticketId, targetId, userId);
+        eventPublisher.publishTicketAssigned(
+                new com.ticket.event.TicketAssignedEvent(ticketId, targetId, userId));
         return getTicketDetail(ticketId, userId, role);
     }
 

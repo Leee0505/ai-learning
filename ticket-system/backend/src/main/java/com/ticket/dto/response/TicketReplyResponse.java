@@ -27,6 +27,12 @@ public class TicketReplyResponse {
     @Schema(description = "Unix timestamp (ms) when reply was created", example = "1700000100000")
     private Long createdDate;
 
+    @Schema(description = "Whether this reply has been edited", example = "true")
+    private boolean isEdited;
+
+    @Schema(description = "Unix timestamp (ms) of last modification", example = "1700000200000")
+    private Long lastModifiedDate;
+
     public static TicketReplyResponse from(TicketReply reply) {
         TicketReplyResponse r = new TicketReplyResponse();
         r.id = reply.getId();
@@ -34,7 +40,9 @@ public class TicketReplyResponse {
         r.userId = reply.getUserId();
         r.content = reply.getContent();
         r.isInternal = reply.getIsInternal() != null && reply.getIsInternal() == 1;
+        r.isEdited = reply.getIsEdited() != null && reply.getIsEdited() == 1;
         r.createdDate = reply.getCreatedDate();
+        r.lastModifiedDate = reply.getLastModifiedDate();
         return r;
     }
 
@@ -45,6 +53,8 @@ public class TicketReplyResponse {
     public String getContent() { return content; }
     public boolean getIsInternal() { return isInternal; }
     public Long getCreatedDate() { return createdDate; }
+    public boolean getIsEdited() { return isEdited; }
+    public Long getLastModifiedDate() { return lastModifiedDate; }
 
     public void setUsername(String username) { this.username = username; }
 }

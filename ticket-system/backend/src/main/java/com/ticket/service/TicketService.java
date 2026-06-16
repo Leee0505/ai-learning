@@ -20,6 +20,8 @@ public interface TicketService {
     TicketDetailResponse changeStatus(Long ticketId, ChangeStatusRequest request, Long userId, String role);
     TicketDetailResponse assignTicket(Long ticketId, AssignTicketRequest request, Long userId, String role);
     TicketReplyResponse addReply(Long ticketId, CreateReplyRequest request, Long userId);
+    TicketReplyResponse editReply(Long ticketId, Long replyId, UpdateReplyRequest request, Long userId);
+    void deleteReply(Long ticketId, Long replyId, Long userId, String role);
     TicketAttachmentResponse uploadAttachment(Long ticketId, MultipartFile file, Long userId);
     Resource downloadAttachment(Long attachmentId);
 

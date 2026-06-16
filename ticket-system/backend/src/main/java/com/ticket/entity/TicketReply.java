@@ -13,6 +13,7 @@ public class TicketReply {
     private Long userId;
     private String content;
     private Integer isInternal;
+    private Integer isEdited;
 
     @TableField(fill = FieldFill.INSERT)
     private Long createdBy;

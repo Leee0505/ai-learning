@@ -322,6 +322,53 @@ public class TicketController {
         return ApiResult.success(response);
     }
 
+    // ── Edit Reply ──
+
+    @PutMapping("/tickets/{id}/replies/{replyId}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Edit own reply",
+        description = "Updates the content of a reply. Only the reply author can edit."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Reply updated"),
+        @ApiResponse(responseCode = "403", description = "Not the reply author"),
+        @ApiResponse(responseCode = "404", description = "Reply not found")
+    })
+    public ApiResult<TicketReplyResponse> editReply(
+            @Parameter(description = "Ticket ID", required = true)
+            @PathVariable Long id,
+            @Parameter(description = "Reply ID", required = true)
+            @PathVariable Long replyId,
+            @Valid @RequestBody com.ticket.dto.request.UpdateReplyRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        TicketReplyResponse response = ticketService.editReply(id, replyId, request, userDetails.getUserId());
+        return ApiResult.success(response);
+    }
+
+    // ── Delete Reply ──
+
+    @DeleteMapping("/tickets/{id}/replies/{replyId}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Delete reply",
+        description = "Deletes a reply. Reply author or admin can delete."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Reply deleted"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to delete"),
+        @ApiResponse(responseCode = "404", description = "Reply not found")
+    })
+    public ApiResult<Void> deleteReply(
+            @Parameter(description = "Ticket ID", required = true)
+            @PathVariable Long id,
+            @Parameter(description = "Reply ID", required = true)
+            @PathVariable Long replyId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        ticketService.deleteReply(id, replyId, userDetails.getUserId(), userDetails.getRole());
+        return ApiResult.success(null);
+    }
+
     // ── Upload Attachment ──
 
     @PostMapping(value = "/tickets/{id}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

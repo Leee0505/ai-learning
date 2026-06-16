@@ -335,6 +335,48 @@ public class TicketServiceImpl implements TicketService {
         return response;
     }
 
+    // ── Edit Reply ──
+
+    @Override
+    @Transactional
+    public TicketReplyResponse editReply(Long ticketId, Long replyId, UpdateReplyRequest request, Long userId) {
+        TicketReply reply = ticketReplyMapper.selectById(replyId);
+        if (reply == null || !reply.getTicketId().equals(ticketId)) {
+            throw new BusinessException(ErrorCode.REPLY_NOT_FOUND);
+        }
+        if (!reply.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only the reply author can edit");
+        }
+
+        reply.setContent(request.getContent());
+        reply.setIsEdited(1);
+        ticketReplyMapper.updateById(reply);
+
+        TicketReplyResponse response = TicketReplyResponse.from(reply);
+        response.setUsername(getUsername(userId));
+
+        log.info("Reply edited: ticketId={} replyId={} by userId={}", ticketId, replyId, userId);
+        return response;
+    }
+
+    // ── Delete Reply ──
+
+    @Override
+    @Transactional
+    public void deleteReply(Long ticketId, Long replyId, Long userId, String role) {
+        TicketReply reply = ticketReplyMapper.selectById(replyId);
+        if (reply == null || !reply.getTicketId().equals(ticketId)) {
+            throw new BusinessException(ErrorCode.REPLY_NOT_FOUND);
+        }
+        // Author or admin can delete
+        if (!reply.getUserId().equals(userId) && !RoleConstants.ROLE_ADMIN.equals(role)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only the reply author or admin can delete");
+        }
+
+        ticketReplyMapper.deleteById(replyId);
+        log.info("Reply deleted: ticketId={} replyId={} by userId={}", ticketId, replyId, userId);
+    }
+
     // ──────────────────────────────────────────────
     //  Upload Attachment
     // ──────────────────────────────────────────────

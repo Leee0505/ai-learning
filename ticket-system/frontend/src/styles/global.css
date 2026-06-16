@@ -244,6 +244,17 @@ img {
   color: var(--color-primary) !important;
 }
 
+/* Ensure text-based toolbar buttons (B/I/S/U) are visible */
+.vditor-toolbar__item b,
+.vditor-toolbar__item i,
+.vditor-toolbar__item s,
+.vditor-toolbar__item u {
+  font-size: var(--text-sm) !important;
+  font-style: normal;
+  text-decoration: none;
+  font-family: var(--font-heading) !important;
+}
+
 /* Separator */
 .vditor-toolbar__divider {
   background: var(--color-gray-200) !important;

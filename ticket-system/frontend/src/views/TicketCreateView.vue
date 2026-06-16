@@ -285,7 +285,7 @@ function formatSize(bytes) {
 .create-vditor-container {
   border: 1.5px solid var(--color-gray-200);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow: visible;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .create-vditor-container:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12); }

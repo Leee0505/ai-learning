@@ -1,7 +1,7 @@
 #!/bin/bash
 # ================================================================
 # Start development services on 192.168.50.208 (Debian)
-# Data directory: /home/dev/mydata/
+# Data directory: /home/dev/mydata/  (data survives container removal)
 # Usage: bash start-dev-services.sh
 # ================================================================
 
@@ -14,37 +14,39 @@ NETWORK=ticket-dev
 docker network inspect ${NETWORK} >/dev/null 2>&1 || \
   docker network create ${NETWORK}
 
-# ── Remove old containers if they exist ──
-docker rm -f mysql   2>/dev/null || true
-docker rm -f redis   2>/dev/null || true
-docker rm -f kafka   2>/dev/null || true
+# ── Helpers ──
+replace_container() {
+  local name=$1
+  local image=$2
+  shift 2
+  if docker ps -a --format '{{.Names}}' | grep -q "^${name}$"; then
+    echo "--- ${name} exists, stopping & removing old container ---"
+    docker stop ${name} 2>/dev/null || true
+    docker rm ${name} 2>/dev/null || true
+  fi
+  echo "--- Starting ${name} (image: ${image}) ---"
+  docker run -d \
+    --name ${name} \
+    --network ${NETWORK} \
+    --restart unless-stopped \
+    "$@"
+}
 
-echo "=== Starting MySQL ==="
-docker run -d \
-  --name mysql \
-  --network ${NETWORK} \
-  --restart unless-stopped \
+# ── MySQL ──
+replace_container mysql mysql:8.0 \
   -p 3306:3306 \
   -v ${DATA_ROOT}/mysql/log:/var/log/mysql \
   -v ${DATA_ROOT}/mysql/conf:/etc/mysql/conf.d \
   -v ${DATA_ROOT}/mysql/data:/var/lib/mysql \
-  -e MYSQL_ROOT_PASSWORD=jw-0505 \
-  mysql:8.0
+  -e MYSQL_ROOT_PASSWORD=jw-0505
 
-echo "=== Starting Redis ==="
-docker run -d \
-  --name redis \
-  --network ${NETWORK} \
-  --restart unless-stopped \
+# ── Redis ──
+replace_container redis redis:7-alpine \
   -p 6379:6379 \
-  -v ${DATA_ROOT}/redis/data:/data \
-  redis:7-alpine
+  -v ${DATA_ROOT}/redis/data:/data
 
-echo "=== Starting Kafka (KRaft — no Zookeeper) ==="
-docker run -d \
-  --name kafka \
-  --network ${NETWORK} \
-  --restart unless-stopped \
+# ── Kafka (KRaft — no Zookeeper) ──
+replace_container kafka confluentinc/cp-kafka:7.5.0 \
   -p 9092:9092 \
   -e KAFKA_NODE_ID=1 \
   -e KAFKA_PROCESS_ROLES=broker,controller \
@@ -57,14 +59,10 @@ docker run -d \
   -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
   -e KAFKA_AUTO_CREATE_TOPICS_ENABLE=true \
   -e CLUSTER_ID=ticket-dev-cluster-001 \
-  -v ${DATA_ROOT}/kafka/data:/var/lib/kafka/data \
-  confluentinc/cp-kafka:7.5.0
+  -v ${DATA_ROOT}/kafka/data:/var/lib/kafka/data
 
 echo ""
-echo "=== All services started ==="
-echo "MySQL:    192.168.50.208:3306"
-echo "Redis:    192.168.50.208:6379"
-echo "Kafka:    192.168.50.208:9092  (KRaft)"
+echo "=== All services running ==="
+docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' --filter "name=mysql|redis|kafka"
 echo ""
-echo "Check status:  docker ps --filter 'name=mysql|redis|kafka'"
-echo "Kafka test:    docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list"
+echo "Kafka test:  docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list"

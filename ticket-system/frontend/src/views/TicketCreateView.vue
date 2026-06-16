@@ -167,8 +167,7 @@ onMounted(async () => {
       toolbar: [
         'bold', 'italic', 'strikethrough', 'underline', '|',
         'quote', 'list', 'ordered-list', 'code', '|',
-        'link', 'image', '|',
-        'table', 'hr', '|',
+        'link', 'image', 'table', 'hr', '|',
         'undo', 'redo'
       ],
       toolbarConfig: { pin: true },

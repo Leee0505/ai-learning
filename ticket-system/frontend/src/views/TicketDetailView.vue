@@ -85,22 +85,26 @@
           <h2 class="detail-card-title">Add Reply</h2>
           <div ref="vditorRef" class="detail-vditor-container"></div>
           <div class="detail-reply-actions">
-            <label v-if="authStore.isAgent || authStore.isAdmin" class="detail-reply-internal">
-              <input v-model="isInternal" type="checkbox" /> Internal Note
-            </label>
-            <div class="detail-reply-templates" v-if="authStore.isAgent || authStore.isAdmin" @click.stop>
-              <button class="detail-reply-templates-btn" @click="showTemplates = !showTemplates; showKnowledge = false">Templates ▾</button>
-              <div v-if="showTemplates" class="detail-reply-templates-dropdown">
-                <div v-if="templates.length === 0" class="detail-reply-templates-empty">No templates yet</div>
-                <button v-for="t in templates" :key="t.id" @click="insertTemplate(t)">{{ t.title }}</button>
-              </div>
-            </div>
-            <div class="detail-reply-templates" v-if="authStore.isAgent || authStore.isAdmin" @click.stop>
-              <button class="detail-reply-templates-btn" @click="toggleKnowledge">Knowledge ▾</button>
-              <div v-if="showKnowledge" class="detail-reply-knowledge-dropdown">
-                <input v-model="kbKeyword" class="kb-popover-search" placeholder="Search knowledge..." @keyup="searchKnowledge" />
-                <div v-if="kbArticles.length === 0" class="detail-reply-templates-empty">No results</div>
-                <button v-for="a in kbArticles" :key="a.id" @click="insertKnowledge(a)" :title="a.title">{{ a.title }} <span class="kb-popover-cat">{{ a.category }}</span></button>
+            <div class="detail-reply-actions-left">
+              <label v-if="authStore.isAgent || authStore.isAdmin" class="detail-reply-internal">
+                <input v-model="isInternal" type="checkbox" /> Internal Note
+              </label>
+              <div class="detail-reply-tools" v-if="authStore.isAgent || authStore.isAdmin">
+                <div class="detail-reply-tool" @click.stop>
+                  <button class="detail-reply-tool-btn" @click="showTemplates = !showTemplates; showKnowledge = false">Templates ▾</button>
+                  <div v-if="showTemplates" class="detail-reply-tool-dropdown">
+                    <div v-if="templates.length === 0" class="detail-reply-tool-empty">No templates yet</div>
+                    <button v-for="t in templates" :key="t.id" @click="insertTemplate(t)">{{ t.title }}</button>
+                  </div>
+                </div>
+                <div class="detail-reply-tool" @click.stop>
+                  <button class="detail-reply-tool-btn" @click="toggleKnowledge">Knowledge ▾</button>
+                  <div v-if="showKnowledge" class="detail-reply-tool-dropdown detail-reply-tool-dropdown--wide">
+                    <input v-model="kbKeyword" class="kb-popover-search" placeholder="Search knowledge..." @keyup="searchKnowledge" />
+                    <div v-if="kbArticles.length === 0" class="detail-reply-tool-empty">No results</div>
+                    <button v-for="a in kbArticles" :key="a.id" @click="insertKnowledge(a)" :title="a.title">{{ a.title }} <span class="kb-popover-cat">{{ a.category }}</span></button>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="detail-reply-btns">
@@ -926,57 +930,52 @@ function handleLightboxDownload() {
 .detail-reply-edit-cancel:hover { background: var(--color-gray-50); }
 
 .detail-reply-actions { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-sm); gap: var(--space-md); }
+.detail-reply-actions-left { display: flex; align-items: center; gap: var(--space-sm); }
 
-/* Templates dropdown */
-.detail-reply-templates { position: relative; }
-.detail-reply-templates-btn {
+/* Tool buttons group (Templates + Knowledge) */
+.detail-reply-tools { display: flex; gap: 0; }
+.detail-reply-tool { position: relative; }
+.detail-reply-tool:first-child .detail-reply-tool-btn { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+.detail-reply-tool:last-child .detail-reply-tool-btn { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.detail-reply-tool + .detail-reply-tool .detail-reply-tool-btn { border-left: none; }
+
+.detail-reply-tool-btn {
   padding: 6px 12px; font-size: var(--text-xs); font-weight: 500; font-family: var(--font-body);
   color: var(--color-text-secondary); background: var(--color-white);
-  border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer;
-  transition: all var(--transition-fast);
+  border: 1px solid var(--color-gray-200); cursor: pointer;
+  transition: all var(--transition-fast); white-space: nowrap;
 }
-.detail-reply-templates-btn:hover { background: var(--color-gray-50); color: var(--color-primary); border-color: var(--color-primary); }
-.detail-reply-templates-dropdown {
-  position: absolute; bottom: 100%; left: 0; margin-bottom: 4px; z-index: var(--z-dropdown);
-  background: var(--color-white); border: 1px solid var(--color-gray-200);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
-  min-width: 220px; max-height: 200px; overflow-y: auto;
-}
-.detail-reply-templates-dropdown button {
-  display: block; width: 100%; padding: 8px 12px; font-size: var(--text-sm); font-family: var(--font-body);
-  color: var(--color-text-primary); background: none; border: none; cursor: pointer; text-align: left;
-  border-bottom: 1px solid var(--color-gray-100);
-  transition: background var(--transition-fast);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.detail-reply-templates-dropdown button:last-child { border-bottom: none; }
-.detail-reply-templates-dropdown button:hover { background: var(--color-primary-bg); color: var(--color-primary); }
-.detail-reply-templates-empty {
-  padding: 12px; font-size: var(--text-sm); color: var(--color-text-muted); text-align: center;
-}
+.detail-reply-tool-btn:hover { background: var(--color-gray-50); color: var(--color-primary); border-color: var(--color-primary); }
+.detail-reply-tool-btn:hover + .detail-reply-tool .detail-reply-tool-btn { border-left-color: var(--color-primary); }
 
-/* Knowledge popover */
-.detail-reply-knowledge-dropdown {
+/* Shared dropdown (Templates + Knowledge) */
+.detail-reply-tool-dropdown {
   position: absolute; bottom: 100%; left: 0; margin-bottom: 4px; z-index: var(--z-dropdown);
   background: var(--color-white); border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-md); box-shadow: var(--shadow-md);
-  width: 360px; max-height: 320px; overflow-y: auto;
+  width: 280px; max-height: 260px; overflow-y: auto;
 }
-.kb-popover-search {
-  width: 100%; padding: 8px 12px; font-size: var(--text-sm); font-family: var(--font-body);
-  color: var(--color-text-primary); background: var(--color-gray-50);
-  border: none; border-bottom: 1px solid var(--color-gray-200); outline: none; box-sizing: border-box;
-}
-.detail-reply-knowledge-dropdown button {
+.detail-reply-tool-dropdown--wide { width: 340px; }
+.detail-reply-tool-dropdown button {
   display: flex; align-items: center; justify-content: space-between;
   width: 100%; padding: 8px 12px; font-size: var(--text-sm); font-family: var(--font-body);
   color: var(--color-text-primary); background: none; border: none; cursor: pointer; text-align: left;
   border-bottom: 1px solid var(--color-gray-100);
   transition: background var(--transition-fast);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.detail-reply-knowledge-dropdown button:last-child { border-bottom: none; }
-.detail-reply-knowledge-dropdown button:hover { background: var(--color-primary-bg); color: var(--color-primary); }
-.kb-popover-cat { font-size: var(--text-xs); color: var(--color-text-muted); font-weight: 400; }
+.detail-reply-tool-dropdown button:last-child { border-bottom: none; }
+.detail-reply-tool-dropdown button:hover { background: var(--color-primary-bg); color: var(--color-primary); }
+.detail-reply-tool-empty { padding: 12px; font-size: var(--text-sm); color: var(--color-text-muted); text-align: center; }
+
+/* Knowledge search input */
+.kb-popover-search {
+  width: 100%; padding: 8px 12px; font-size: var(--text-sm); font-family: var(--font-body);
+  color: var(--color-text-primary); background: var(--color-gray-50);
+  border: none; border-bottom: 1px solid var(--color-gray-200); outline: none; box-sizing: border-box;
+}
+.kb-popover-search:focus { background: var(--color-white); }
+.kb-popover-cat { font-size: 10px; color: var(--color-text-muted); font-weight: 400; margin-left: var(--space-sm); flex-shrink: 0; }
 .detail-reply-internal { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--text-xs); color: var(--color-text-secondary); cursor: pointer; }
 .detail-reply-internal input { accent-color: var(--color-warning); }
 .detail-reply-submit { padding: 10px 20px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); border: none; border-radius: var(--radius-md); cursor: pointer; transition: opacity var(--transition-fast), transform var(--transition-fast); }

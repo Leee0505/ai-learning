@@ -760,14 +760,14 @@ function handleLightboxDownload() {
 
 /* Quote button */
 .detail-reply-quote-btn {
-  display: inline-flex; align-items: center; padding: 4px 8px; margin-left: auto;
-  background: none; border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0; margin-left: auto;
+  background: transparent; border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm);
   color: var(--color-text-muted); cursor: pointer; transition: all var(--transition-fast);
-  min-width: 32px; min-height: 32px;
 }
 .detail-reply-quote-btn:hover { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-bg); }
 .detail-reply-quote-btn:active { transform: scale(0.95); }
-.detail-reply-quote-icon { width: 16px; height: 16px; }
+.detail-reply-quote-icon { width: 15px; height: 15px; }
 .detail-reply-content { font-size: var(--text-base); line-height: 1.6; color: var(--color-text-primary); }
 .detail-reply-content :deep(p) { margin: 0 0 0.5em; }
 .detail-reply-content :deep(p:last-child) { margin-bottom: 0; }
@@ -811,16 +811,16 @@ function handleLightboxDownload() {
 }
 
 /* Reply actions menu */
-.detail-reply-actions-menu { position: relative; margin-left: auto; }
+.detail-reply-actions-menu { position: relative; margin-left: 4px; }
 .detail-reply-more-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; padding: 0;
-  background: transparent; border: none; border-radius: var(--radius-sm);
-  color: var(--color-text-muted); cursor: pointer;
+  width: 32px; height: 32px; padding: 0;
+  background: transparent; border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm);
+  color: var(--color-text-secondary); cursor: pointer;
   transition: all var(--transition-fast);
 }
-.detail-reply-more-btn svg { width: 16px; height: 16px; }
-.detail-reply-more-btn:hover { background: var(--color-gray-100); color: var(--color-text-primary); }
+.detail-reply-more-btn svg { width: 18px; height: 18px; }
+.detail-reply-more-btn:hover { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-bg); }
 .detail-reply-menu-dropdown {
   position: absolute; right: 0; top: 100%; z-index: var(--z-dropdown);
   background: var(--color-white); border: 1px solid var(--color-gray-200);

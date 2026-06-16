@@ -517,10 +517,14 @@ async function handleDelete() {
       cancelButtonText: 'Cancel',
       type: 'warning'
     })
+  } catch { return /* cancelled */ }
+  try {
     await store.removeTicket(ticketId.value)
     ElMessage.success('Ticket deleted')
     router.push('/tickets')
-  } catch {}
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Failed to delete ticket')
+  }
 }
 
 // ── Attachments ──
@@ -548,8 +552,8 @@ async function handleDownload(att) {
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-  } catch {
-    ElMessage.error('Download failed')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Download failed')
   } finally {
     downloadingId.value = null
   }

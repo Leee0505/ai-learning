@@ -421,13 +421,15 @@ async function handleRoleChange() {
       'Confirm Role Change',
       { confirmButtonText: 'Change', cancelButtonText: 'Cancel', type: 'warning' }
     )
+  } catch { return /* cancelled */ }
+  try {
     const result = await adminStore.changeRole(editingUser.value.id, editForm.value.role)
     if (result.code === 200) {
       editVisible.value = false
       ElMessage.success('Role updated successfully')
     }
-  } catch {
-    // cancelled
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Failed to update role')
   }
 }
 
@@ -440,12 +442,14 @@ async function handleToggleStatus(user) {
       `Confirm ${actionLabel}`,
       { confirmButtonText: actionLabel, cancelButtonText: 'Cancel', type: 'warning' }
     )
+  } catch { return /* cancelled */ }
+  try {
     const result = await adminStore.toggleStatus(user.id, newStatus)
     if (result.code === 200) {
       ElMessage.success(`User ${newStatus === 0 ? 'disabled' : 'enabled'} successfully`)
     }
-  } catch {
-    // cancelled
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Failed to update status')
   }
 }
 
@@ -456,12 +460,14 @@ async function handleDelete(user) {
       'Confirm Delete',
       { confirmButtonText: 'Delete', cancelButtonText: 'Cancel', type: 'error' }
     )
+  } catch { return /* cancelled */ }
+  try {
     const result = await adminStore.deleteUser(user.id)
     if (result.code === 200) {
       ElMessage.success('User deleted successfully')
     }
-  } catch {
-    // cancelled
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Failed to delete user')
   }
 }
 </script>

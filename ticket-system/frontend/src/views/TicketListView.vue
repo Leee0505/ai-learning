@@ -207,15 +207,18 @@ async function handleBatchDelete() {
       `Delete ${selectedIds.value.length} selected ticket(s)? This action cannot be undone.`,
       'Batch Delete', { confirmButtonText: 'Delete', cancelButtonText: 'Cancel', type: 'warning' }
     )
-    batchLoading.value = true
+  } catch { return /* cancelled */ }
+  batchLoading.value = true
+  try {
     const { data } = await deleteBatchTickets(selectedIds.value)
     if (data.code === 200) {
       ElMessage.success(`${data.data} ticket(s) deleted`)
       selectedIds.value = []
       store.fetchTickets()
     }
-  } catch { /* cancelled or error */ }
-  finally { batchLoading.value = false }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Batch delete failed')
+  } finally { batchLoading.value = false }
 }
 
 onMounted(() => {
@@ -255,8 +258,8 @@ async function handleExport(format) {
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-  } catch {
-    ElMessage.error('Export failed')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Export failed')
   }
 }
 function goDetail(id, event) {

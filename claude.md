@@ -109,3 +109,30 @@ redisTemplate.opsForValue().set("user:" + userId, user, 30, TimeUnit.MINUTES);
 
 // Bad - Chinese comment
 // 缓存用户信息30分钟
+
+
+## 后续演进计划（Post-MVP）
+
+### 多租户架构 (v1.1)
+
+**目标：** 支持多个组织（公司/团队）独立使用同一套系统，数据完全隔离。
+
+**方案：共享数据库 + tenant_id 列隔离**（MVP 阶段无需改动）
+
+| 阶段 | 改动 | 预估 |
+|------|------|------|
+| **Phase 1 — 数据模型** | 新增 `tenant` 表（id, name, slug, status, created_date）。user, ticket, ticket_reply, ticket_attachment, reply_template 添加 `tenant_id` 列（默认 NULL = 全局/迁移前数据）。所有唯一索引加 tenant_id 前缀。 | 4h |
+| **Phase 2 — 认证隔离** | 注册/登录时绑定 tenant。JWT 加 `tenant_id` claim。SecurityContext 自动解析当前租户。同一 email 可在不同 tenant 注册。 | 3h |
+| **Phase 3 — 数据隔离** | MyBatis-Plus 分页插件拦截 SQL 自动加 `tenant_id = ?` 条件（行级隔离）。Admin 可查看全 tenant 数据。 | 2h |
+| **Phase 4 — 模板分级** | `tenant_id = NULL` → 系统默认模板（所有租户可见）。`tenant_id = xxx` → 租户自定义模板（仅本租户可见）。| 1h |
+
+**Template 分级设计：**
+```
+系统默认模板（tenant_id = NULL）
+  ↓ 所有租户可见，不可编辑
+租户 A 自定义模板（tenant_id = 1）
+租户 B 自定义模板（tenant_id = 2）
+  ↓ 各自独立，互不可见
+```
+
+**注意：** 多租户不在 MVP 范围内。当前阶段所有数据全局共享，待 MVP 完成并验证业务模型后再实施。

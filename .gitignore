@@ -1,2 +1,5 @@
 .superpowers/
 docker-volumes/
+.idea/
+uploads/
+.claude/skills/

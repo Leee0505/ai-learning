@@ -18,8 +18,14 @@
           <router-link to="/" class="app-nav-link" active-class="app-nav-link--active" exact>
             Dashboard
           </router-link>
+          <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/workbench" class="app-nav-link" active-class="app-nav-link--active">
+            Workbench
+          </router-link>
           <router-link to="/tickets" class="app-nav-link" active-class="app-nav-link--active">
             Tickets
+          </router-link>
+          <router-link v-if="authStore.isAdmin" to="/admin/users" class="app-nav-link" active-class="app-nav-link--active">
+            Users
           </router-link>
         </nav>
 

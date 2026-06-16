@@ -175,7 +175,6 @@ async function handleLogin() {
   try {
     const data = await authStore.login(form.login.trim(), form.password)
     if (data.code === 200) {
-      ElMessage.success('Welcome back!')
       router.push('/')
     } else {
       serverError.value = data.message || 'Login failed'

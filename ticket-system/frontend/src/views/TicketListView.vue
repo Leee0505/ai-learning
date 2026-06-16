@@ -174,6 +174,7 @@ import { useAuthStore } from '@/stores/auth'
 import { deleteBatchTickets } from '@/api/tickets'
 import request from '@/api/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { formatDate } from '@/utils/date'
 
 const store = useTicketStore()
 const authStore = useAuthStore()
@@ -264,10 +265,7 @@ function goDetail(id, event) {
   router.push(`/tickets/${id}`)
 }
 
-function formatDate(ts) {
-  if (!ts) return '—'
-  return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-}
+// formatDate is imported from @/utils/date
 
 function statusClass(status) {
   return {

@@ -24,6 +24,12 @@ const routes = [
         component: () => import('@/views/TicketListView.vue')
       },
       {
+        path: 'workbench',
+        name: 'Workbench',
+        component: () => import('@/views/AgentWorkbench.vue'),
+        meta: { requiresAuth: true, requiresAgent: true }
+      },
+      {
         path: 'tickets/new',
         name: 'TicketNew',
         component: () => import('@/views/TicketCreateView.vue')
@@ -32,6 +38,12 @@ const routes = [
         path: 'tickets/:id',
         name: 'TicketDetail',
         component: () => import('@/views/TicketDetailView.vue')
+      },
+      {
+        path: 'admin/users',
+        name: 'AdminUsers',
+        component: () => import('@/views/admin/UserListView.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }
       }
     ]
   }
@@ -66,6 +78,18 @@ router.beforeEach(async (to, from, next) => {
   }
 
   if (to.path === '/login' && authStore.accessToken) {
+    next('/')
+    return
+  }
+
+  // Admin route guard
+  if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    next('/')
+    return
+  }
+
+  // Agent/Admin route guard (agents and admins can access agent features)
+  if (to.meta.requiresAgent && !authStore.isAgent && !authStore.isAdmin) {
     next('/')
     return
   }

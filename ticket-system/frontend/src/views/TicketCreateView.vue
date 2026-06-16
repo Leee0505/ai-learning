@@ -165,7 +165,7 @@ onMounted(async () => {
       lang: 'en_US',
       placeholder: 'Detailed description of your issue... (attach images after creating the ticket)',
       toolbar: [
-        'bold', 'italic', 'strikethrough', 'underline', '|',
+        'bold', 'italic', '|',
         'quote', 'list', 'ordered-list', 'code', '|',
         'link', 'upload', 'table', 'line', '|',
         'undo', 'redo'

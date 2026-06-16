@@ -29,7 +29,8 @@ replace_container() {
     --name ${name} \
     --network ${NETWORK} \
     --restart unless-stopped \
-    "$@"
+    "$@" \
+    ${image}
 }
 
 # ── MySQL ──

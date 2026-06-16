@@ -15,7 +15,7 @@
 
         <!-- Nav links -->
         <nav class="app-nav-links">
-          <router-link to="/" class="app-nav-link" active-class="app-nav-link--active" exact>
+          <router-link to="/" class="app-nav-link" exact-active-class="app-nav-link--active">
             Dashboard
           </router-link>
           <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/workbench" class="app-nav-link" active-class="app-nav-link--active">
@@ -23,6 +23,9 @@
           </router-link>
           <router-link to="/tickets" class="app-nav-link" active-class="app-nav-link--active">
             Tickets
+          </router-link>
+          <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/templates" class="app-nav-link" active-class="app-nav-link--active">
+            Templates
           </router-link>
           <router-link v-if="authStore.isAdmin" to="/admin/users" class="app-nav-link" active-class="app-nav-link--active">
             Users

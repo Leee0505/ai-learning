@@ -45,6 +45,12 @@ const routes = [
         component: () => import('@/views/ProfileView.vue')
       },
       {
+        path: 'templates',
+        name: 'Templates',
+        component: () => import('@/views/TemplateListView.vue'),
+        meta: { requiresAuth: true, requiresAgent: true }
+      },
+      {
         path: 'admin/users',
         name: 'AdminUsers',
         component: () => import('@/views/admin/UserListView.vue'),

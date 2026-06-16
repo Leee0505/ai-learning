@@ -27,6 +27,9 @@
           <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/templates" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/templates') }">
             Templates
           </router-link>
+          <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/knowledge" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/knowledge') }">
+            Knowledge
+          </router-link>
           <router-link v-if="authStore.isAdmin" to="/admin/users" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/admin/users') }">
             Users
           </router-link>

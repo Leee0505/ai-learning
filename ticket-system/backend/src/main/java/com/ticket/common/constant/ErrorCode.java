@@ -20,6 +20,7 @@ public enum ErrorCode {
     REPLY_NOT_FOUND(40015, "reply not found"),
     TEMPLATE_NOT_FOUND(40021, "template not found"),
     TEMPLATE_TITLE_DUPLICATE(40022, "a template with this title already exists"),
+    KNOWLEDGE_NOT_FOUND(40023, "knowledge article not found"),
     CANNOT_DELETE_SELF(40016, "cannot delete your own account"),
     CANNOT_DISABLE_SELF(40017, "cannot disable your own account"),
     CANNOT_CHANGE_OWN_ROLE(40018, "cannot change your own role"),

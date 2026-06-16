@@ -1,0 +1,99 @@
+package com.ticket.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ticket.common.constant.ErrorCode;
+import com.ticket.common.exception.BusinessException;
+import com.ticket.dto.request.CreateTemplateRequest;
+import com.ticket.dto.response.ReplyTemplateResponse;
+import com.ticket.entity.KnowledgeArticle;
+import com.ticket.mapper.KnowledgeArticleMapper;
+import com.ticket.service.KnowledgeService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+
+@Service
+public class KnowledgeServiceImpl implements KnowledgeService {
+
+    private static final Logger log = LoggerFactory.getLogger(KnowledgeServiceImpl.class);
+    private final KnowledgeArticleMapper mapper;
+
+    public KnowledgeServiceImpl(KnowledgeArticleMapper mapper) { this.mapper = mapper; }
+
+    @Override
+    public List<ReplyTemplateResponse> search(String keyword, String category) {
+        LambdaQueryWrapper<KnowledgeArticle> wrapper = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like(KnowledgeArticle::getTitle, keyword)
+                    .or().like(KnowledgeArticle::getContent, keyword));
+        }
+        if (StringUtils.hasText(category)) {
+            wrapper.eq(KnowledgeArticle::getCategory, category);
+        }
+        wrapper.orderByDesc(KnowledgeArticle::getCreatedDate);
+        return mapper.selectList(wrapper).stream().map(a -> {
+            var r = new ReplyTemplateResponse();
+            r.setId(a.getId());
+            r.setTitle(a.getTitle());
+            r.setContent(a.getContent()); // full content for detail
+            r.setCategory(a.getCategory());
+            r.setCreatedDate(a.getCreatedDate());
+            return r;
+        }).toList();
+    }
+
+    @Override
+    @Transactional
+    public ReplyTemplateResponse getById(Long id) {
+        KnowledgeArticle a = mapper.selectById(id);
+        if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
+        a.setViewCount(a.getViewCount() + 1);
+        mapper.updateById(a);
+        var r = new ReplyTemplateResponse();
+        r.setId(a.getId());
+        r.setTitle(a.getTitle());
+        r.setContent(a.getContent());
+        r.setCategory(a.getCategory());
+        r.setCreatedDate(a.getCreatedDate());
+        return r;
+    }
+
+    @Override
+    public ReplyTemplateResponse create(CreateTemplateRequest request, Long userId) {
+        KnowledgeArticle a = new KnowledgeArticle();
+        a.setTitle(request.getTitle());
+        a.setContent(request.getContent());
+        a.setCategory(request.getCategory() != null ? request.getCategory() : "GENERAL");
+        a.setCreatedBy(userId);
+        mapper.insert(a);
+        log.info("Knowledge article created: id={} title={}", a.getId(), a.getTitle());
+        var r = new ReplyTemplateResponse();
+        r.setId(a.getId()); r.setTitle(a.getTitle()); r.setContent(a.getContent());
+        r.setCategory(a.getCategory()); r.setCreatedDate(a.getCreatedDate());
+        return r;
+    }
+
+    @Override
+    public ReplyTemplateResponse update(Long id, CreateTemplateRequest request, Long userId) {
+        KnowledgeArticle a = mapper.selectById(id);
+        if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
+        a.setTitle(request.getTitle());
+        a.setContent(request.getContent());
+        if (request.getCategory() != null) a.setCategory(request.getCategory());
+        mapper.updateById(a);
+        var r = new ReplyTemplateResponse();
+        r.setId(a.getId()); r.setTitle(a.getTitle()); r.setContent(a.getContent());
+        r.setCategory(a.getCategory()); r.setCreatedDate(a.getCreatedDate());
+        return r;
+    }
+
+    @Override
+    public void delete(Long id, Long userId) {
+        if (mapper.selectById(id) == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
+        mapper.deleteById(id);
+    }
+}

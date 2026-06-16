@@ -57,6 +57,12 @@ const routes = [
         meta: { requiresAuth: true, requiresAgent: true }
       },
       {
+        path: 'knowledge',
+        name: 'Knowledge',
+        component: () => import('@/views/KnowledgeView.vue'),
+        meta: { requiresAuth: true, requiresAgent: true }
+      },
+      {
         path: 'admin/users',
         name: 'AdminUsers',
         component: () => import('@/views/admin/UserListView.vue'),

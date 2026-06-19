@@ -251,6 +251,13 @@
               </select>
             </div>
 
+            <div class="form-group">
+              <label class="form-label" for="create-tenant">Tenant</label>
+              <select id="create-tenant" v-model="createForm.tenantId" class="filter-select" style="width:100%">
+                <option v-for="t in tenants" :key="t.id" :value="t.id">{{ t.name }} ({{ t.slug }})</option>
+              </select>
+            </div>
+
             <p v-if="createError" class="form-error">{{ createError }}</p>
           </div>
 
@@ -271,6 +278,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAdminStore } from '@/stores/admin'
 import { useAuthStore } from '@/stores/auth'
+import { getTenantsApi } from '@/api/tenant'
 import { formatDate } from '@/utils/date'
 
 const adminStore = useAdminStore()
@@ -311,8 +319,9 @@ const hasEditChanges = computed(() => {
 
 // Create dialog
 const createVisible = ref(false)
-const createForm = ref({ username: '', email: '', phone: '', password: '', role: 'ROLE_USER' })
+const createForm = ref({ username: '', email: '', phone: '', password: '', role: 'ROLE_USER', tenantId: null })
 const createError = ref('')
+const tenants = ref([])
 
 const createFormValid = computed(() =>
   createForm.value.username.trim().length >= 2 &&
@@ -341,10 +350,16 @@ function roleLabel(role) {
 // formatDate is imported from @/utils/date
 
 // ── Actions ──
-function openCreateDialog() {
-  createForm.value = { username: '', email: '', phone: '', password: '', role: 'ROLE_USER' }
+async function openCreateDialog() {
+  createForm.value = { username: '', email: '', phone: '', password: '', role: 'ROLE_USER', tenantId: null }
   createError.value = ''
   createVisible.value = true
+  if (tenants.value.length === 0) {
+    try {
+      const { data } = await getTenantsApi()
+      if (data?.code === 200) tenants.value = data.data || []
+    } catch {}
+  }
 }
 
 async function handleCreateUser() {
@@ -366,7 +381,8 @@ async function handleCreateUser() {
     email: createForm.value.email.trim(),
     phone: createForm.value.phone.trim() || undefined,
     password: createForm.value.password,
-    role: createForm.value.role
+    role: createForm.value.role,
+    tenantId: createForm.value.tenantId || undefined
   })
   if (result.code === 200) {
     createVisible.value = false

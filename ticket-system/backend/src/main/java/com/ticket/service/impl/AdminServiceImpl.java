@@ -44,8 +44,8 @@ public class AdminServiceImpl implements AdminService {
             throw new BusinessException(ErrorCode.ROLE_INVALID);
         }
 
-        // Check uniqueness within tenant
-        Long tenantId = SecurityUtils.getCurrentTenantId();
+        // Use requested tenant, or default to admin's own tenant
+        Long tenantId = request.getTenantId() != null ? request.getTenantId() : SecurityUtils.getCurrentTenantId();
         if (userMapper.selectCount(new LambdaQueryWrapper<User>()
                 .eq(User::getTenantId, tenantId)
                 .eq(User::getUsername, request.getUsername())) > 0) {

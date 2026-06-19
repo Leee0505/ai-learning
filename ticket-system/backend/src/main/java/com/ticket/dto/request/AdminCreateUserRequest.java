@@ -28,6 +28,9 @@ public class AdminCreateUserRequest {
     @Schema(description = "Initial password", example = "Pass@123", minLength = 6, maxLength = 128)
     private String password;
 
+    @Schema(description = "Tenant ID for the new user. Defaults to admin's own tenant.", example = "1")
+    private Long tenantId;
+
     @NotBlank(message = "role is required")
     @Pattern(regexp = "ROLE_USER|ROLE_AGENT|ROLE_ADMIN", message = "role must be one of ROLE_USER, ROLE_AGENT, or ROLE_ADMIN")
     @Schema(description = "Role for the new user", example = "ROLE_AGENT", allowableValues = {"ROLE_USER", "ROLE_AGENT", "ROLE_ADMIN"})
@@ -41,6 +44,8 @@ public class AdminCreateUserRequest {
     public void setPhone(String phone) { this.phone = phone; }
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+    public Long getTenantId() { return tenantId; }
+    public void setTenantId(Long tenantId) { this.tenantId = tenantId; }
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
 }

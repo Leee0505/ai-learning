@@ -1,5 +1,6 @@
 package com.ticket.security;
 
+import com.ticket.common.constant.SecurityConstants;
 import io.jsonwebtoken.Claims;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,12 +33,12 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             String authHeader = accessor.getFirstNativeHeader("Authorization");
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            if (authHeader == null || !authHeader.startsWith(SecurityConstants.BEARER_PREFIX)) {
                 log.warn("WebSocket CONNECT rejected: missing or invalid Authorization header");
                 throw new IllegalArgumentException("Missing or invalid Authorization header");
             }
 
-            String token = authHeader.substring(7);
+            String token = authHeader.substring(SecurityConstants.BEARER_PREFIX_LENGTH);
             Claims claims = jwtTokenProvider.validateToken(token);
             if (claims == null) {
                 log.warn("WebSocket CONNECT rejected: invalid token");

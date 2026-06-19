@@ -49,10 +49,8 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public void handleTicketCreated(TicketCreatedEvent event) {
         // Notify all agents and admins
-        var recipients = userMapper.selectList(new LambdaQueryWrapper<>())
-                .stream()
-                .filter(u -> RoleConstants.ROLE_AGENT.equals(u.getRole()) || RoleConstants.ROLE_ADMIN.equals(u.getRole()))
-                .toList();
+        var recipients = userMapper.selectList(new LambdaQueryWrapper<User>()
+                .in(User::getRole, RoleConstants.ROLE_AGENT, RoleConstants.ROLE_ADMIN));
 
         for (var user : recipients) {
             Notification notif = buildNotification(user.getId(),

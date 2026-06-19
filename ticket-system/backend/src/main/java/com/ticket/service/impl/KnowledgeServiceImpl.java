@@ -58,9 +58,12 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     public ReplyTemplateResponse getById(Long id) {
         KnowledgeArticle a = mapper.selectById(id);
         if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
-        // Atomic increment to avoid view count race condition
-        a.setViewCount(a.getViewCount() + 1);
-        mapper.updateById(a);
+        // Atomic increment via SQL to avoid view count race condition
+        var updateWrapper = new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<KnowledgeArticle>()
+                .eq(KnowledgeArticle::getId, id)
+                .setSql("view_count = view_count + 1");
+        mapper.update(null, updateWrapper);
+        a.setViewCount(a.getViewCount() + 1); // reflect in returned object
         var r = new ReplyTemplateResponse();
         r.setId(a.getId());
         r.setTitle(a.getTitle());

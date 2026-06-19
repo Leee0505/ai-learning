@@ -228,9 +228,15 @@ public class AuthServiceImpl implements AuthService {
         user.setStatus(BusinessConstants.USER_STATUS_ENABLED);
         userMapper.insert(user);
 
-        // Mark token as used
-        inviteToken.setUsed(BusinessConstants.INVITE_TOKEN_USED);
-        inviteTokenMapper.updateById(inviteToken);
+        // Atomically mark token as used (prevent race condition)
+        var updateWrapper = new LambdaQueryWrapper<InviteToken>()
+                .eq(InviteToken::getToken, request.getToken())
+                .eq(InviteToken::getUsed, BusinessConstants.INVITE_TOKEN_UNUSED);
+        InviteToken updated = new InviteToken();
+        updated.setUsed(BusinessConstants.INVITE_TOKEN_USED);
+        if (inviteTokenMapper.update(updated, updateWrapper) == 0) {
+            throw new InviteTokenUsedException();
+        }
 
         // Generate tokens
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole(), user.getTenantId());

@@ -119,7 +119,7 @@ SELECT
   END
 
 FROM (
-  SELECT tenant_id, id, slug FROM tenant WHERE id > 1 AND id <= @tenants + 1
+  SELECT id, slug FROM tenant WHERE id > 1 AND id <= @tenants + 1
 ) t
 JOIN (
   WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n < @tickets_per)

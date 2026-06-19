@@ -11,6 +11,7 @@ import com.ticket.mapper.KnowledgeArticleMapper;
 import com.ticket.service.KnowledgeService;
 import com.ticket.util.SecurityUtils;
 import org.slf4j.Logger;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -102,6 +103,9 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     public ReplyTemplateResponse update(Long id, CreateTemplateRequest request, Long userId) {
         KnowledgeArticle a = mapper.selectById(id);
         if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
+        if (a.getTenantId() == null && !isAdmin()) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can edit system default articles");
+        }
         // Validate title uniqueness (exclude self)
         Long count = mapper.selectCount(
                 new LambdaQueryWrapper<KnowledgeArticle>()
@@ -127,7 +131,20 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     @Override
     @Transactional
     public void delete(Long id, Long userId) {
-        if (mapper.selectById(id) == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
+        KnowledgeArticle a = mapper.selectById(id);
+        if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
+        if (a.getTenantId() == null && !isAdmin()) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can delete system default articles");
+        }
         mapper.deleteById(id);
+    }
+
+    private boolean isAdmin() {
+        try {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            return auth != null && auth.getAuthorities().stream()
+                    .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        } catch (Exception ignored) {}
+        return false;
     }
 }

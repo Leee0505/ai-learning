@@ -12,6 +12,7 @@ import com.ticket.service.ReplyTemplateService;
 import com.ticket.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -78,6 +79,10 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
         if (t == null) {
             throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND);
         }
+        // System defaults (tenant_id=NULL) only editable by admin
+        if (t.getTenantId() == null && !isAdmin()) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can edit system default templates");
+        }
         // Validate title uniqueness (exclude self)
         Long count = templateMapper.selectCount(
                 new LambdaQueryWrapper<ReplyTemplate>()
@@ -107,7 +112,19 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
         if (t == null) {
             throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND);
         }
+        if (t.getTenantId() == null && !isAdmin()) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can delete system default templates");
+        }
         templateMapper.deleteById(id);
         log.info("Template deleted: id={} by userId={}", id, userId);
+    }
+
+    private boolean isAdmin() {
+        try {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            return auth != null && auth.getAuthorities().stream()
+                    .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        } catch (Exception ignored) {}
+        return false;
     }
 }

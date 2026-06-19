@@ -46,12 +46,13 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { useNotificationStore } from '@/stores/notifications'
 import { getNotificationsApi } from '@/api/notifications'
 
 const store = useNotificationStore()
 const router = useRouter()
-const { unreadCount } = store
+const { unreadCount } = storeToRefs(store)
 
 const open = ref(false)
 const loading = ref(false)

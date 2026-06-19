@@ -1,8 +1,11 @@
 package com.ticket.security;
 
+import com.ticket.common.constant.BusinessConstants;
 import com.ticket.common.constant.SecurityConstants;
 import com.ticket.common.exception.TokenBlacklistedException;
 import com.ticket.common.exception.TokenExpiredException;
+import com.ticket.entity.User;
+import com.ticket.mapper.UserMapper;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -26,9 +29,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserMapper userMapper;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, UserMapper userMapper) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.userMapper = userMapper;
     }
 
     @Override
@@ -43,6 +48,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (claims != null) {
                     Long userId = Long.parseLong(claims.getSubject());
                     String role = claims.get("role", String.class);
+
+                    // Verify user is still enabled (handles admin disable after token issuance)
+                    User user = userMapper.selectById(userId);
+                    if (user != null && user.getStatus() != null && user.getStatus() == BusinessConstants.USER_STATUS_DISABLED) {
+                        response.setContentType("application/json");
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.getWriter().write(
+                                "{\"code\":40019,\"message\":\"user account is disabled\",\"data\":null}");
+                        return;
+                    }
 
                     UserDetailsImpl principal = new UserDetailsImpl(userId, role);
                     UsernamePasswordAuthenticationToken authentication =

@@ -614,7 +614,11 @@ public class TicketServiceImpl implements TicketService {
         if ("unassigned".equalsIgnoreCase(assignedTo)) {
             wrapper.isNull(Ticket::getAssignedTo);
         } else if (assignedTo != null && !assignedTo.isBlank()) {
-            wrapper.eq(Ticket::getAssignedTo, Long.parseLong(assignedTo));
+            try {
+                wrapper.eq(Ticket::getAssignedTo, Long.parseLong(assignedTo));
+            } catch (NumberFormatException e) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR, "assignedTo must be a valid user ID or 'unassigned'");
+            }
         }
         return wrapper;
     }
@@ -647,7 +651,8 @@ public class TicketServiceImpl implements TicketService {
                 .eq("assigned_to", userId)
                 .in("status", "RESOLVED", "CLOSED")
                 .ge("resolved_date", todayStart);
-        long todayDone = ((Number) ticketMapper.selectMaps(doneWrapper).get(0).getOrDefault("cnt", 0L)).longValue();
+        var doneMaps = ticketMapper.selectMaps(doneWrapper);
+        long todayDone = doneMaps.isEmpty() ? 0L : ((Number) doneMaps.get(0).getOrDefault("cnt", 0L)).longValue();
 
         // Average processing time (ms → minutes) for today's completions
         var avgWrapper = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Ticket>()
@@ -656,7 +661,8 @@ public class TicketServiceImpl implements TicketService {
                 .in("status", "RESOLVED", "CLOSED")
                 .ge("resolved_date", todayStart)
                 .isNotNull("created_date");
-        var avgResult = ticketMapper.selectMaps(avgWrapper).get(0).get("avg_ms");
+        var avgMaps = ticketMapper.selectMaps(avgWrapper);
+        var avgResult = avgMaps.isEmpty() ? null : avgMaps.get(0).get("avg_ms");
         double avgMinutes = avgResult != null ? ((Number) avgResult).doubleValue() / 60000.0 : 0;
 
         // Pending queue (unassigned)
@@ -686,7 +692,8 @@ public class TicketServiceImpl implements TicketService {
                     .in("status", "RESOLVED", "CLOSED")
                     .ge("resolved_date", start)
                     .lt("resolved_date", end);
-            values[6 - i] = ((Number) ticketMapper.selectMaps(dayWrapper).get(0).getOrDefault("cnt", 0L)).longValue();
+            var dayMaps = ticketMapper.selectMaps(dayWrapper);
+            values[6 - i] = dayMaps.isEmpty() ? 0L : ((Number) dayMaps.get(0).getOrDefault("cnt", 0L)).longValue();
         }
 
         return new AgentStatsResponse(todayDone, Math.round(avgMinutes * 10.0) / 10.0,

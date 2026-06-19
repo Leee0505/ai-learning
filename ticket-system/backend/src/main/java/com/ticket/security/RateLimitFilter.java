@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -30,10 +31,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // Rate-limit rules: path pattern → max requests per minute
+    private static final Map<String, Integer> RATE_LIMIT_RULES = Map.of(
+            "/api/auth/login", 10,
+            "/api/auth/register", 3,
+            "/api/tickets/create", 20,
+            "/api/tickets/export", 2
+    );
+    // Attachment upload: rate-limited by path prefix
+    private static final int ATTACHMENT_LIMIT_PER_MINUTE = 10;
+
     private final RedissonClient redissonClient;
 
     @Value("${rate-limit.max-requests-per-minute:10}")
-    private int maxRequestsPerMinute;
+    private int defaultMaxRequestsPerMinute;
 
     public RateLimitFilter(RedissonClient redissonClient) {
         this.redissonClient = redissonClient;
@@ -44,9 +55,22 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String path = request.getRequestURI();
+        String method = request.getMethod();
 
-        // Only rate-limit login and register endpoints
-        if (!path.equals("/api/auth/login") && !path.equals("/api/auth/register")) {
+        int maxRequests = 0;
+
+        // Check exact path + method matches
+        if ("POST".equals(method) && path.equals("/api/tickets")) {
+            maxRequests = RATE_LIMIT_RULES.getOrDefault("/api/tickets/create", 0);
+        } else if ("GET".equals(method) && path.startsWith("/api/tickets/export")) {
+            maxRequests = RATE_LIMIT_RULES.getOrDefault("/api/tickets/export", 0);
+        } else if ("POST".equals(method) && path.contains("/attachments")) {
+            maxRequests = ATTACHMENT_LIMIT_PER_MINUTE;
+        } else {
+            maxRequests = RATE_LIMIT_RULES.getOrDefault(path, 0);
+        }
+
+        if (maxRequests <= 0) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -57,19 +81,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
         RAtomicLong counter = redissonClient.getAtomicLong(rateLimitKey);
         long count = counter.incrementAndGet();
 
-        // Set TTL on first request in the window
         if (count == 1) {
             counter.expire(60, TimeUnit.SECONDS);
         }
 
-        if (count > maxRequestsPerMinute) {
+        if (count > maxRequests) {
             log.warn("Rate limit exceeded: ip={}, path={}, count={}", clientIp, path, count);
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            ApiResult<Void> errorResponse = ApiResult.error(
-                    ErrorCode.RATE_LIMIT_EXCEEDED.getCode(),
-                    ErrorCode.RATE_LIMIT_EXCEEDED.getDefaultMessage());
-            objectMapper.writeValue(response.getWriter(), errorResponse);
+            objectMapper.writeValue(response.getWriter(),
+                    ApiResult.error(ErrorCode.RATE_LIMIT_EXCEEDED.getCode(),
+                            ErrorCode.RATE_LIMIT_EXCEEDED.getDefaultMessage()));
             return;
         }
 

@@ -33,7 +33,7 @@
           <!-- Admin dropdown -->
           <div v-if="authStore.isAdmin" class="admin-dropdown" ref="adminDropdownRef">
             <button
-              class="app-nav-link"
+              class="app-nav-link admin-btn"
               :class="{ 'app-nav-link--active': $route.path.startsWith('/admin') }"
               @click="adminMenuOpen = !adminMenuOpen"
               aria-haspopup="true"
@@ -55,6 +55,7 @@
         </nav>
 
         <!-- User section -->
+        <div class="nav-spacer"></div>
         <NotificationBell />
         <div class="app-user">
           <div class="app-user-avatar" aria-hidden="true">
@@ -155,7 +156,6 @@ async function handleLogout() {
 .app-nav-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 var(--space-lg);
@@ -214,6 +214,8 @@ async function handleLogout() {
 
 /* Admin dropdown */
 .admin-dropdown { position: relative; }
+.admin-btn { background: none !important; }
+.admin-btn.app-nav-link--active { background: none !important; color: var(--color-primary); }
 .admin-chevron { width: 14px; height: 14px; margin-left: 2px; transition: transform 200ms; }
 .admin-chevron--open { transform: rotate(180deg); }
 .admin-menu { position: absolute; top: calc(100% + 6px); left: 0; min-width: 160px; background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); box-shadow: var(--shadow-xl); padding: 6px; z-index: var(--z-modal); }
@@ -223,6 +225,9 @@ async function handleLogout() {
 
 .dropdown-fade-enter-active, .dropdown-fade-leave-active { transition: opacity 150ms, transform 150ms; }
 .dropdown-fade-enter-from, .dropdown-fade-leave-to { opacity: 0; transform: translateY(-4px); }
+
+/* Push user section to the right */
+.nav-spacer { margin-left: auto; }
 
 /* User */
 .app-user {

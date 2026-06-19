@@ -31,13 +31,14 @@ public class MyBatisPlusConfig {
                 // Admin bypass via request attribute (set by JwtAuthenticationFilter)
                 try {
                     ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-                    if (attrs != null) {
-                        String role = (String) attrs.getAttribute(REQUEST_ATTR_ROLE, ServletRequestAttributes.SCOPE_REQUEST);
-                        if (RoleConstants.ROLE_ADMIN.equals(role)) return null;
-                    }
-                } catch (Exception ignored) {}
-
-                return new LongValue(SecurityUtils.getCurrentTenantId());
+                    if (attrs == null) return null; // no request context = skip filter (safety)
+                    String role = (String) attrs.getAttribute(REQUEST_ATTR_ROLE, ServletRequestAttributes.SCOPE_REQUEST);
+                    if (RoleConstants.ROLE_ADMIN.equals(role)) return null;
+                    // Regular user: apply tenant filter
+                    return new LongValue(SecurityUtils.getCurrentTenantId());
+                } catch (Exception ignored) {
+                    return null; // safety: skip filter on error
+                }
             }
 
             @Override

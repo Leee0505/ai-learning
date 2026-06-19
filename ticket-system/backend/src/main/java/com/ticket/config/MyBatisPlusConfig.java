@@ -10,15 +10,15 @@ import com.ticket.util.SecurityUtils;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
 import org.apache.ibatis.reflection.MetaObject;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class MyBatisPlusConfig {
 
-    @Value("${tenant.filter.enabled:true}")
-    private boolean tenantFilterEnabled;
+    // Hard-disabled until admin bypass is properly debugged.
+    // Set to true + implement proper bypass before enabling in production.
+    private static final boolean TENANT_FILTER_ENABLED = false;
 
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
@@ -27,7 +27,7 @@ public class MyBatisPlusConfig {
         interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
             @Override
             public Expression getTenantId() {
-                if (!tenantFilterEnabled) return null;
+                if (!TENANT_FILTER_ENABLED) return null;
                 Long tenantId = SecurityUtils.getCurrentTenantId();
                 return new LongValue(tenantId != null ? tenantId : 1L);
             }

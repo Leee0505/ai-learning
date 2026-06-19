@@ -35,6 +35,10 @@ public final class BusinessConstants {
     public static final String TICKET_PRIORITY_HIGH = "HIGH";
     public static final String TICKET_PRIORITY_URGENT = "URGENT";
 
+    /** SLA priority ordering: strictest → loosest. Used for cross-priority boundary validation. */
+    public static final java.util.List<String> SLA_PRIORITY_ORDER =
+            java.util.List.of(TICKET_PRIORITY_URGENT, TICKET_PRIORITY_HIGH, TICKET_PRIORITY_MEDIUM, TICKET_PRIORITY_LOW);
+
     // === Ticket category ===
     public static final String TICKET_CATEGORY_BUG = "BUG";
     public static final String TICKET_CATEGORY_FEATURE_REQUEST = "FEATURE_REQUEST";

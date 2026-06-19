@@ -78,6 +78,49 @@ CREATE TABLE IF NOT EXISTS `ticket_reply` (
     FOREIGN KEY (`ticket_id`) REFERENCES `ticket` (`id`) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS `ticket_field_config` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(100) NOT NULL,
+    `field_key` VARCHAR(50) NOT NULL,
+    `field_type` VARCHAR(20) NOT NULL DEFAULT 'TEXT',
+    `options` VARCHAR(1000) DEFAULT NULL,
+    `required` TINYINT NOT NULL DEFAULT 0,
+    `active` TINYINT NOT NULL DEFAULT 1,
+    `display_order` INT NOT NULL DEFAULT 0,
+    `created_by` BIGINT NOT NULL,
+    `created_date` BIGINT NOT NULL,
+    `last_modified_by` BIGINT DEFAULT NULL,
+    `last_modified_date` BIGINT DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_field_key` (`field_key`)
+);
+
+CREATE TABLE IF NOT EXISTS `sla_config` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `priority` VARCHAR(20) NOT NULL,
+    `response_minutes` INT NOT NULL,
+    `resolution_minutes` INT NOT NULL,
+    `active` TINYINT NOT NULL DEFAULT 1,
+    `created_by` BIGINT NOT NULL,
+    `created_date` BIGINT NOT NULL,
+    `last_modified_by` BIGINT DEFAULT NULL,
+    `last_modified_date` BIGINT DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_priority` (`priority`)
+);
+
+-- Seed default SLA rules for tests
+INSERT INTO sla_config (priority, response_minutes, resolution_minutes, active, created_by, created_date) VALUES
+('URGENT', 60, 240, 1, 0, 0),
+('HIGH', 240, 1440, 1, 0, 0),
+('MEDIUM', 480, 2880, 1, 0, 0),
+('LOW', 1440, 5760, 1, 0, 0);
+
+-- Seed default custom fields for tests
+INSERT INTO ticket_field_config (name, field_key, field_type, options, display_order, active, required, created_by, created_date) VALUES
+('Environment', 'environment', 'SINGLE_SELECT', '{"items":["Production","Staging","Development"]}', 1, 1, 0, 0, 0),
+('Version', 'version', 'TEXT', NULL, 2, 1, 0, 0, 0);
+
 CREATE TABLE IF NOT EXISTS `ticket_attachment` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `ticket_id` BIGINT DEFAULT NULL,

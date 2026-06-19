@@ -62,7 +62,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
 
                     UserDetailsImpl principal = new UserDetailsImpl(userId, role, tenantId);
-                    request.setAttribute(com.ticket.config.MyBatisPlusConfig.REQUEST_ATTR_ROLE, role);
 
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(

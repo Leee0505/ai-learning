@@ -15,6 +15,11 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+# Tenant filter: disabled in dev until fully tested
+tenant:
+  filter:
+    enabled: false
+
 jwt:
   secret: ${JWT_SECRET:dev-secret-key-that-is-at-least-256-bits-long-for-hs256}
 

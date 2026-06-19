@@ -271,7 +271,7 @@ import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
 import { downloadAttachment, editReply, deleteReply } from '@/api/tickets'
 import { listTemplates } from '@/api/templates'
-import { getUsersApi } from '@/api/admin'
+import { getAgentsApi } from '@/api/agents'
 import request from '@/api/request'
 import { renderMarkdown } from '@/utils/markdown'
 import { formatDate, formatRelative, formatDateTime } from '@/utils/date'
@@ -292,8 +292,8 @@ const agents = ref([])
 
 async function fetchAgents() {
   try {
-    const { data } = await getUsersApi({ role: 'ROLE_AGENT', size: 100 })
-    if (data?.code === 200) agents.value = data.data.records || []
+    const { data } = await getAgentsApi()
+    if (data?.code === 200) agents.value = data.data || []
   } catch { /* ignore */ }
 }
 

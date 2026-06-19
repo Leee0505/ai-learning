@@ -50,6 +50,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole(RoleConstants.ADMIN)
                 .requestMatchers("/api/templates/**").authenticated()
                 .requestMatchers("/api/knowledge/**").authenticated()
+                .requestMatchers("/api/agents/**").authenticated()
+                .requestMatchers("/api/notifications/**").authenticated()
                 .requestMatchers("/api/tickets/**").authenticated()
                 .requestMatchers("/api/attachments/**").authenticated()
                 .anyRequest().authenticated()

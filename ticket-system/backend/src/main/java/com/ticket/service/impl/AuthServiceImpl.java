@@ -2,6 +2,8 @@ package com.ticket.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ticket.common.constant.BusinessConstants;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ticket.common.constant.BusinessConstants;
 import com.ticket.common.constant.ErrorCode;
 import com.ticket.common.constant.RoleConstants;
 import com.ticket.common.exception.*;
@@ -9,8 +11,10 @@ import com.ticket.dto.request.*;
 import com.ticket.dto.response.AuthResponse;
 import com.ticket.dto.response.UserResponse;
 import com.ticket.entity.InviteToken;
+import com.ticket.entity.Tenant;
 import com.ticket.entity.User;
 import com.ticket.mapper.InviteTokenMapper;
+import com.ticket.mapper.TenantMapper;
 import com.ticket.mapper.UserMapper;
 import com.ticket.security.JwtTokenProvider;
 import com.ticket.security.UserDetailsImpl;
@@ -34,15 +38,18 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserMapper userMapper;
     private final InviteTokenMapper inviteTokenMapper;
+    private final TenantMapper tenantMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
 
     public AuthServiceImpl(UserMapper userMapper, InviteTokenMapper inviteTokenMapper,
+                           TenantMapper tenantMapper,
                            PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager,
                            JwtTokenProvider jwtTokenProvider) {
         this.userMapper = userMapper;
         this.inviteTokenMapper = inviteTokenMapper;
+        this.tenantMapper = tenantMapper;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtTokenProvider = jwtTokenProvider;
@@ -51,18 +58,29 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        // Check uniqueness
+        // Resolve tenant by slug
+        Tenant tenant = tenantMapper.selectOne(new LambdaQueryWrapper<Tenant>()
+                .eq(Tenant::getSlug, request.getTenantSlug()));
+        if (tenant == null || tenant.getStatus() == 0) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "invalid tenant: " + request.getTenantSlug());
+        }
+        Long tenantId = tenant.getId();
+
+        // Check uniqueness within tenant
         if (userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .eq(User::getTenantId, tenantId)
                 .eq(User::getUsername, request.getUsername())) > 0) {
             throw new UsernameAlreadyExistsException();
         }
         if (userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .eq(User::getTenantId, tenantId)
                 .eq(User::getEmail, request.getEmail())) > 0) {
             throw new EmailAlreadyExistsException();
         }
 
         // Create user
         User user = new User();
+        user.setTenantId(tenantId);
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());

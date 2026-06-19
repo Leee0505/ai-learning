@@ -20,6 +20,9 @@ public class RegisterRequest {
     @Size(min = 6, max = 100, message = "password must be 6-100 characters")
     private String password;
 
+    @NotBlank(message = "tenantSlug is required")
+    private String tenantSlug;
+
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
     public String getEmail() { return email; }
@@ -28,4 +31,6 @@ public class RegisterRequest {
     public void setPhone(String phone) { this.phone = phone; }
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+    public String getTenantSlug() { return tenantSlug; }
+    public void setTenantSlug(String tenantSlug) { this.tenantSlug = tenantSlug; }
 }

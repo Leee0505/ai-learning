@@ -13,6 +13,7 @@ import com.ticket.dto.response.UserResponse;
 import com.ticket.entity.User;
 import com.ticket.mapper.UserMapper;
 import com.ticket.service.AdminService;
+import com.ticket.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -43,17 +44,21 @@ public class AdminServiceImpl implements AdminService {
             throw new BusinessException(ErrorCode.ROLE_INVALID);
         }
 
-        // Check uniqueness
+        // Check uniqueness within tenant
+        Long tenantId = SecurityUtils.getCurrentTenantId();
         if (userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .eq(User::getTenantId, tenantId)
                 .eq(User::getUsername, request.getUsername())) > 0) {
             throw new BusinessException(ErrorCode.USERNAME_ALREADY_EXISTS);
         }
         if (userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .eq(User::getTenantId, tenantId)
                 .eq(User::getEmail, request.getEmail())) > 0) {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
         User user = new User();
+        user.setTenantId(tenantId);
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
@@ -115,8 +120,10 @@ public class AdminServiceImpl implements AdminService {
         boolean changed = false;
 
         if (StringUtils.hasText(request.getUsername()) && !request.getUsername().equals(user.getUsername())) {
-            // Check uniqueness
+            // Check uniqueness within tenant
+            Long tenantId = SecurityUtils.getCurrentTenantId();
             Long count = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                    .eq(User::getTenantId, tenantId)
                     .eq(User::getUsername, request.getUsername())
                     .ne(User::getId, id));
             if (count > 0) {
@@ -127,7 +134,9 @@ public class AdminServiceImpl implements AdminService {
         }
 
         if (StringUtils.hasText(request.getEmail()) && !request.getEmail().equals(user.getEmail())) {
+            Long tenantId = SecurityUtils.getCurrentTenantId();
             Long count = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                    .eq(User::getTenantId, tenantId)
                     .eq(User::getEmail, request.getEmail())
                     .ne(User::getId, id));
             if (count > 0) {

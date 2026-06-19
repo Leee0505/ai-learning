@@ -161,16 +161,20 @@
           </div>
 
           <!-- Assign -->
-          <div class="detail-action">
+          <div v-if="assignableAgents.length > 0" class="detail-action">
             <label class="detail-action-label">Assign</label>
             <p class="detail-action-hint">Currently: {{ store.currentTicket.assignedToName || 'Unassigned' }}</p>
             <div class="detail-assign-row">
               <select v-model="assignTargetId" class="detail-action-input">
                 <option value="" disabled>Select agent...</option>
-                <option v-for="agent in agents" :key="agent.id" :value="agent.id">{{ agent.username }}</option>
+                <option v-for="agent in assignableAgents" :key="agent.id" :value="agent.id">{{ agent.username }}</option>
               </select>
               <button class="detail-action-btn" @click="handleAssign" :disabled="!assignTargetId">Assign</button>
             </div>
+          </div>
+          <div v-else class="detail-action">
+            <label class="detail-action-label">Assign</label>
+            <p class="detail-action-hint">{{ store.currentTicket.assignedToName ? store.currentTicket.assignedToName + ' is the only agent in this tenant' : 'No agents available' }}</p>
           </div>
 
           <!-- Delete (Admin only) -->
@@ -289,6 +293,13 @@ const downloadingId = ref(null)
 const selectedStatus = ref('')
 const assignTargetId = ref('')
 const agents = ref([])
+
+// Filter out current assignee — only show other agents for reassignment
+const assignableAgents = computed(() => {
+  const current = store.currentTicket?.assignedTo
+  if (!current) return agents.value
+  return agents.value.filter(a => a.id !== current)
+})
 
 async function fetchAgents() {
   try {

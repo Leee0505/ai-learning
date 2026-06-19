@@ -69,7 +69,6 @@
             <span class="app-logout-text">Sign Out</span>
           </button>
         </div>
-        </div>
       </div>
     </header>
 

@@ -6,17 +6,14 @@ import com.ticket.dto.response.TicketDetailResponse;
 import com.ticket.dto.response.TicketReplyResponse;
 import com.ticket.entity.AuditLog;
 import com.ticket.mapper.AuditLogMapper;
-import com.ticket.security.UserDetailsImpl;
-import jakarta.servlet.http.HttpServletRequest;
+import com.ticket.util.HttpUtils;
+import com.ticket.util.SecurityUtils;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Aspect
 @Component
@@ -117,8 +114,8 @@ public class AuditLogAspect {
 
     private void writeAudit(String action, String targetType, Long targetId, String detail) {
         try {
-            Long userId = getCurrentUserId();
-            String ip = getClientIp();
+            Long userId = SecurityUtils.getCurrentUserId();
+            String ip = HttpUtils.getClientIp();
 
             AuditLog auditLog = new AuditLog();
             auditLog.setUserId(userId);
@@ -134,31 +131,5 @@ public class AuditLogAspect {
         } catch (Exception e) {
             log.warn("Failed to write audit log", e);
         }
-    }
-
-    private Long getCurrentUserId() {
-        try {
-            var auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl principal) {
-                return principal.getUserId();
-            }
-        } catch (Exception ignored) {}
-        return 0L;
-    }
-
-    private String getClientIp() {
-        try {
-            ServletRequestAttributes attrs =
-                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (attrs != null) {
-                HttpServletRequest request = attrs.getRequest();
-                String xForwardedFor = request.getHeader("X-Forwarded-For");
-                if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-                    return xForwardedFor.split(",")[0].trim();
-                }
-                return request.getRemoteAddr();
-            }
-        } catch (Exception ignored) {}
-        return "unknown";
     }
 }

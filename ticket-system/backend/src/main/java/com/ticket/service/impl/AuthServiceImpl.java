@@ -72,7 +72,7 @@ public class AuthServiceImpl implements AuthService {
         userMapper.insert(user);
 
         // Generate tokens
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole(), user.getTenantId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 
         log.info("User registered: {} (id={})", user.getUsername(), user.getId());
@@ -91,7 +91,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userMapper.selectById(userDetails.getUserId());
 
         // Generate tokens
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole(), user.getTenantId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 
         log.info("User logged in: {} (id={})", user.getUsername(), user.getId());
@@ -127,7 +127,7 @@ public class AuthServiceImpl implements AuthService {
 
         // Issue new tokens
         User user = userMapper.selectById(userId);
-        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
+        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole(), user.getTenantId());
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 
         return new AuthResponse(newAccessToken, newRefreshToken, UserResponse.from(user));
@@ -215,7 +215,7 @@ public class AuthServiceImpl implements AuthService {
         inviteTokenMapper.updateById(inviteToken);
 
         // Generate tokens
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getRole(), user.getTenantId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 
         log.info("Agent {} accepted invite from email {}", user.getUsername(), inviteToken.getEmail());

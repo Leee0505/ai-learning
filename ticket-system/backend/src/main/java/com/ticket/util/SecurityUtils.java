@@ -25,4 +25,21 @@ public final class SecurityUtils {
         }
         return 0L;
     }
+
+    /**
+     * Extract the current authenticated user's tenant ID from SecurityContext.
+     * Returns 1 (default tenant) if no authentication context is available.
+     */
+    public static Long getCurrentTenantId() {
+        try {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl principal) {
+                Long tenantId = principal.getTenantId();
+                return tenantId != null ? tenantId : 1L;
+            }
+        } catch (Exception ignored) {
+            // No authentication context available
+        }
+        return 1L;
+    }
 }

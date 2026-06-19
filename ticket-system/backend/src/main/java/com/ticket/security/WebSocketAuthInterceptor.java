@@ -46,7 +46,9 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
             Long userId = Long.parseLong(claims.getSubject());
             String role = claims.get("role", String.class);
-            UserDetailsImpl principal = new UserDetailsImpl(userId, role);
+            Long tenantId = claims.get("tenant_id", Long.class);
+            if (tenantId == null) tenantId = 1L;
+            UserDetailsImpl principal = new UserDetailsImpl(userId, role, tenantId);
 
             UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(principal, null,

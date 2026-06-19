@@ -48,6 +48,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (claims != null) {
                     Long userId = Long.parseLong(claims.getSubject());
                     String role = claims.get("role", String.class);
+                    Long tenantId = claims.get("tenant_id", Long.class);
+                    if (tenantId == null) tenantId = 1L; // backward compat with old tokens
 
                     // Verify user is still enabled (handles admin disable after token issuance)
                     User user = userMapper.selectById(userId);
@@ -59,7 +61,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         return;
                     }
 
-                    UserDetailsImpl principal = new UserDetailsImpl(userId, role);
+                    UserDetailsImpl principal = new UserDetailsImpl(userId, role, tenantId);
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     principal, null,

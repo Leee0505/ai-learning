@@ -15,6 +15,7 @@ public class UserDetailsImpl implements UserDetails {
     private final String password;
     private final String role;
     private final boolean enabled;
+    private final Long tenantId;
 
     public UserDetailsImpl(User user) {
         this.userId = user.getId();
@@ -22,19 +23,22 @@ public class UserDetailsImpl implements UserDetails {
         this.password = user.getPassword();
         this.role = user.getRole();
         this.enabled = user.getStatus() != null && user.getStatus() == 1;
+        this.tenantId = user.getTenantId();
     }
 
     // Convenience constructor for JWT authentication filter (minimal principal)
-    public UserDetailsImpl(Long userId, String role) {
+    public UserDetailsImpl(Long userId, String role, Long tenantId) {
         this.userId = userId;
         this.username = String.valueOf(userId);
         this.password = "";
         this.role = role;
         this.enabled = true;
+        this.tenantId = tenantId;
     }
 
     public Long getUserId() { return userId; }
     public String getRole() { return role; }
+    public Long getTenantId() { return tenantId; }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

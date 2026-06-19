@@ -41,7 +41,7 @@ public class JwtTokenProvider {
         this.redissonClient = redissonClient;
     }
 
-    public String generateAccessToken(Long userId, String role) {
+    public String generateAccessToken(Long userId, String role, Long tenantId) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpiration);
         String jti = UUID.randomUUID().toString();
@@ -50,6 +50,7 @@ public class JwtTokenProvider {
                 .subject(userId.toString())
                 .id(jti)
                 .claim("role", role)
+                .claim("tenant_id", tenantId)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(key)

@@ -291,7 +291,13 @@ public class TicketController {
 
     @GetMapping("/tickets/overdue")
     @PreAuthorize("hasAnyRole('" + RoleConstants.ADMIN + "', '" + RoleConstants.AGENT + "')")
-    @Operation(summary = "List overdue tickets for workbench alert")
+    @Operation(summary = "List overdue tickets",
+               description = "Returns OPEN/IN_PROGRESS tickets that have exceeded their SLA response or resolution deadline. "
+                           + "Filtered by role: users see own, agents see assigned+unassigned, admins see all.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Overdue tickets returned (may be empty)"),
+        @ApiResponse(responseCode = "403", description = "Requires AGENT or ADMIN role")
+    })
     public ApiResult<List<TicketDetailResponse>> getOverdue(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         return ApiResult.success(ticketService.getOverdueTickets(userDetails.getUserId(), userDetails.getRole()));
     }

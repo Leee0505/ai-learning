@@ -46,6 +46,10 @@ public final class BusinessConstants {
     public static final String TICKET_CATEGORY_ACCOUNT_ISSUE = "ACCOUNT_ISSUE";
     public static final String TICKET_CATEGORY_OTHER = "OTHER";
 
+    // === Time constants ===
+    /** Milliseconds in one minute — used for SLA deadline calculations */
+    public static final long MILLIS_PER_MINUTE = 60_000L;
+
     // === File upload ===
     /** Maximum upload file size: 10 MB in bytes */
     public static final long MAX_UPLOAD_SIZE = 10 * 1024 * 1024L;

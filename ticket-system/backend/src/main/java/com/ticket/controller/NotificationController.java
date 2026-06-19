@@ -6,6 +6,8 @@ import com.ticket.security.UserDetailsImpl;
 import com.ticket.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,6 +29,9 @@ public class NotificationController {
 
     @GetMapping
     @Operation(summary = "List notifications for current user (newest first)")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Paginated notification list")
+    })
     public ApiResult<List<NotificationResponse>> list(
             @AuthenticationPrincipal UserDetailsImpl user,
             @Parameter(description = "Page number (1-based)") @RequestParam(defaultValue = "1") int page,
@@ -36,12 +41,19 @@ public class NotificationController {
 
     @GetMapping("/unread-count")
     @Operation(summary = "Get current unread notification count")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Unread count (may be 0)")
+    })
     public ApiResult<Long> getUnreadCount(@AuthenticationPrincipal UserDetailsImpl user) {
         return ApiResult.success(notificationService.getUnreadCount(user.getUserId()));
     }
 
     @PutMapping("/{id}/read")
     @Operation(summary = "Mark a single notification as read")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Notification marked as read"),
+        @ApiResponse(responseCode = "404", description = "Notification not found")
+    })
     public ApiResult<Void> markRead(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl user) {
         notificationService.markRead(id, user.getUserId());
         return ApiResult.success();
@@ -49,6 +61,9 @@ public class NotificationController {
 
     @PutMapping("/read-all")
     @Operation(summary = "Mark all notifications as read")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "All notifications marked as read")
+    })
     public ApiResult<Void> markAllRead(@AuthenticationPrincipal UserDetailsImpl user) {
         notificationService.markAllRead(user.getUserId());
         return ApiResult.success();

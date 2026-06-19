@@ -7,6 +7,8 @@ import com.ticket.dto.response.UserResponse;
 import com.ticket.entity.User;
 import com.ticket.mapper.UserMapper;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,7 +30,12 @@ public class AgentController {
     }
 
     @GetMapping
-    @Operation(summary = "List all active agents (for assignment dropdown)")
+    @Operation(summary = "List all active agents",
+               description = "Returns enabled users with ROLE_AGENT, ordered by username. Used for ticket assignment dropdowns.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "List of agent users (id + username)"),
+        @ApiResponse(responseCode = "403", description = "Requires AGENT or ADMIN role")
+    })
     @PreAuthorize("hasAnyRole('" + RoleConstants.AGENT + "', '" + RoleConstants.ADMIN + "')")
     public ApiResult<List<UserResponse>> listAgents() {
         var agents = userMapper.selectList(new LambdaQueryWrapper<User>()

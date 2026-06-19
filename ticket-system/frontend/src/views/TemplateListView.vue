@@ -31,8 +31,9 @@
             <td><span class="badge badge--cat">{{ t.category }}</span></td>
             <td class="tmpl-preview">{{ truncate(t.content, 80) }}</td>
             <td class="tmpl-actions">
-              <button class="action-btn" @click="openEdit(t)">Edit</button>
-              <button class="action-btn action-btn--danger" @click="handleDelete(t)">Delete</button>
+              <button v-if="canEdit(t)" class="action-btn" @click="openEdit(t)">Edit</button>
+              <button v-if="canEdit(t)" class="action-btn action-btn--danger" @click="handleDelete(t)">Delete</button>
+              <span v-else class="sys-badge">System Default</span>
             </td>
           </tr>
         </tbody>
@@ -77,7 +78,11 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from '@/api/templates'
+
+const authStore = useAuthStore()
+const canEdit = (t) => t.tenantId !== null || authStore.isAdmin
 
 const templates = ref([])
 const loading = ref(true)
@@ -185,3 +190,4 @@ onMounted(fetchList)
 .dialog-save:hover:not(:disabled) { opacity: 0.9; }
 .dialog-save:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
+.sys-badge { font-size: var(--text-xs); color: var(--color-text-muted); background: var(--color-gray-100); padding: 4px 10px; border-radius: var(--radius-full); }

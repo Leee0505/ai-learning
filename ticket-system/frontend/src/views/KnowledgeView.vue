@@ -38,8 +38,9 @@
             <div class="kb-article-content" v-html="renderMarkdown(a.content)"></div>
             <div class="kb-article-actions">
               <button class="kb-insert-btn" @click="insertToReply(a.content)">Insert to Reply</button>
-              <button class="kb-edit-btn" @click.stop="openEdit(a)">Edit</button>
-              <button class="kb-delete-btn" @click.stop="handleDelete(a)">Delete</button>
+              <button v-if="canEdit(a)" class="kb-edit-btn" @click.stop="openEdit(a)">Edit</button>
+              <button v-if="canEdit(a)" class="kb-delete-btn" @click.stop="handleDelete(a)">Delete</button>
+              <span v-else class="sys-badge">System Default</span>
             </div>
           </div>
         </div>
@@ -79,9 +80,13 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 import { renderMarkdown } from '@/utils/markdown'
 import request from '@/api/request'
 import { useRouter } from 'vue-router'
+
+const authStore = useAuthStore()
+const canEdit = (a) => a.tenantId !== null || authStore.isAdmin
 
 const router = useRouter()
 const articles = ref([])
@@ -233,3 +238,4 @@ onMounted(fetchList)
   .kb-cats { display: flex; gap: 4px; flex-wrap: wrap; }
 }
 </style>
+.sys-badge { font-size: var(--text-xs); color: var(--color-text-muted); background: var(--color-gray-100); padding: 4px 10px; border-radius: var(--radius-full); }

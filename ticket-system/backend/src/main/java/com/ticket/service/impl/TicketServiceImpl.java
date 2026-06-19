@@ -621,6 +621,10 @@ public class TicketServiceImpl implements TicketService {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "assignedTo must be a valid user ID or 'unassigned'");
             }
         }
+        // Tenant isolation: non-admin users see only their own tenant
+        if (!RoleConstants.ROLE_ADMIN.equals(role)) {
+            wrapper.eq(Ticket::getTenantId, SecurityUtils.getCurrentTenantId());
+        }
         return wrapper;
     }
 

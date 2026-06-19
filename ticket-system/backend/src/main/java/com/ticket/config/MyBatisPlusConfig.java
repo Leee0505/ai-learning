@@ -24,20 +24,20 @@ public class MyBatisPlusConfig {
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
         interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
-        interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
-            @Override
-            public Expression getTenantId() {
-                if (!TENANT_FILTER_ENABLED) return null;
-                Long tenantId = SecurityUtils.getCurrentTenantId();
-                return new LongValue(tenantId != null ? tenantId : 1L);
-            }
+        if (TENANT_FILTER_ENABLED) {
+            interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
+                @Override
+                public Expression getTenantId() {
+                    return new LongValue(SecurityUtils.getCurrentTenantId());
+                }
 
-            @Override
-            public String getTenantIdColumn() { return "tenant_id"; }
+                @Override
+                public String getTenantIdColumn() { return "tenant_id"; }
 
-            @Override
-            public boolean ignoreTable(String tableName) { return "tenant".equalsIgnoreCase(tableName); }
-        }));
+                @Override
+                public boolean ignoreTable(String tableName) { return "tenant".equalsIgnoreCase(tableName); }
+            }));
+        }
         return interceptor;
     }
 

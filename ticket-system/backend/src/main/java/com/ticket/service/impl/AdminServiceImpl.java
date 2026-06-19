@@ -192,7 +192,15 @@ public class AdminServiceImpl implements AdminService {
             throw new BusinessException(ErrorCode.CANNOT_DISABLE_SELF);
         }
 
-        int newStatus = Integer.parseInt(request.getStatus());
+        int newStatus;
+        try {
+            newStatus = Integer.parseInt(request.getStatus());
+        } catch (NumberFormatException e) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "status must be 0 or 1");
+        }
+        if (newStatus != 0 && newStatus != 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "status must be 0 or 1");
+        }
 
         User user = findUserOrThrow(id);
         user.setStatus(newStatus);

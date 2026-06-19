@@ -45,10 +45,10 @@
           </nav>
         </div>
 
-        <!-- Right group: bell + user -->
-        <div class="nav-right">
-          <NotificationBell />
-          <div class="app-user">
+        <!-- Spacer: pushes user section to the right, bell stays near nav -->
+        <NotificationBell />
+        <div class="nav-spacer"></div>
+        <div class="app-user">
           <div class="app-user-avatar" aria-hidden="true">
             {{ userInitial }}
           </div>
@@ -69,7 +69,7 @@
             <span class="app-logout-text">Sign Out</span>
           </button>
         </div>
-        </div><!-- /.nav-right -->
+        </div>
       </div>
     </header>
 
@@ -148,7 +148,7 @@ async function handleLogout() {
 .app-nav-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-md);
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 var(--space-lg);
@@ -157,8 +157,8 @@ async function handleLogout() {
 
 /* Left group: brand + nav links */
 .nav-left { display: flex; align-items: center; gap: var(--space-xl); }
-/* Right group: bell + user */
-.nav-right { display: flex; align-items: center; }
+/* Push user section to the right, bell stays near nav links */
+.nav-spacer { margin-left: auto; }
 
 /* Brand */
 .app-brand {

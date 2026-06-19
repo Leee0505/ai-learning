@@ -1,7 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { Client } from '@stomp/stompjs'
-import SockJS from 'sockjs-client'
 import { useAuthStore } from '@/stores/auth'
 import { getUnreadCountApi, markReadApi, markAllReadApi } from '@/api/notifications'
 
@@ -19,9 +17,15 @@ export const useNotificationStore = defineStore('notifications', () => {
     }
   }
 
-  function connect() {
+  async function connect() {
     const authStore = useAuthStore()
     if (!authStore.accessToken) return
+
+    // Dynamic imports — these packages use CJS exports and may not resolve at startup
+    const [{ Client }, { default: SockJS }] = await Promise.all([
+      import('@stomp/stompjs'),
+      import('sockjs-client')
+    ])
 
     stompClient = new Client({
       webSocketFactory: () => new SockJS('/ws'),

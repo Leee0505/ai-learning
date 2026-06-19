@@ -6,6 +6,7 @@ import com.ticket.dto.response.ApiResult;
 import com.ticket.dto.response.UserResponse;
 import com.ticket.entity.User;
 import com.ticket.mapper.UserMapper;
+import com.ticket.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -39,6 +40,7 @@ public class AgentController {
     @PreAuthorize("hasAnyRole('" + RoleConstants.AGENT + "', '" + RoleConstants.ADMIN + "')")
     public ApiResult<List<UserResponse>> listAgents() {
         var agents = userMapper.selectList(new LambdaQueryWrapper<User>()
+                .eq(User::getTenantId, SecurityUtils.getCurrentTenantId())
                 .eq(User::getRole, RoleConstants.ROLE_AGENT)
                 .eq(User::getStatus, 1) // only enabled agents
                 .orderByAsc(User::getUsername))

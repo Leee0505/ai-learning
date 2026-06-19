@@ -9,6 +9,7 @@ public class TicketReply {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    private Long tenantId;
     private Long ticketId;
     private Long userId;
     private String content;

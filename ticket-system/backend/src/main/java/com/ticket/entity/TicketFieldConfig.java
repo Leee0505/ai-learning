@@ -9,6 +9,7 @@ public class TicketFieldConfig {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    private Long tenantId;
     private String name;
     private String fieldKey;
     private String fieldType;

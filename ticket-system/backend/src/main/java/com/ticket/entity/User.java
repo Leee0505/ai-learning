@@ -9,6 +9,7 @@ public class User {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    private Long tenantId;
     private String username;
     private String email;
     private String phone;

@@ -9,6 +9,7 @@ public class SlaConfig {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    private Long tenantId;
     private String priority;
     private Integer responseMinutes;
     private Integer resolutionMinutes;

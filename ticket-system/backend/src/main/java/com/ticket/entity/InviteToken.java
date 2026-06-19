@@ -9,6 +9,7 @@ public class InviteToken {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    private Long tenantId;
     private String token;
     private String email;
     private Long expiresAt;

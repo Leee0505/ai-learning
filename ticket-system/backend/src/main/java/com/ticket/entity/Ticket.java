@@ -9,6 +9,7 @@ public class Ticket {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    private Long tenantId;
     private String title;
     private String description;
     private String status;

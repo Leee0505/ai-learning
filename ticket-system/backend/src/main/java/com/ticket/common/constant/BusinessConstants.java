@@ -61,6 +61,30 @@ public final class BusinessConstants {
     public static final String NOTIF_TICKET_RESOLVED = "TICKET_RESOLVED";
     public static final String NOTIF_TICKET_OVERDUE = "TICKET_OVERDUE";
 
+    // === Content length limits ===
+    /** Maximum content length for reply templates (characters) */
+    public static final int MAX_TEMPLATE_CONTENT_LENGTH = 5000;
+    /** Maximum content length for knowledge articles (characters) */
+    public static final int MAX_KNOWLEDGE_CONTENT_LENGTH = 50000;
+    /** Maximum number of select options for SINGLE_SELECT fields */
+    public static final int MAX_SELECT_OPTIONS = 20;
+    /** Default display order for new custom fields */
+    public static final int DEFAULT_DISPLAY_ORDER = 99;
+
+    // === Field types ===
+    public static final String FIELD_TYPE_SINGLE_SELECT = "SINGLE_SELECT";
+
+    // === Default categories ===
+    public static final String DEFAULT_TEMPLATE_CATEGORY = "GENERAL";
+
+    // === Scheduler intervals ===
+    /** SLA overdue check interval: 5 minutes in milliseconds */
+    public static final long SLA_CHECK_INTERVAL_MS = 300_000L;
+
+    // === Rate limiting ===
+    /** Rate limit sliding window in seconds */
+    public static final long RATE_LIMIT_WINDOW_SECONDS = 60L;
+
     // === Pagination defaults ===
     public static final int DEFAULT_PAGE = 1;
     public static final int DEFAULT_SIZE = 20;

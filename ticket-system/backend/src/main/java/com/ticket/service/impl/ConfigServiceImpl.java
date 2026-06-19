@@ -43,6 +43,7 @@ public class ConfigServiceImpl implements ConfigService {
     }
 
     @Override
+    @Transactional
     public FieldConfigResponse createField(CreateFieldRequest request, Long adminId) {
         // Check unique field_key
         LambdaQueryWrapper<TicketFieldConfig> wrapper = new LambdaQueryWrapper<>();
@@ -52,7 +53,7 @@ public class ConfigServiceImpl implements ConfigService {
         }
 
         // SINGLE_SELECT must have valid options
-        if ("SINGLE_SELECT".equals(request.getFieldType())) {
+        if (BusinessConstants.FIELD_TYPE_SINGLE_SELECT.equals(request.getFieldType())) {
             if (request.getOptions() == null || request.getOptions().isBlank()) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR,
                         "options are required for SINGLE_SELECT field type");
@@ -67,7 +68,7 @@ public class ConfigServiceImpl implements ConfigService {
         entity.setOptions(request.getOptions());
         entity.setRequired(request.getRequired() != null && request.getRequired() ? 1 : 0);
         entity.setActive(request.getActive() != null && request.getActive() ? 1 : 0);
-        entity.setDisplayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : 99);
+        entity.setDisplayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : BusinessConstants.DEFAULT_DISPLAY_ORDER);
         entity.setCreatedBy(adminId);
         entity.setCreatedDate(System.currentTimeMillis());
         fieldMapper.insert(entity);
@@ -75,6 +76,7 @@ public class ConfigServiceImpl implements ConfigService {
     }
 
     @Override
+    @Transactional
     public FieldConfigResponse updateField(Long id, UpdateFieldRequest request, Long adminId) {
         TicketFieldConfig entity = fieldMapper.selectById(id);
         if (entity == null) {
@@ -83,7 +85,7 @@ public class ConfigServiceImpl implements ConfigService {
         if (request.getName() != null) entity.setName(request.getName());
         if (request.getFieldType() != null) entity.setFieldType(request.getFieldType());
         if (request.getOptions() != null) {
-            if ("SINGLE_SELECT".equals(entity.getFieldType()) || "SINGLE_SELECT".equals(request.getFieldType())) {
+            if (BusinessConstants.FIELD_TYPE_SINGLE_SELECT.equals(entity.getFieldType()) || BusinessConstants.FIELD_TYPE_SINGLE_SELECT.equals(request.getFieldType())) {
                 validateSelectOptions(request.getOptions());
             }
             entity.setOptions(request.getOptions());
@@ -98,6 +100,7 @@ public class ConfigServiceImpl implements ConfigService {
     }
 
     @Override
+    @Transactional
     public void deleteField(Long id) {
         if (fieldMapper.selectById(id) == null) {
             throw new BusinessException(ErrorCode.FIELD_NOT_FOUND);
@@ -188,7 +191,7 @@ public class ConfigServiceImpl implements ConfigService {
         try {
             var node = objectMapper.readTree(optionsJson);
             var items = node.get("items");
-            if (items == null || !items.isArray() || items.size() == 0 || items.size() > 20) {
+            if (items == null || !items.isArray() || items.size() == 0 || items.size() > BusinessConstants.MAX_SELECT_OPTIONS) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR,
                         "options must contain 'items' array with 1-20 entries");
             }

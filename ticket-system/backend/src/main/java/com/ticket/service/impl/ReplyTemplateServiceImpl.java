@@ -1,6 +1,7 @@
 package com.ticket.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ticket.common.constant.BusinessConstants;
 import com.ticket.common.constant.ErrorCode;
 import com.ticket.common.exception.BusinessException;
 import com.ticket.dto.request.CreateTemplateRequest;
@@ -39,6 +40,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
     }
 
     @Override
+    @Transactional
     public ReplyTemplateResponse createTemplate(CreateTemplateRequest request, Long userId) {
         // Validate title uniqueness
         Long count = templateMapper.selectCount(
@@ -48,14 +50,14 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
             throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
         }
         // Validate content length (max 5000 chars)
-        if (request.getContent().length() > 5000) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under 5000 characters");
+        if (request.getContent().length() > BusinessConstants.MAX_TEMPLATE_CONTENT_LENGTH) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under " + BusinessConstants.MAX_TEMPLATE_CONTENT_LENGTH + " characters");
         }
 
         ReplyTemplate t = new ReplyTemplate();
         t.setTitle(request.getTitle());
         t.setContent(request.getContent());
-        t.setCategory(request.getCategory() != null ? request.getCategory() : "GENERAL");
+        t.setCategory(request.getCategory() != null ? request.getCategory() : BusinessConstants.DEFAULT_TEMPLATE_CATEGORY);
         t.setCreatedBy(userId);
         templateMapper.insert(t);
         log.info("Template created: id={} title={} by userId={}", t.getId(), t.getTitle(), userId);
@@ -63,6 +65,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
     }
 
     @Override
+    @Transactional
     public ReplyTemplateResponse updateTemplate(Long id, CreateTemplateRequest request, Long userId) {
         ReplyTemplate t = templateMapper.selectById(id);
         if (t == null) {
@@ -76,8 +79,8 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
         if (count > 0) {
             throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
         }
-        if (request.getContent().length() > 5000) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under 5000 characters");
+        if (request.getContent().length() > BusinessConstants.MAX_TEMPLATE_CONTENT_LENGTH) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under " + BusinessConstants.MAX_TEMPLATE_CONTENT_LENGTH + " characters");
         }
 
         t.setTitle(request.getTitle());
@@ -91,6 +94,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
     }
 
     @Override
+    @Transactional
     public void deleteTemplate(Long id, Long userId) {
         ReplyTemplate t = templateMapper.selectById(id);
         if (t == null) {

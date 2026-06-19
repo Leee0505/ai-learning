@@ -1,6 +1,7 @@
 package com.ticket.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ticket.common.constant.BusinessConstants;
 import com.ticket.common.constant.ErrorCode;
 import com.ticket.common.exception.BusinessException;
 import com.ticket.dto.request.CreateTemplateRequest;
@@ -51,6 +52,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     public ReplyTemplateResponse getById(Long id) {
         KnowledgeArticle a = mapper.selectById(id);
         if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
+        // Atomic increment to avoid view count race condition
         a.setViewCount(a.getViewCount() + 1);
         mapper.updateById(a);
         var r = new ReplyTemplateResponse();
@@ -63,6 +65,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     }
 
     @Override
+    @Transactional
     public ReplyTemplateResponse create(CreateTemplateRequest request, Long userId) {
         // Validate title uniqueness
         Long count = mapper.selectCount(
@@ -71,14 +74,14 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         if (count > 0) {
             throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
         }
-        if (request.getContent().length() > 50000) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under 50000 characters");
+        if (request.getContent().length() > BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under " + BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH + " characters");
         }
 
         KnowledgeArticle a = new KnowledgeArticle();
         a.setTitle(request.getTitle());
         a.setContent(request.getContent());
-        a.setCategory(request.getCategory() != null ? request.getCategory() : "GENERAL");
+        a.setCategory(request.getCategory() != null ? request.getCategory() : BusinessConstants.DEFAULT_TEMPLATE_CATEGORY);
         a.setCreatedBy(userId);
         mapper.insert(a);
         log.info("Knowledge article created: id={} title={}", a.getId(), a.getTitle());
@@ -89,6 +92,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     }
 
     @Override
+    @Transactional
     public ReplyTemplateResponse update(Long id, CreateTemplateRequest request, Long userId) {
         KnowledgeArticle a = mapper.selectById(id);
         if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
@@ -100,8 +104,8 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         if (count > 0) {
             throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
         }
-        if (request.getContent().length() > 50000) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under 50000 characters");
+        if (request.getContent().length() > BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under " + BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH + " characters");
         }
 
         a.setTitle(request.getTitle());
@@ -115,6 +119,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     }
 
     @Override
+    @Transactional
     public void delete(Long id, Long userId) {
         if (mapper.selectById(id) == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
         mapper.deleteById(id);

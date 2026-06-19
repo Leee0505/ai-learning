@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ticket.common.constant.BusinessConstants;
+import com.ticket.common.constant.RoleConstants;
 import com.ticket.dto.response.NotificationResponse;
 import com.ticket.entity.Notification;
 import com.ticket.event.TicketAssignedEvent;
@@ -50,7 +51,7 @@ public class NotificationServiceImpl implements NotificationService {
         // Notify all agents and admins
         var recipients = userMapper.selectList(new LambdaQueryWrapper<>())
                 .stream()
-                .filter(u -> "ROLE_AGENT".equals(u.getRole()) || "ROLE_ADMIN".equals(u.getRole()))
+                .filter(u -> RoleConstants.ROLE_AGENT.equals(u.getRole()) || RoleConstants.ROLE_ADMIN.equals(u.getRole()))
                 .toList();
 
         for (var user : recipients) {
@@ -82,7 +83,7 @@ public class NotificationServiceImpl implements NotificationService {
             // Unassigned overdue: notify all agents and admins
             var recipients = userMapper.selectList(new LambdaQueryWrapper<>())
                     .stream()
-                    .filter(u -> "ROLE_AGENT".equals(u.getRole()) || "ROLE_ADMIN".equals(u.getRole()))
+                    .filter(u -> RoleConstants.ROLE_AGENT.equals(u.getRole()) || RoleConstants.ROLE_ADMIN.equals(u.getRole()))
                     .toList();
             for (var user : recipients) {
                 Notification notif = buildNotification(user.getId(),

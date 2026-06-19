@@ -76,30 +76,34 @@ public class MonitorServiceImpl implements MonitorService {
             redissonClient.getAtomicLong("monitor:ping").get();
             boolean connected = true;
 
-            // Use RedisConnectionFactory for INFO stats (bypasses Redisson abstraction)
-            Properties info = redisConnectionFactory.getConnection().serverCommands().info("stats");
-            long hits = Long.parseLong(info.getProperty("keyspace_hits", "0"));
-            long misses = Long.parseLong(info.getProperty("keyspace_misses", "0"));
-            long total = hits + misses;
-            double hitRate = total > 0 ? (double) hits / total : 1.0;
+            long hits = 0, misses = 0, keys = 0, usedMemory = 0;
 
-            Properties keyspace = redisConnectionFactory.getConnection().serverCommands().info("keyspace");
-            long keys = 0;
-            if (keyspace != null) {
-                for (String key : keyspace.stringPropertyNames()) {
-                    if (key.startsWith("db")) {
-                        String[] parts = keyspace.getProperty(key).split(",");
-                        for (String part : parts) {
-                            if (part.startsWith("keys=")) {
-                                keys += Long.parseLong(part.substring(5));
+            // Use try-with-resources to prevent connection leaks
+            try (var conn = redisConnectionFactory.getConnection()) {
+                Properties info = conn.serverCommands().info("stats");
+                hits = Long.parseLong(info.getProperty("keyspace_hits", "0"));
+                misses = Long.parseLong(info.getProperty("keyspace_misses", "0"));
+
+                Properties keyspace = conn.serverCommands().info("keyspace");
+                if (keyspace != null) {
+                    for (String key : keyspace.stringPropertyNames()) {
+                        if (key.startsWith("db")) {
+                            String[] parts = keyspace.getProperty(key).split(",");
+                            for (String part : parts) {
+                                if (part.startsWith("keys=")) {
+                                    keys += Long.parseLong(part.substring(5));
+                                }
                             }
                         }
                     }
                 }
+
+                Properties memory = conn.serverCommands().info("memory");
+                usedMemory = Long.parseLong(memory.getProperty("used_memory", "0"));
             }
 
-            Properties memory = redisConnectionFactory.getConnection().serverCommands().info("memory");
-            long usedMemory = Long.parseLong(memory.getProperty("used_memory", "0"));
+            long total = hits + misses;
+            double hitRate = total > 0 ? (double) hits / total : 1.0;
 
             return RedisMetricsResponse.builder()
                     .connected(connected)

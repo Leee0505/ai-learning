@@ -9,8 +9,14 @@
       </p>
     </div>
 
+    <!-- Error banner -->
+    <div v-if="error" class="dash-error">Failed to load dashboard stats. <a @click="retry">Retry</a></div>
+
     <!-- Quick stats placeholder cards -->
-    <div class="dashboard-stats">
+    <div v-if="loading" class="dashboard-stats">
+      <div v-for="i in 4" :key="i" class="dashboard-stat-card skeleton-card"><div class="skeleton skeleton-bar"></div><div class="skeleton skeleton-text"></div></div>
+    </div>
+    <div v-else class="dashboard-stats">
       <div class="dashboard-stat-card" @click="$router.push('/tickets')">
         <div class="dashboard-stat-icon dashboard-stat-icon--tickets">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -74,6 +80,8 @@ import { getDashboardStats } from '@/api/tickets'
 const authStore = useAuthStore()
 const router = useRouter()
 
+const loading = ref(true)
+const error = ref(false)
 const stats = ref({ total: 0, open: 0, inProgress: 0, resolved: 0, closed: 0 })
 
 onMounted(async () => {
@@ -82,8 +90,18 @@ onMounted(async () => {
     if (data.code === 200) {
       stats.value = data.data
     }
-  } catch { /* keep defaults */ }
+  } catch { error.value = true }
+  finally { loading.value = false }
 })
+
+async function retry() {
+  error.value = false; loading.value = true
+  try {
+    const { data } = await getDashboardStats()
+    if (data.code === 200) stats.value = data.data
+  } catch { error.value = true }
+  finally { loading.value = false }
+}
 </script>
 
 <style scoped>
@@ -211,4 +229,12 @@ onMounted(async () => {
     font-size: var(--text-xl);
   }
 }
+</style>
+.dash-error { padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg); background: #FEF2F2; border: 1px solid #FECACA; border-radius: var(--radius-lg); color: #991B1B; font-size: var(--text-sm); }
+.dash-error a { color: #B91C1C; text-decoration: underline; cursor: pointer; }
+.skeleton-card { background: var(--color-white); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: var(--space-lg); text-align: center; display: flex; flex-direction: column; gap: var(--space-sm); }
+.skeleton { background: linear-gradient(90deg, var(--color-gray-100) 25%, var(--color-gray-200) 50%, var(--color-gray-100) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: var(--radius-sm); }
+.skeleton-bar { height: 32px; width: 48px; margin: 0 auto; }
+.skeleton-text { height: 14px; width: 80px; margin: 0 auto; }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 </style>

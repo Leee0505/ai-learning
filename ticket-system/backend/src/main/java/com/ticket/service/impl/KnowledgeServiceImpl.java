@@ -103,7 +103,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     public ReplyTemplateResponse update(Long id, CreateTemplateRequest request, Long userId) {
         KnowledgeArticle a = mapper.selectById(id);
         if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
-        if (a.getTenantId() == null && !isAdmin()) {
+        if (a.getTenantId() == null && !SecurityUtils.isAdmin()) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can edit system default articles");
         }
         // Validate title uniqueness (exclude self)
@@ -133,18 +133,10 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     public void delete(Long id, Long userId) {
         KnowledgeArticle a = mapper.selectById(id);
         if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
-        if (a.getTenantId() == null && !isAdmin()) {
+        if (a.getTenantId() == null && !SecurityUtils.isAdmin()) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can delete system default articles");
         }
         mapper.deleteById(id);
     }
 
-    private boolean isAdmin() {
-        try {
-            var auth = SecurityContextHolder.getContext().getAuthentication();
-            return auth != null && auth.getAuthorities().stream()
-                    .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
-        } catch (Exception ignored) {}
-        return false;
-    }
 }

@@ -1,11 +1,13 @@
 package com.ticket.util;
 
 import com.ticket.security.UserDetailsImpl;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
  * Shared security utilities — avoids duplicating getCurrentUserId() across the codebase.
  */
+@Slf4j
 public final class SecurityUtils {
 
     private SecurityUtils() {}
@@ -40,5 +42,20 @@ public final class SecurityUtils {
             log.info("[SECURITY-UTILS] exception, defaulting to 1");
         }
         return 1L;
+    }
+
+    /**
+     * Check whether the current authenticated user has ROLE_ADMIN.
+     * Safe to call in non-web contexts (returns false).
+     */
+    public static boolean isAdmin() {
+        try {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            return auth != null && auth.getAuthorities() != null
+                    && auth.getAuthorities().stream()
+                    .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

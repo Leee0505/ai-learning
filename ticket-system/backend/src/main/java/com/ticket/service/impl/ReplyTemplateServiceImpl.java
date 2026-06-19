@@ -80,7 +80,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
             throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND);
         }
         // System defaults (tenant_id=NULL) only editable by admin
-        if (t.getTenantId() == null && !isAdmin()) {
+        if (t.getTenantId() == null && !SecurityUtils.isAdmin()) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can edit system default templates");
         }
         // Validate title uniqueness (exclude self)
@@ -112,19 +112,11 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
         if (t == null) {
             throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND);
         }
-        if (t.getTenantId() == null && !isAdmin()) {
+        if (t.getTenantId() == null && !SecurityUtils.isAdmin()) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can delete system default templates");
         }
         templateMapper.deleteById(id);
         log.info("Template deleted: id={} by userId={}", id, userId);
     }
 
-    private boolean isAdmin() {
-        try {
-            var auth = SecurityContextHolder.getContext().getAuthentication();
-            return auth != null && auth.getAuthorities().stream()
-                    .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
-        } catch (Exception ignored) {}
-        return false;
-    }
 }

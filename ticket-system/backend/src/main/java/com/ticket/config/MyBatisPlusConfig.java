@@ -10,15 +10,11 @@ import com.ticket.util.SecurityUtils;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
 import org.apache.ibatis.reflection.MetaObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class MyBatisPlusConfig {
-
-    private static final Logger log = LoggerFactory.getLogger(MyBatisPlusConfig.class);
 
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
@@ -27,9 +23,7 @@ public class MyBatisPlusConfig {
         interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
             @Override
             public Expression getTenantId() {
-                Long tid = SecurityUtils.getCurrentTenantId();
-                log.info("[TENANT-FILTER] getTenantId() = {}", tid);
-                return new LongValue(tid);
+                return new LongValue(SecurityUtils.getCurrentTenantId());
             }
 
             @Override
@@ -42,7 +36,6 @@ public class MyBatisPlusConfig {
                         || "invite_token".equalsIgnoreCase(tableName)
                         || "reply_template".equalsIgnoreCase(tableName)
                         || "knowledge_article".equalsIgnoreCase(tableName);
-                log.info("[TENANT-FILTER] ignoreTable({}) = {}", tableName, skip);
                 return skip;
             }
         }));

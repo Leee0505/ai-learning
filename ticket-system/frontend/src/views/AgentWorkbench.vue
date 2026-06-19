@@ -59,9 +59,10 @@
                 <td class="td-muted">{{ t.category }}</td>
                 <td class="td-muted td-mono">{{ formatDate(t.createdDate) }}</td>
                 <td @click.stop>
-                  <button class="btn-take" :disabled="takingIds.has(t.id)" @click="handleTake(t.id)">
+                  <button v-if="authStore.isAgent" class="btn-take" :disabled="takingIds.has(t.id)" @click="handleTake(t.id)">
                     {{ takingIds.has(t.id) ? '...' : 'Take' }}
                   </button>
+                  <span v-else class="td-muted">—</span>
                 </td>
               </tr>
             </tbody>

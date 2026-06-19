@@ -165,13 +165,11 @@
             <label class="detail-action-label">Assign</label>
             <p class="detail-action-hint">Currently: {{ store.currentTicket.assignedToName || 'Unassigned' }}</p>
             <div class="detail-assign-row">
-              <input
-                v-model="assignTargetId"
-                type="number"
-                class="detail-action-input"
-                placeholder="Agent user ID"
-              />
-              <button class="detail-action-btn" @click="handleAssign">Assign</button>
+              <select v-model="assignTargetId" class="detail-action-input">
+                <option value="" disabled>Select agent...</option>
+                <option v-for="agent in agents" :key="agent.id" :value="agent.id">{{ agent.username }}</option>
+              </select>
+              <button class="detail-action-btn" @click="handleAssign" :disabled="!assignTargetId">Assign</button>
             </div>
           </div>
 
@@ -273,6 +271,7 @@ import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
 import { downloadAttachment, editReply, deleteReply } from '@/api/tickets'
 import { listTemplates } from '@/api/templates'
+import { getUsersApi } from '@/api/admin'
 import request from '@/api/request'
 import { renderMarkdown } from '@/utils/markdown'
 import { formatDate, formatRelative, formatDateTime } from '@/utils/date'
@@ -289,6 +288,15 @@ const replyLoading = ref(false)
 const downloadingId = ref(null)
 const selectedStatus = ref('')
 const assignTargetId = ref('')
+const agents = ref([])
+
+async function fetchAgents() {
+  try {
+    const { data } = await getUsersApi({ role: 'ROLE_AGENT', size: 100 })
+    if (data?.code === 200) agents.value = data.data.records || []
+  } catch { /* ignore */ }
+}
+
 const lightboxAtt = ref(null)
 const lightboxSrc = ref('')
 const thumbnails = ref({})
@@ -339,6 +347,7 @@ onMounted(async () => {
   await store.fetchTicketDetail(ticketId.value)
   await loadThumbnails()
   fetchTemplates()
+  fetchAgents()
   await nextTick()
   initVditor()
   document.addEventListener('click', onClickOutside)

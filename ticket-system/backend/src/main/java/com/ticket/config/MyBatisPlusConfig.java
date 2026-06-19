@@ -31,10 +31,12 @@ public class MyBatisPlusConfig {
 
             @Override
             public boolean ignoreTable(String tableName) {
-                // Login/registration queries: tenant unknown, skip filter
                 if ("user".equalsIgnoreCase(tableName)) return true;
                 if ("tenant".equalsIgnoreCase(tableName)) return true;
                 if ("invite_token".equalsIgnoreCase(tableName)) return true;
+                // Template/KB: system defaults (tenant_id=NULL) must be visible to all
+                if ("reply_template".equalsIgnoreCase(tableName)) return true;
+                if ("knowledge_article".equalsIgnoreCase(tableName)) return true;
                 return false;
             }
         }));

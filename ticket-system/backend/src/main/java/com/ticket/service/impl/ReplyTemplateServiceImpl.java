@@ -9,9 +9,11 @@ import com.ticket.dto.response.ReplyTemplateResponse;
 import com.ticket.entity.ReplyTemplate;
 import com.ticket.mapper.ReplyTemplateMapper;
 import com.ticket.service.ReplyTemplateService;
+import com.ticket.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -29,7 +31,11 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
 
     @Override
     public List<ReplyTemplateResponse> listTemplates(String category) {
+        Long tenantId = SecurityUtils.getCurrentTenantId();
         LambdaQueryWrapper<ReplyTemplate> wrapper = new LambdaQueryWrapper<>();
+        // System defaults (NULL) + current tenant's templates
+        wrapper.and(w -> w.isNull(ReplyTemplate::getTenantId)
+                .or().eq(ReplyTemplate::getTenantId, tenantId));
         if (StringUtils.hasText(category)) {
             wrapper.eq(ReplyTemplate::getCategory, category);
         }
@@ -58,6 +64,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
         t.setTitle(request.getTitle());
         t.setContent(request.getContent());
         t.setCategory(request.getCategory() != null ? request.getCategory() : BusinessConstants.DEFAULT_TEMPLATE_CATEGORY);
+        t.setTenantId(SecurityUtils.getCurrentTenantId()); // user's own tenant
         t.setCreatedBy(userId);
         templateMapper.insert(t);
         log.info("Template created: id={} title={} by userId={}", t.getId(), t.getTitle(), userId);

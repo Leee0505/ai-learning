@@ -9,6 +9,7 @@ import com.ticket.dto.response.ReplyTemplateResponse;
 import com.ticket.entity.KnowledgeArticle;
 import com.ticket.mapper.KnowledgeArticleMapper;
 import com.ticket.service.KnowledgeService;
+import com.ticket.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -27,7 +28,11 @@ public class KnowledgeServiceImpl implements KnowledgeService {
 
     @Override
     public List<ReplyTemplateResponse> search(String keyword, String category) {
+        Long tenantId = SecurityUtils.getCurrentTenantId();
         LambdaQueryWrapper<KnowledgeArticle> wrapper = new LambdaQueryWrapper<>();
+        // System defaults (NULL) + current tenant's articles
+        wrapper.and(w -> w.isNull(KnowledgeArticle::getTenantId)
+                .or().eq(KnowledgeArticle::getTenantId, tenantId));
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w.like(KnowledgeArticle::getTitle, keyword)
                     .or().like(KnowledgeArticle::getContent, keyword));
@@ -82,6 +87,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         a.setTitle(request.getTitle());
         a.setContent(request.getContent());
         a.setCategory(request.getCategory() != null ? request.getCategory() : BusinessConstants.DEFAULT_TEMPLATE_CATEGORY);
+        a.setTenantId(SecurityUtils.getCurrentTenantId()); // user's own tenant
         a.setCreatedBy(userId);
         mapper.insert(a);
         log.info("Knowledge article created: id={} title={}", a.getId(), a.getTitle());

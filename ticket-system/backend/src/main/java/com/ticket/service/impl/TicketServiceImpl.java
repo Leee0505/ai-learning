@@ -90,6 +90,7 @@ public class TicketServiceImpl implements TicketService {
         validateCategory(request.getCategory());
 
         Ticket ticket = new Ticket();
+        ticket.setTenantId(SecurityUtils.getCurrentTenantId());
         ticket.setTitle(request.getTitle());
         ticket.setDescription(request.getDescription());
         ticket.setPriority(request.getPriority());
@@ -377,6 +378,7 @@ public class TicketServiceImpl implements TicketService {
         findTicketOrFail(ticketId);
 
         TicketReply reply = new TicketReply();
+        reply.setTenantId(SecurityUtils.getCurrentTenantId());
         reply.setTicketId(ticketId);
         reply.setUserId(userId);
         reply.setContent(request.getContent());
@@ -743,8 +745,15 @@ public class TicketServiceImpl implements TicketService {
     }
 
     private void checkTicketAccess(Ticket ticket, Long userId, String role) {
-        // Agents and admins can access all tickets
-        if (RoleConstants.ROLE_AGENT.equals(role) || RoleConstants.ROLE_ADMIN.equals(role)) {
+        // Admin can access all tickets across all tenants
+        if (RoleConstants.ROLE_ADMIN.equals(role)) {
+            return;
+        }
+        // Agent can access only tickets in their own tenant
+        if (RoleConstants.ROLE_AGENT.equals(role)) {
+            if (!ticket.getTenantId().equals(SecurityUtils.getCurrentTenantId())) {
+                throw new TicketAccessDeniedException();
+            }
             return;
         }
         // Regular users can only access their own tickets

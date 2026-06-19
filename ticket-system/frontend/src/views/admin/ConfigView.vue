@@ -472,7 +472,7 @@ async function handleSaveSla() {
 .modal { background: var(--color-white); border-radius: var(--radius-xl); box-shadow: var(--shadow-xl); width: 90%; max-width: 480px; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-lg) var(--space-lg) 0; }
 .modal-title { font-family: var(--font-heading); font-size: var(--text-xl); font-weight: 600; margin: 0; }
-.modal-close { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: none; border: none; border-radius: var(--radius-md); cursor: pointer; }
+.modal-close { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0; background: none; border: none; border-radius: var(--radius-md); cursor: pointer; }
 .modal-close:hover { background: var(--color-gray-100); }
 .modal-body { padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md); }
 .modal-footer { display: flex; justify-content: flex-end; gap: var(--space-sm); padding: 0 var(--space-lg) var(--space-lg); }

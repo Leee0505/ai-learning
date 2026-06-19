@@ -853,7 +853,7 @@ function handleLightboxDownload() {
 /* Quote button */
 .detail-reply-quote-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; padding: 0; margin-left: auto;
+  min-width: 44px; min-height: 44px; padding: 0; margin-left: auto;
   background: transparent; border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm);
   color: var(--color-text-muted); cursor: pointer; transition: all var(--transition-fast);
 }
@@ -906,7 +906,7 @@ function handleLightboxDownload() {
 .detail-reply-actions-menu { position: relative; margin-left: 4px; }
 .detail-reply-more-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; padding: 0;
+  min-width: 44px; min-height: 44px; padding: 0;
   background: transparent; border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm);
   color: var(--color-text-secondary); cursor: pointer;
   transition: all var(--transition-fast);

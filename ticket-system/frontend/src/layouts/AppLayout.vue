@@ -59,6 +59,7 @@
             class="app-logout-btn"
             @click="handleLogout"
             title="Sign out"
+            aria-label="Sign out"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               class="app-logout-icon" aria-hidden="true">

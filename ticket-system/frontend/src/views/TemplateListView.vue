@@ -97,7 +97,8 @@ async function fetchList() {
   try {
     const { data } = await listTemplates()
     if (data.code === 200) templates.value = data.data
-  } finally { loading.value = false }
+  } catch { /* keep stale data, don't interrupt user */ }
+  finally { loading.value = false }
 }
 
 function openCreate() { editingId.value = null; resetForm(); showDialog.value = true }

@@ -2,8 +2,6 @@ package com.ticket.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ticket.common.constant.BusinessConstants;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.ticket.common.constant.BusinessConstants;
 import com.ticket.common.constant.ErrorCode;
 import com.ticket.common.constant.RoleConstants;
 import com.ticket.common.exception.*;

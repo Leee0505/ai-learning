@@ -106,7 +106,8 @@ async function fetchList() {
   try {
     const { data } = await request.get('/knowledge', { params: { keyword: keyword.value || undefined, category: selectedCat.value || undefined } })
     if (data.code === 200) articles.value = data.data
-  } finally { loading.value = false }
+  } catch { /* keep stale data */ }
+  finally { loading.value = false }
 }
 
 function selectCat(cat) { selectedCat.value = cat; openId.value = null; fetchList() }

@@ -5,8 +5,12 @@
       <p class="page-subtitle">Your ticket handling statistics</p>
     </header>
 
-    <!-- Stats Cards -->
-    <div class="stats-row">
+    <div v-if="error" class="perf-error">Failed to load performance data. <a @click="fetchStats">Retry</a></div>
+
+    <div v-if="loading" class="stats-row">
+      <div v-for="i in 3" :key="i" class="perf-card skeleton-card"><div class="skeleton skeleton-bar"></div><div class="skeleton skeleton-text"></div></div>
+    </div>
+    <div v-else class="stats-row">
       <div class="stat-card">
         <div class="stat-value">{{ stats.todayDone }}</div>
         <div class="stat-label">Done Today</div>
@@ -46,6 +50,8 @@
 import { ref, onMounted } from 'vue'
 import request from '@/api/request'
 
+const loading = ref(true)
+const error = ref(false)
 const stats = ref({
   todayDone: 0,
   avgProcessingMinutes: 0,
@@ -55,12 +61,15 @@ const stats = ref({
   chartValues: []
 })
 
-onMounted(async () => {
+onMounted(() => fetchStats())
+async function fetchStats() {
+  loading.value = true; error.value = false
   try {
     const { data } = await request.get('/tickets/stats/agent')
     if (data.code === 200) stats.value = data.data
-  } catch { /* keep defaults */ }
-})
+  } catch { error.value = true }
+  finally { loading.value = false }
+}
 
 function barHeight(val) {
   const max = Math.max(...stats.value.chartValues, 1)
@@ -100,4 +109,11 @@ function barHeight(val) {
 @media (max-width: 640px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
 }
+.perf-error { padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg); background: #FEF2F2; border: 1px solid #FECACA; border-radius: var(--radius-lg); color: #991B1B; font-size: var(--text-sm); }
+.perf-error a { color: #B91C1C; text-decoration: underline; cursor: pointer; }
+.skeleton-card { background: var(--color-white); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: var(--space-lg); text-align: center; display: flex; flex-direction: column; gap: var(--space-sm); }
+.skeleton { background: linear-gradient(90deg, var(--color-gray-100) 25%, var(--color-gray-200) 50%, var(--color-gray-100) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: var(--radius-sm); }
+.skeleton-bar { height: 32px; width: 48px; margin: 0 auto; }
+.skeleton-text { height: 14px; width: 80px; margin: 0 auto; }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 </style>

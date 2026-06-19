@@ -36,6 +36,9 @@
           <router-link v-if="authStore.isAdmin" to="/admin/config" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/admin/config') }">
             Config
           </router-link>
+          <router-link v-if="authStore.isAdmin" to="/admin/monitor" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/admin/monitor') }">
+            Monitor
+          </router-link>
         </nav>
 
         <!-- User section -->

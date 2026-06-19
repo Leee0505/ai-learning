@@ -10,20 +10,27 @@ import com.ticket.util.SecurityUtils;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
 import org.apache.ibatis.reflection.MetaObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class MyBatisPlusConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(MyBatisPlusConfig.class);
+
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
         interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
-        interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
+        TenantLineInnerInterceptor tenantInterceptor = new TenantLineInnerInterceptor();
+        tenantInterceptor.setTenantLineHandler(new TenantLineHandler() {
             @Override
             public Expression getTenantId() {
-                return new LongValue(SecurityUtils.getCurrentTenantId());
+                Long tid = SecurityUtils.getCurrentTenantId();
+                log.info("[TENANT-FILTER] getTenantId() = {}", tid);
+                return new LongValue(tid);
             }
 
             @Override
@@ -31,15 +38,16 @@ public class MyBatisPlusConfig {
 
             @Override
             public boolean ignoreTable(String tableName) {
-                if ("user".equalsIgnoreCase(tableName)) return true;
-                if ("tenant".equalsIgnoreCase(tableName)) return true;
-                if ("invite_token".equalsIgnoreCase(tableName)) return true;
-                // Template/KB: system defaults (tenant_id=NULL) must be visible to all
-                if ("reply_template".equalsIgnoreCase(tableName)) return true;
-                if ("knowledge_article".equalsIgnoreCase(tableName)) return true;
-                return false;
+                boolean skip = "user".equalsIgnoreCase(tableName)
+                        || "tenant".equalsIgnoreCase(tableName)
+                        || "invite_token".equalsIgnoreCase(tableName)
+                        || "reply_template".equalsIgnoreCase(tableName)
+                        || "knowledge_article".equalsIgnoreCase(tableName);
+                log.info("[TENANT-FILTER] ignoreTable({}) = {}", tableName, skip);
+                return skip;
             }
-        }));
+        });
+        interceptor.addInnerInterceptor(tenantInterceptor);
         return interceptor;
     }
 

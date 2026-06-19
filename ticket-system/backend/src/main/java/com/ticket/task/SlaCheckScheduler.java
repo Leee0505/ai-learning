@@ -46,14 +46,7 @@ public class SlaCheckScheduler {
         LambdaQueryWrapper<Ticket> unassignedWrapper = new LambdaQueryWrapper<Ticket>()
                 .eq(Ticket::getStatus, "OPEN")
                 .isNull(Ticket::getAssignedTo())
-                .and(w -> {
-                    for (SlaConfig sla : slas) {
-                        long deadline = now - (long) sla.getResponseMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
-                        w.or(sub -> sub
-                                .eq(Ticket::getPriority, sla.getPriority())
-                                .lt(Ticket::getCreatedDate, deadline));
-                    }
-                });
+                .and(w -> buildOverdueFilter(w, slas, now, false));
         List<Ticket> unassigned = ticketMapper.selectList(unassignedWrapper);
 
         for (Ticket ticket : unassigned) {
@@ -70,14 +63,7 @@ public class SlaCheckScheduler {
         LambdaQueryWrapper<Ticket> assignedWrapper = new LambdaQueryWrapper<Ticket>()
                 .in(Ticket::getStatus, "OPEN", "IN_PROGRESS")
                 .isNotNull(Ticket::getAssignedTo())
-                .and(w -> {
-                    for (SlaConfig sla : slas) {
-                        long deadline = now - (long) sla.getResolutionMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
-                        w.or(sub -> sub
-                                .eq(Ticket::getPriority, sla.getPriority())
-                                .lt(Ticket::getCreatedDate, deadline));
-                    }
-                });
+                .and(w -> buildOverdueFilter(w, slas, now, true));
         List<Ticket> assigned = ticketMapper.selectList(assignedWrapper);
 
         for (Ticket ticket : assigned) {
@@ -100,5 +86,29 @@ public class SlaCheckScheduler {
                 .filter(s -> s.getPriority().equalsIgnoreCase(priority))
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * Build a nested OR filter group: (priority=X AND created_date < deadline) OR (...)
+     * First iteration uses eq+lt directly (no leading OR), subsequent use w.or().
+     *
+     * @param w             the nested wrapper from .and()
+     * @param slas          loaded SLA configs
+     * @param now           current time millis
+     * @param useResolution true = resolution SLA, false = response SLA
+     */
+    private void buildOverdueFilter(LambdaQueryWrapper<Ticket> w, List<SlaConfig> slas, long now, boolean useResolution) {
+        for (int i = 0; i < slas.size(); i++) {
+            SlaConfig sla = slas.get(i);
+            int minutes = useResolution ? sla.getResolutionMinutes() : sla.getResponseMinutes();
+            long deadline = now - (long) minutes * BusinessConstants.MILLIS_PER_MINUTE;
+            if (i == 0) {
+                w.eq(Ticket::getPriority, sla.getPriority())
+                 .lt(Ticket::getCreatedDate, deadline);
+            } else {
+                w.or(sub -> sub.eq(Ticket::getPriority, sla.getPriority())
+                                .lt(Ticket::getCreatedDate, deadline));
+            }
+        }
     }
 }

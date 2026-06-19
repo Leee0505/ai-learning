@@ -351,13 +351,7 @@ public class TicketServiceImpl implements TicketService {
         unassignedWrapper.eq(Ticket::getStatus, "OPEN")
                 .isNull(Ticket::getAssignedTo());
         applyVisibility.accept(unassignedWrapper);
-        unassignedWrapper.and(w -> {
-            for (SlaConfig sla : slas) {
-                long deadline = now - (long) sla.getResponseMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
-                w.or(sub -> sub.eq(Ticket::getPriority, sla.getPriority())
-                        .lt(Ticket::getCreatedDate, deadline));
-            }
-        });
+        unassignedWrapper.and(w -> buildOverdueFilter(w, slas, now, false));
         overdue.addAll(ticketMapper.selectList(unassignedWrapper));
 
         // 2. Assigned → past resolution SLA (SQL-filtered)
@@ -365,16 +359,29 @@ public class TicketServiceImpl implements TicketService {
         assignedWrapper.in(Ticket::getStatus, "OPEN", "IN_PROGRESS")
                 .isNotNull(Ticket::getAssignedTo());
         applyVisibility.accept(assignedWrapper);
-        assignedWrapper.and(w -> {
-            for (SlaConfig sla : slas) {
-                long deadline = now - (long) sla.getResolutionMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
-                w.or(sub -> sub.eq(Ticket::getPriority, sla.getPriority())
-                        .lt(Ticket::getCreatedDate, deadline));
-            }
-        });
+        assignedWrapper.and(w -> buildOverdueFilter(w, slas, now, true));
         overdue.addAll(ticketMapper.selectList(assignedWrapper));
 
         return overdue.stream().map(TicketDetailResponse::from).collect(Collectors.toList());
+    }
+
+    /**
+     * Shared overdue filter: builds (priority=X AND created_date < deadline) OR (...) inside an and() group.
+     * First iteration uses eq+lt directly (no leading OR), subsequent iterations use w.or().
+     */
+    private void buildOverdueFilter(LambdaQueryWrapper<Ticket> w, List<SlaConfig> slas, long now, boolean useResolution) {
+        for (int i = 0; i < slas.size(); i++) {
+            SlaConfig sla = slas.get(i);
+            int minutes = useResolution ? sla.getResolutionMinutes() : sla.getResponseMinutes();
+            long deadline = now - (long) minutes * BusinessConstants.MILLIS_PER_MINUTE;
+            if (i == 0) {
+                w.eq(Ticket::getPriority, sla.getPriority())
+                 .lt(Ticket::getCreatedDate, deadline);
+            } else {
+                w.or(sub -> sub.eq(Ticket::getPriority, sla.getPriority())
+                                .lt(Ticket::getCreatedDate, deadline));
+            }
+        }
     }
 
     // ──────────────────────────────────────────────

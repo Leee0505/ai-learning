@@ -16,28 +16,28 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class MyBatisPlusConfig {
 
-    // Hard-disabled until admin bypass is properly debugged.
-    // Set to true + implement proper bypass before enabling in production.
-    private static final boolean TENANT_FILTER_ENABLED = false;
-
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
         interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
-        if (TENANT_FILTER_ENABLED) {
-            interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
-                @Override
-                public Expression getTenantId() {
-                    return new LongValue(SecurityUtils.getCurrentTenantId());
-                }
+        interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
+            @Override
+            public Expression getTenantId() {
+                return new LongValue(SecurityUtils.getCurrentTenantId());
+            }
 
-                @Override
-                public String getTenantIdColumn() { return "tenant_id"; }
+            @Override
+            public String getTenantIdColumn() { return "tenant_id"; }
 
-                @Override
-                public boolean ignoreTable(String tableName) { return "tenant".equalsIgnoreCase(tableName); }
-            }));
-        }
+            @Override
+            public boolean ignoreTable(String tableName) {
+                // Login/registration queries: tenant unknown, skip filter
+                if ("user".equalsIgnoreCase(tableName)) return true;
+                if ("tenant".equalsIgnoreCase(tableName)) return true;
+                if ("invite_token".equalsIgnoreCase(tableName)) return true;
+                return false;
+            }
+        }));
         return interceptor;
     }
 

@@ -14,6 +14,7 @@ import com.ticket.entity.*;
 import com.ticket.mapper.*;
 import com.ticket.service.TicketService;
 import com.ticket.storage.FileStorageService;
+import com.ticket.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
@@ -619,10 +620,6 @@ public class TicketServiceImpl implements TicketService {
             } catch (NumberFormatException e) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "assignedTo must be a valid user ID or 'unassigned'");
             }
-        }
-        // Tenant isolation: non-admin users see only their own tenant's tickets
-        if (!RoleConstants.ROLE_ADMIN.equals(role)) {
-            wrapper.eq(Ticket::getTenantId, SecurityUtils.getCurrentTenantId());
         }
         return wrapper;
     }

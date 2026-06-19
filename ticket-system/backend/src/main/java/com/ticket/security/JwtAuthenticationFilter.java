@@ -62,6 +62,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
 
                     UserDetailsImpl principal = new UserDetailsImpl(userId, role, tenantId);
+
+                    // Set admin bypass for MyBatis-Plus TenantLineInnerInterceptor
+                    if ("ROLE_ADMIN".equals(role)) {
+                        com.ticket.config.MyBatisPlusConfig.ADMIN_BYPASS.set(true);
+                    }
+
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     principal, null,
@@ -80,7 +86,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        filterChain.doFilter(request, response);
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            com.ticket.config.MyBatisPlusConfig.ADMIN_BYPASS.remove();
+        }
     }
 
     private String extractToken(HttpServletRequest request) {

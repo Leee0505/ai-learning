@@ -6,18 +6,20 @@ import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler;
 import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
+import com.ticket.common.constant.RoleConstants;
 import com.ticket.util.SecurityUtils;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
 import org.apache.ibatis.reflection.MetaObject;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Configuration
 public class MyBatisPlusConfig {
 
-    // ThreadLocal flag: set by JwtAuthenticationFilter when current user is ROLE_ADMIN
-    public static final ThreadLocal<Boolean> ADMIN_BYPASS = new ThreadLocal<>();
+    public static final String REQUEST_ATTR_ROLE = "TENANT_USER_ROLE";
 
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
@@ -26,9 +28,16 @@ public class MyBatisPlusConfig {
         interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
             @Override
             public Expression getTenantId() {
-                if (Boolean.TRUE.equals(ADMIN_BYPASS.get())) return null; // return null = skip filter
-                Long tenantId = SecurityUtils.getCurrentTenantId();
-                return new LongValue(tenantId != null ? tenantId : 1L);
+                // Admin bypass via request attribute (set by JwtAuthenticationFilter)
+                try {
+                    ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+                    if (attrs != null) {
+                        String role = (String) attrs.getAttribute(REQUEST_ATTR_ROLE, ServletRequestAttributes.SCOPE_REQUEST);
+                        if (RoleConstants.ROLE_ADMIN.equals(role)) return null;
+                    }
+                } catch (Exception ignored) {}
+
+                return new LongValue(SecurityUtils.getCurrentTenantId());
             }
 
             @Override

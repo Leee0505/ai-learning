@@ -24,8 +24,7 @@ public class MyBatisPlusConfig {
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
         interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
-        TenantLineInnerInterceptor tenantInterceptor = new TenantLineInnerInterceptor();
-        tenantInterceptor.setTenantLineHandler(new TenantLineHandler() {
+        interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
             @Override
             public Expression getTenantId() {
                 Long tid = SecurityUtils.getCurrentTenantId();
@@ -46,8 +45,7 @@ public class MyBatisPlusConfig {
                 log.info("[TENANT-FILTER] ignoreTable({}) = {}", tableName, skip);
                 return skip;
             }
-        });
-        interceptor.addInnerInterceptor(tenantInterceptor);
+        }));
         return interceptor;
     }
 

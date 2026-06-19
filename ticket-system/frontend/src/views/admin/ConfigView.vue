@@ -53,7 +53,9 @@
               :class="{ 'field-row--selected': selectedField?.id === field.id }"
               @click="selectedField = selectedField?.id === field.id ? null : field"
             >
-              <span class="drag-handle" title="Drag to reorder" aria-label="Drag to reorder">⠿</span>
+              <span class="drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="5" r="2"/><circle cx="15" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="19" r="2"/><circle cx="15" cy="19" r="2"/></svg>
+            </span>
               <div class="field-info">
                 <span class="field-name">{{ field.name }}</span>
                 <span class="field-key">{{ field.fieldKey }}</span>
@@ -70,13 +72,13 @@
                 title="Edit"
                 @click.stop="openEditDialog(field)"
                 aria-label="Edit field"
-              >✎</button>
+              ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
               <button
                 class="act-btn act-btn--delete"
                 title="Delete"
                 @click.stop="handleDelete(field)"
                 aria-label="Delete field"
-              >✕</button>
+              ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
 
             <!-- Inline preview below selected field -->
@@ -114,7 +116,7 @@
               <td>{{ formatDuration(rule.responseMinutes) }}</td>
               <td>{{ formatDuration(rule.resolutionMinutes) }}</td>
               <td>
-                <button class="act-btn act-btn--edit" title="Edit SLA" @click="openSlaEdit(rule)" aria-label="Edit SLA rule">✎</button>
+                <button class="act-btn act-btn--edit" title="Edit SLA" @click="openSlaEdit(rule)" aria-label="Edit SLA rule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
               </td>
             </tr>
           </tbody>
@@ -128,7 +130,7 @@
         <div class="modal" role="dialog" aria-modal="true">
           <div class="modal-header">
             <h2 class="modal-title">{{ editingField ? 'Edit Field' : 'Add Field' }}</h2>
-            <button class="modal-close" @click="dialogVisible = false" aria-label="Close">✕</button>
+            <button class="modal-close" @click="dialogVisible = false" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </div>
           <div class="modal-body">
             <div class="form-group">
@@ -177,7 +179,7 @@
         <div class="modal" role="dialog" aria-modal="true">
           <div class="modal-header">
             <h2 class="modal-title">Edit SLA — {{ slaForm.priority }}</h2>
-            <button class="modal-close" @click="slaDialogVisible = false" aria-label="Close">✕</button>
+            <button class="modal-close" @click="slaDialogVisible = false" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </div>
           <div class="modal-body">
             <div class="form-group">

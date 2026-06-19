@@ -118,9 +118,9 @@
       <div v-if="adminStore.total > 0" class="table-pagination">
         <span class="pg-info">{{ (adminStore.page - 1) * adminStore.size + 1 }}–{{ Math.min(adminStore.page * adminStore.size, adminStore.total) }} of {{ adminStore.total }}</span>
         <div class="pg-ctrls">
-          <button class="pg-btn" :disabled="adminStore.page <= 1" @click="adminStore.setPage(adminStore.page - 1)">◀</button>
+          <button class="pg-btn" :disabled="adminStore.page <= 1" @click="adminStore.setPage(adminStore.page - 1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="15,18 9,12 15,6"/></svg></button>
           <span class="pg-cur">{{ adminStore.page }} / {{ adminStore.totalPages }}</span>
-          <button class="pg-btn" :disabled="adminStore.page >= adminStore.totalPages" @click="adminStore.setPage(adminStore.page + 1)">▶</button>
+          <button class="pg-btn" :disabled="adminStore.page >= adminStore.totalPages" @click="adminStore.setPage(adminStore.page + 1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9,18 15,12 9,6"/></svg></button>
         </div>
         <select v-model.number="pageSize" class="pg-size" @change="adminStore.setSize(pageSize)">
           <option :value="10">10/page</option><option :value="20">20/page</option><option :value="50">50/page</option><option :value="100">100/page</option>

@@ -107,7 +107,7 @@
             <th>Assignee</th>
             <th class="ticket-list-sortable" @click="store.toggleSort()">
               Created
-              <span class="sort-arrow">{{ store.sortOrder === 'asc' ? '↑' : '↓' }}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-arrow" aria-hidden="true"><polyline v-if="store.sortOrder==='asc'" points="18,15 12,9 6,15"/><polyline v-else points="6,9 12,15 18,9"/></svg>
             </th>
           </tr>
         </thead>

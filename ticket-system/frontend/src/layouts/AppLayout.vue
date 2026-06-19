@@ -45,9 +45,9 @@
           </nav>
         </div>
 
-        <!-- Spacer: pushes user section to the right, bell stays near nav -->
-        <NotificationBell />
+        <!-- Spacer then bell+user grouped on the right -->
         <div class="nav-spacer"></div>
+        <NotificationBell />
         <div class="app-user">
           <div class="app-user-avatar" aria-hidden="true">
             {{ userInitial }}

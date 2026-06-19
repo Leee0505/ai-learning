@@ -30,15 +30,28 @@
           <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/knowledge" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/knowledge') }">
             Knowledge
           </router-link>
-          <router-link v-if="authStore.isAdmin" to="/admin/users" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/admin/users') }">
-            Users
-          </router-link>
-          <router-link v-if="authStore.isAdmin" to="/admin/config" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/admin/config') }">
-            Config
-          </router-link>
-          <router-link v-if="authStore.isAdmin" to="/admin/monitor" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/admin/monitor') }">
-            Monitor
-          </router-link>
+          <!-- Admin dropdown -->
+          <div v-if="authStore.isAdmin" class="admin-dropdown" ref="adminDropdownRef">
+            <button
+              class="app-nav-link"
+              :class="{ 'app-nav-link--active': $route.path.startsWith('/admin') }"
+              @click="adminMenuOpen = !adminMenuOpen"
+              aria-haspopup="true"
+              :aria-expanded="adminMenuOpen"
+            >
+              Admin
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="admin-chevron" :class="{ 'admin-chevron--open': adminMenuOpen }" aria-hidden="true">
+                <polyline points="6,9 12,15 18,9" />
+              </svg>
+            </button>
+            <transition name="dropdown-fade">
+              <div v-if="adminMenuOpen" class="admin-menu" role="menu">
+                <router-link to="/admin/users" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/users') }" @click="adminMenuOpen = false">Users</router-link>
+                <router-link to="/admin/config" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/config') }" @click="adminMenuOpen = false">Config</router-link>
+                <router-link to="/admin/monitor" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/monitor') }" @click="adminMenuOpen = false">Monitor</router-link>
+              </div>
+            </transition>
+          </div>
         </nav>
 
         <!-- User section -->
@@ -75,7 +88,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import NotificationBell from '@/components/NotificationBell.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -84,6 +97,17 @@ import { useNotificationStore } from '@/stores/notifications'
 const authStore = useAuthStore()
 const notifStore = useNotificationStore()
 const router = useRouter()
+
+const adminMenuOpen = ref(false)
+const adminDropdownRef = ref(null)
+
+function handleClickOutside(e) {
+  if (adminDropdownRef.value && !adminDropdownRef.value.contains(e.target)) {
+    adminMenuOpen.value = false
+  }
+}
+onMounted(() => { document.addEventListener('click', handleClickOutside) })
+onBeforeUnmount(() => { document.removeEventListener('click', handleClickOutside) })
 
 const userInitial = computed(() => {
   return authStore.user?.username?.charAt(0)?.toUpperCase() || 'U'
@@ -187,6 +211,18 @@ async function handleLogout() {
   background: var(--color-primary-bg);
   font-weight: 600;
 }
+
+/* Admin dropdown */
+.admin-dropdown { position: relative; }
+.admin-chevron { width: 14px; height: 14px; margin-left: 2px; transition: transform 200ms; }
+.admin-chevron--open { transform: rotate(180deg); }
+.admin-menu { position: absolute; top: calc(100% + 6px); left: 0; min-width: 160px; background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); box-shadow: var(--shadow-xl); padding: 6px; z-index: var(--z-modal); }
+.admin-menu-item { display: block; padding: 10px 14px; font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary); text-decoration: none; border-radius: var(--radius-md); transition: color 150ms, background 150ms; }
+.admin-menu-item:hover { color: var(--color-primary); background: var(--color-primary-bg); }
+.admin-menu-item--active { color: var(--color-primary); background: var(--color-primary-bg); font-weight: 600; }
+
+.dropdown-fade-enter-active, .dropdown-fade-leave-active { transition: opacity 150ms, transform 150ms; }
+.dropdown-fade-enter-from, .dropdown-fade-leave-to { opacity: 0; transform: translateY(-4px); }
 
 /* User */
 .app-user {

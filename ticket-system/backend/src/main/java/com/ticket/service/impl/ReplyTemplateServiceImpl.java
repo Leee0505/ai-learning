@@ -49,9 +49,10 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
     @Override
     @Transactional
     public ReplyTemplateResponse createTemplate(CreateTemplateRequest request, Long userId) {
-        // Validate title uniqueness
+        // Validate title uniqueness within tenant
         Long count = templateMapper.selectCount(
                 new LambdaQueryWrapper<ReplyTemplate>()
+                        .eq(ReplyTemplate::getTenantId, SecurityUtils.getCurrentTenantId())
                         .eq(ReplyTemplate::getTitle, request.getTitle()));
         if (count > 0) {
             throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
@@ -83,9 +84,10 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
         if (t.getTenantId() == null && !SecurityUtils.isAdmin()) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can edit system default templates");
         }
-        // Validate title uniqueness (exclude self)
+        // Validate title uniqueness within tenant (exclude self)
         Long count = templateMapper.selectCount(
                 new LambdaQueryWrapper<ReplyTemplate>()
+                        .eq(ReplyTemplate::getTenantId, SecurityUtils.getCurrentTenantId())
                         .eq(ReplyTemplate::getTitle, request.getTitle())
                         .ne(ReplyTemplate::getId, id));
         if (count > 0) {

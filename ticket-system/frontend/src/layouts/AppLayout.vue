@@ -3,61 +3,52 @@
     <!-- Top navigation bar — persistent across all authenticated pages -->
     <header class="app-nav">
       <div class="app-nav-inner">
-        <!-- Brand -->
-        <router-link to="/" class="app-brand">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-            class="app-brand-icon" aria-hidden="true">
-            <path d="M19.5 12.572V8.5a2 2 0 0 0-2-2h-12a2 2 0 0 0-2 2v4.072a2 2 0 0 1 0 3.856V20.5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4.072a2 2 0 0 1 0-3.856Z" />
-            <path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4" />
-          </svg>
-          <span class="app-brand-text">Ticket System</span>
-        </router-link>
+        <!-- Left group: brand + nav links -->
+        <div class="nav-left">
+          <router-link to="/" class="app-brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+              class="app-brand-icon" aria-hidden="true">
+              <path d="M19.5 12.572V8.5a2 2 0 0 0-2-2h-12a2 2 0 0 0-2 2v4.072a2 2 0 0 1 0 3.856V20.5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4.072a2 2 0 0 1 0-3.856Z" />
+              <path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4" />
+            </svg>
+            <span class="app-brand-text">Ticket System</span>
+          </router-link>
 
-        <!-- Nav links -->
-        <nav class="app-nav-links">
-          <router-link to="/" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path === '/' }">
-            Dashboard
-          </router-link>
-          <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/workbench" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/workbench') }">
-            Workbench
-          </router-link>
-          <router-link to="/tickets" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/tickets') }">
-            Tickets
-          </router-link>
-          <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/templates" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/templates') }">
-            Templates
-          </router-link>
-          <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/knowledge" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/knowledge') }">
-            Knowledge
-          </router-link>
-          <!-- Admin dropdown -->
-          <div v-if="authStore.isAdmin" class="admin-dropdown" ref="adminDropdownRef">
-            <button
-              class="app-nav-link admin-btn"
-              :class="{ 'app-nav-link--active': $route.path.startsWith('/admin') }"
-              @click="adminMenuOpen = !adminMenuOpen"
-              aria-haspopup="true"
-              :aria-expanded="adminMenuOpen"
-            >
-              Admin
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="admin-chevron" :class="{ 'admin-chevron--open': adminMenuOpen }" aria-hidden="true">
-                <polyline points="6,9 12,15 18,9" />
-              </svg>
-            </button>
-            <transition name="dropdown-fade">
-              <div v-if="adminMenuOpen" class="admin-menu" role="menu">
-                <router-link to="/admin/users" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/users') }" @click="adminMenuOpen = false">Users</router-link>
-                <router-link to="/admin/config" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/config') }" @click="adminMenuOpen = false">Config</router-link>
-                <router-link to="/admin/monitor" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/monitor') }" @click="adminMenuOpen = false">Monitor</router-link>
-              </div>
-            </transition>
-          </div>
-        </nav>
+          <nav class="app-nav-links">
+            <router-link to="/" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path === '/' }">Dashboard</router-link>
+            <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/workbench" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/workbench') }">Workbench</router-link>
+            <router-link to="/tickets" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/tickets') }">Tickets</router-link>
+            <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/templates" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/templates') }">Templates</router-link>
+            <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/knowledge" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/knowledge') }">Knowledge</router-link>
+            <!-- Admin dropdown -->
+            <div v-if="authStore.isAdmin" class="admin-dropdown" ref="adminDropdownRef">
+              <button
+                class="admin-nav-btn"
+                :class="{ 'admin-nav-btn--active': $route.path.startsWith('/admin') }"
+                @click="adminMenuOpen = !adminMenuOpen"
+                aria-haspopup="true"
+                :aria-expanded="adminMenuOpen"
+              >
+                Admin
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="admin-chevron" :class="{ 'admin-chevron--open': adminMenuOpen }" aria-hidden="true">
+                  <polyline points="6,9 12,15 18,9" />
+                </svg>
+              </button>
+              <transition name="dropdown-fade">
+                <div v-if="adminMenuOpen" class="admin-menu" role="menu">
+                  <router-link to="/admin/users" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/users') }" @click="adminMenuOpen = false">Users</router-link>
+                  <router-link to="/admin/config" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/config') }" @click="adminMenuOpen = false">Config</router-link>
+                  <router-link to="/admin/monitor" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/monitor') }" @click="adminMenuOpen = false">Monitor</router-link>
+                </div>
+              </transition>
+            </div>
+          </nav>
+        </div>
 
-        <!-- User section -->
-        <div class="nav-spacer"></div>
-        <NotificationBell />
-        <div class="app-user">
+        <!-- Right group: bell + user -->
+        <div class="nav-right">
+          <NotificationBell />
+          <div class="app-user">
           <div class="app-user-avatar" aria-hidden="true">
             {{ userInitial }}
           </div>
@@ -78,6 +69,7 @@
             <span class="app-logout-text">Sign Out</span>
           </button>
         </div>
+        </div><!-- /.nav-right -->
       </div>
     </header>
 
@@ -156,11 +148,17 @@ async function handleLogout() {
 .app-nav-inner {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 var(--space-lg);
   height: 56px;
 }
+
+/* Left group: brand + nav links */
+.nav-left { display: flex; align-items: center; gap: var(--space-xl); }
+/* Right group: bell + user */
+.nav-right { display: flex; align-items: center; }
 
 /* Brand */
 .app-brand {
@@ -168,6 +166,7 @@ async function handleLogout() {
   align-items: center;
   gap: var(--space-sm);
   text-decoration: none;
+  flex-shrink: 0;
 }
 
 .app-brand-icon {
@@ -187,7 +186,7 @@ async function handleLogout() {
 .app-nav-links {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 4px;
 }
 
 .app-nav-link {
@@ -199,6 +198,7 @@ async function handleLogout() {
   text-decoration: none;
   border-radius: var(--radius-md);
   transition: color var(--transition-fast), background var(--transition-fast);
+  white-space: nowrap;
 }
 
 .app-nav-link:hover {
@@ -212,11 +212,25 @@ async function handleLogout() {
   font-weight: 600;
 }
 
-/* Admin dropdown */
-.admin-dropdown { position: relative; }
-.admin-btn { background: none !important; }
-.admin-btn.app-nav-link--active { background: none !important; color: var(--color-primary); }
-.admin-chevron { width: 14px; height: 14px; margin-left: 2px; transition: transform 200ms; }
+/* Admin dropdown — standalone style, not inheriting app-nav-link */
+.admin-dropdown { position: relative; display: flex; align-items: center; }
+
+.admin-nav-btn {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 6px 12px;
+  font-size: var(--text-sm); font-weight: 500; font-family: var(--font-body);
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 150ms;
+}
+.admin-nav-btn:hover { color: var(--color-primary); }
+.admin-nav-btn--active { color: var(--color-primary); font-weight: 600; }
+
+.admin-chevron { width: 14px; height: 14px; transition: transform 200ms; }
 .admin-chevron--open { transform: rotate(180deg); }
 .admin-menu { position: absolute; top: calc(100% + 6px); left: 0; min-width: 160px; background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); box-shadow: var(--shadow-xl); padding: 6px; z-index: var(--z-modal); }
 .admin-menu-item { display: block; padding: 10px 14px; font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary); text-decoration: none; border-radius: var(--radius-md); transition: color 150ms, background 150ms; }
@@ -225,9 +239,6 @@ async function handleLogout() {
 
 .dropdown-fade-enter-active, .dropdown-fade-leave-active { transition: opacity 150ms, transform 150ms; }
 .dropdown-fade-enter-from, .dropdown-fade-leave-to { opacity: 0; transform: translateY(-4px); }
-
-/* Push user section to the right */
-.nav-spacer { margin-left: auto; }
 
 /* User */
 .app-user {

@@ -30,4 +30,11 @@ public class KafkaEventConsumer {
                 event.getTicketId(), event.getAssignedTo());
         notificationService.handleTicketAssigned(event);
     }
+
+    @KafkaListener(topics = "ticket.overdue", groupId = "ticket-system")
+    public void onTicketOverdue(TicketOverdueEvent event) {
+        log.info("AUDIT [ticket.overdue] ticketId={} type={} overdueMinutes={}",
+                event.getTicketId(), event.getType(), event.getOverdueMinutes());
+        notificationService.handleTicketOverdue(event);
+    }
 }

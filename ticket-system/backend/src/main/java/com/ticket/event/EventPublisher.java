@@ -10,4 +10,7 @@ public interface EventPublisher {
 
     /** Publish a ticket-assigned event to topic "ticket.assigned". */
     void publishTicketAssigned(TicketAssignedEvent event);
+
+    /** Publish a ticket-overdue event to topic "ticket.overdue". */
+    void publishTicketOverdue(TicketOverdueEvent event);
 }

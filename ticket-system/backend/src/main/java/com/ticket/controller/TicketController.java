@@ -287,6 +287,15 @@ public class TicketController {
         return ApiResult.success(response);
     }
 
+    // ── Overdue ──
+
+    @GetMapping("/tickets/overdue")
+    @PreAuthorize("hasAnyRole('" + RoleConstants.ADMIN + "', '" + RoleConstants.AGENT + "')")
+    @Operation(summary = "List overdue tickets for workbench alert")
+    public ApiResult<List<TicketDetailResponse>> getOverdue(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        return ApiResult.success(ticketService.getOverdueTickets(userDetails.getUserId(), userDetails.getRole()));
+    }
+
     // ── Assign ──
 
     @PatchMapping("/tickets/{id}/assign")

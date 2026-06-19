@@ -28,6 +28,10 @@ export function changeTicketStatus(id, data) {
   return request.patch(`/tickets/${id}/status`, data)
 }
 
+export function getOverdueTickets() {
+  return request.get('/tickets/overdue')
+}
+
 export function assignTicket(id, data) {
   return request.patch(`/tickets/${id}/assign`, data)
 }

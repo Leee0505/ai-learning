@@ -8,6 +8,7 @@ import com.ticket.dto.response.NotificationResponse;
 import com.ticket.entity.Notification;
 import com.ticket.event.TicketAssignedEvent;
 import com.ticket.event.TicketCreatedEvent;
+import com.ticket.event.TicketOverdueEvent;
 import com.ticket.mapper.NotificationMapper;
 import com.ticket.mapper.UserMapper;
 import com.ticket.service.NotificationService;
@@ -66,6 +67,31 @@ public class NotificationServiceImpl implements NotificationService {
                 BusinessConstants.NOTIF_TICKET_ASSIGNED, event.getTicketId(),
                 "Ticket #" + event.getTicketId() + " assigned to you", null);
         pushAndSave(notif);
+    }
+
+    @Transactional
+    public void handleTicketOverdue(TicketOverdueEvent event) {
+        // Notify the assigned agent (if assigned), otherwise notify all agents
+        if (event.getAssignedTo() != null) {
+            Notification notif = buildNotification(event.getAssignedTo(),
+                    BusinessConstants.NOTIF_TICKET_OVERDUE, event.getTicketId(),
+                    "Ticket #" + event.getTicketId() + " is overdue (" + event.getOverdueMinutes() + "min)",
+                    "Priority: " + event.getPriority() + " | Type: " + event.getType());
+            pushAndSave(notif);
+        } else {
+            // Unassigned overdue: notify all agents and admins
+            var recipients = userMapper.selectList(new LambdaQueryWrapper<>())
+                    .stream()
+                    .filter(u -> "ROLE_AGENT".equals(u.getRole()) || "ROLE_ADMIN".equals(u.getRole()))
+                    .toList();
+            for (var user : recipients) {
+                Notification notif = buildNotification(user.getId(),
+                        BusinessConstants.NOTIF_TICKET_OVERDUE, event.getTicketId(),
+                        "Unassigned ticket #" + event.getTicketId() + " is overdue (" + event.getOverdueMinutes() + "min)",
+                        "Priority: " + event.getPriority());
+                pushAndSave(notif);
+            }
+        }
     }
 
     private Notification buildNotification(Long userId, String type, Long ticketId, String title, String message) {

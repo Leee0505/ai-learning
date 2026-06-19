@@ -62,17 +62,20 @@ public class TicketServiceImpl implements TicketService {
     private final UserMapper userMapper;
     private final FileStorageService fileStorage;
     private final com.ticket.event.EventPublisher eventPublisher;
+    private final SlaConfigMapper slaConfigMapper;
 
     public TicketServiceImpl(TicketMapper ticketMapper, TicketReplyMapper ticketReplyMapper,
                              TicketAttachmentMapper ticketAttachmentMapper, UserMapper userMapper,
                              FileStorageService fileStorage,
-                             com.ticket.event.EventPublisher eventPublisher) {
+                             com.ticket.event.EventPublisher eventPublisher,
+                             SlaConfigMapper slaConfigMapper) {
         this.ticketMapper = ticketMapper;
         this.ticketReplyMapper = ticketReplyMapper;
         this.ticketAttachmentMapper = ticketAttachmentMapper;
         this.userMapper = userMapper;
         this.fileStorage = fileStorage;
         this.eventPublisher = eventPublisher;
+        this.slaConfigMapper = slaConfigMapper;
     }
 
     // ──────────────────────────────────────────────
@@ -320,6 +323,47 @@ public class TicketServiceImpl implements TicketService {
         eventPublisher.publishTicketAssigned(
                 new com.ticket.event.TicketAssignedEvent(ticketId, targetId, userId));
         return getTicketDetail(ticketId, userId, role);
+    }
+
+    // ──────────────────────────────────────────────
+    //  Overdue
+    // ──────────────────────────────────────────────
+
+    @Override
+    public List<TicketDetailResponse> getOverdueTickets(Long userId, String role) {
+        long now = System.currentTimeMillis();
+        List<SlaConfig> slas = slaConfigMapper.selectList(new LambdaQueryWrapper<>());
+        Map<String, SlaConfig> slaByPriority = slas.stream()
+                .collect(Collectors.toMap(SlaConfig::getPriority, s -> s));
+
+        // Tickets visible to this user that are overdue
+        LambdaQueryWrapper<Ticket> wrapper = new LambdaQueryWrapper<>();
+        // Status filter: not closed or resolved
+        wrapper.in(Ticket::getStatus, "OPEN", "IN_PROGRESS");
+
+        // Role-based visibility
+        if (RoleConstants.ROLE_USER.equals(role)) {
+            wrapper.eq(Ticket::getCreatedBy, userId);
+        } else if (RoleConstants.ROLE_AGENT.equals(role)) {
+            wrapper.and(w -> w.eq(Ticket::getAssignedTo, userId)
+                    .or().isNull(Ticket::getAssignedTo));
+        }
+        // Admin sees all — no userId filter
+
+        List<Ticket> tickets = ticketMapper.selectList(wrapper);
+
+        // Filter to only those past SLA deadline
+        return tickets.stream()
+                .filter(t -> {
+                    SlaConfig sla = slaByPriority.get(t.getPriority());
+                    if (sla == null) return false;
+                    // Use response SLA if unassigned, resolution SLA if assigned
+                    int slaMinutes = t.getAssignedTo() == null ? sla.getResponseMinutes() : sla.getResolutionMinutes();
+                    long deadline = t.getCreatedDate() + (long) slaMinutes * 60_000;
+                    return now > deadline;
+                })
+                .map(TicketDetailResponse::from)
+                .collect(Collectors.toList());
     }
 
     // ──────────────────────────────────────────────

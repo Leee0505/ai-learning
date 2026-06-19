@@ -19,6 +19,7 @@ public interface TicketService {
     int deleteBatchTickets(List<Long> ticketIds);
     TicketDetailResponse changeStatus(Long ticketId, ChangeStatusRequest request, Long userId, String role);
     TicketDetailResponse assignTicket(Long ticketId, AssignTicketRequest request, Long userId, String role);
+    List<TicketDetailResponse> getOverdueTickets(Long userId, String role);
     TicketReplyResponse addReply(Long ticketId, CreateReplyRequest request, Long userId);
     TicketReplyResponse editReply(Long ticketId, Long replyId, UpdateReplyRequest request, Long userId);
     void deleteReply(Long ticketId, Long replyId, Long userId, String role);

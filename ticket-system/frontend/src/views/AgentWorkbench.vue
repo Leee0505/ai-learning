@@ -24,6 +24,16 @@
       </div>
     </div>
 
+    <!-- ── Overdue Alert ── -->
+    <div v-if="overdue.length > 0 && !overdueCollapsed" class="overdue-banner" role="alert">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="overdue-icon" aria-hidden="true">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <span><strong>{{ overdue.length }}</strong> overdue ticket{{ overdue.length > 1 ? 's' : '' }}</span>
+      <button class="overdue-dismiss" @click="overdueCollapsed = true" aria-label="Dismiss overdue alert">✕</button>
+    </div>
+
     <!-- ── Pending Queue ── -->
     <div class="section">
       <h2 class="section-title">Pending Queue</h2>
@@ -125,7 +135,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { listTickets, assignTicket, getDashboardStats } from '@/api/tickets'
+import { listTickets, assignTicket, getDashboardStats, getOverdueTickets } from '@/api/tickets'
 import { ElMessage } from 'element-plus'
 import { formatDate } from '@/utils/date'
 
@@ -140,10 +150,12 @@ const activeTotal = ref(0)
 const activeLoading = ref(true)
 const todayDone = ref(0)
 const takingIds = ref(new Set())
+const overdue = ref([])
+const overdueCollapsed = ref(false)
 
 // ── Initial load ──
 onMounted(async () => {
-  await Promise.all([fetchPending(), fetchActive(), fetchStats()])
+  await Promise.all([fetchPending(), fetchActive(), fetchStats(), fetchOverdue()])
 })
 
 async function fetchPending() {
@@ -167,6 +179,13 @@ async function fetchActive() {
       activeTotal.value = data.data.total
     }
   } finally { activeLoading.value = false }
+}
+
+async function fetchOverdue() {
+  try {
+    const { data } = await getOverdueTickets()
+    if (data?.code === 200) overdue.value = data.data || []
+  } catch { /* ignore */ }
 }
 
 async function fetchStats() {
@@ -311,6 +330,12 @@ function statusLabel(s) {
 .empty-icon { width: 40px; height: 40px; color: var(--color-gray-300); margin-bottom: var(--space-sm); }
 .empty-title { font-family: var(--font-heading); font-size: var(--text-base); font-weight: 600; color: var(--color-text-primary); margin: 0 0 var(--space-xs); }
 .empty-desc { font-size: var(--text-sm); color: var(--color-text-muted); margin: 0; }
+
+/* ── Overdue Banner ── */
+.overdue-banner { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg); background: #FEF3C7; border: 1px solid #F59E0B; border-radius: var(--radius-lg); font-size: var(--text-sm); color: #92400E; }
+.overdue-icon { width: 20px; height: 20px; flex-shrink: 0; color: #F59E0B; }
+.overdue-dismiss { margin-left: auto; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; padding: 0; background: none; border: none; border-radius: var(--radius-sm); color: #92400E; cursor: pointer; font-size: 14px; }
+.overdue-dismiss:hover { background: #FDE68A; }
 
 /* ── Responsive ── */
 @media (max-width: 768px) {

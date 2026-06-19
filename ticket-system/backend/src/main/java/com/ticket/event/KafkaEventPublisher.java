@@ -12,6 +12,7 @@ public class KafkaEventPublisher implements EventPublisher {
 
     public static final String TOPIC_TICKET_CREATED  = "ticket.created";
     public static final String TOPIC_TICKET_ASSIGNED  = "ticket.assigned";
+    public static final String TOPIC_TICKET_OVERDUE   = "ticket.overdue";
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
@@ -27,6 +28,11 @@ public class KafkaEventPublisher implements EventPublisher {
     @Override
     public void publishTicketAssigned(TicketAssignedEvent event) {
         send(TOPIC_TICKET_ASSIGNED, String.valueOf(event.getTicketId()), event);
+    }
+
+    @Override
+    public void publishTicketOverdue(TicketOverdueEvent event) {
+        send(TOPIC_TICKET_OVERDUE, String.valueOf(event.getTicketId()), event);
     }
 
     private void send(String topic, String key, Object payload) {

@@ -50,6 +50,13 @@ public final class BusinessConstants {
     /** Maximum upload file size: 10 MB in bytes */
     public static final long MAX_UPLOAD_SIZE = 10 * 1024 * 1024L;
 
+    // === Notification types ===
+    public static final String NOTIF_TICKET_CREATED = "TICKET_CREATED";
+    public static final String NOTIF_TICKET_ASSIGNED = "TICKET_ASSIGNED";
+    public static final String NOTIF_TICKET_REPLIED = "TICKET_REPLIED";
+    public static final String NOTIF_TICKET_RESOLVED = "TICKET_RESOLVED";
+    public static final String NOTIF_TICKET_OVERDUE = "TICKET_OVERDUE";
+
     // === Pagination defaults ===
     public static final int DEFAULT_PAGE = 1;
     public static final int DEFAULT_SIZE = 20;

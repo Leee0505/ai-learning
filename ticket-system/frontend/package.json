@@ -9,12 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@stomp/stompjs": "^7.0.0",
     "axios": "^1.6.8",
     "dayjs": "^1.11.21",
     "element-plus": "^2.6.3",
     "marked": "^18.0.5",
     "pinia": "^2.1.7",
     "pinia-plugin-persistedstate": "^3.2.1",
+    "sockjs-client": "^1.6.1",
     "vditor": "^3.11.2",
     "vue": "^3.4.21",
     "vue-router": "^4.3.0"

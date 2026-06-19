@@ -42,6 +42,7 @@
         </nav>
 
         <!-- User section -->
+        <NotificationBell />
         <div class="app-user">
           <div class="app-user-avatar" aria-hidden="true">
             {{ userInitial }}
@@ -74,11 +75,14 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import NotificationBell from '@/components/NotificationBell.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationStore } from '@/stores/notifications'
 
 const authStore = useAuthStore()
+const notifStore = useNotificationStore()
 const router = useRouter()
 
 const userInitial = computed(() => {
@@ -92,7 +96,14 @@ const roleLabel = computed(() => {
   return 'User'
 })
 
+onMounted(() => {
+  notifStore.fetchUnreadCount()
+  notifStore.connect()
+})
+onBeforeUnmount(() => { notifStore.disconnect() })
+
 async function handleLogout() {
+  notifStore.disconnect()
   await authStore.logout()
   router.push('/login')
 }

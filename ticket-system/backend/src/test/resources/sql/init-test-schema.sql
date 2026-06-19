@@ -121,6 +121,18 @@ INSERT INTO ticket_field_config (name, field_key, field_type, options, display_o
 ('Environment', 'environment', 'SINGLE_SELECT', '{"items":["Production","Staging","Development"]}', 1, 1, 0, 0, 0),
 ('Version', 'version', 'TEXT', NULL, 2, 1, 0, 0, 0);
 
+CREATE TABLE IF NOT EXISTS `notification` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `type` VARCHAR(30) NOT NULL,
+    `ticket_id` BIGINT DEFAULT NULL,
+    `title` VARCHAR(255) NOT NULL,
+    `message` TEXT DEFAULT NULL,
+    `is_read` TINYINT NOT NULL DEFAULT 0,
+    `created_date` BIGINT NOT NULL,
+    PRIMARY KEY (`id`)
+);
+
 CREATE TABLE IF NOT EXISTS `ticket_attachment` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `ticket_id` BIGINT DEFAULT NULL,

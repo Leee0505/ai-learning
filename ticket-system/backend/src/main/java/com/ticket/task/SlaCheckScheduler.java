@@ -45,8 +45,20 @@ public class SlaCheckScheduler {
         // 1. Unassigned OPEN tickets past response SLA — filter in SQL
         LambdaQueryWrapper<Ticket> unassignedWrapper = new LambdaQueryWrapper<Ticket>()
                 .eq(Ticket::getStatus, "OPEN")
-                .isNull(Ticket::getAssignedTo())
-                .and(w -> buildOverdueFilter(w, slas, now, false));
+                .isNull(Ticket::getAssignedTo());
+        unassignedWrapper.and(w -> {
+            for (int i = 0; i < slas.size(); i++) {
+                SlaConfig sla = slas.get(i);
+                long deadline = now - (long) sla.getResponseMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
+                if (i == 0) {
+                    w.eq(Ticket::getPriority, sla.getPriority())
+                     .lt(Ticket::getCreatedDate, deadline);
+                } else {
+                    w.or().eq(Ticket::getPriority, sla.getPriority())
+                     .lt(Ticket::getCreatedDate, deadline);
+                }
+            }
+        });
         List<Ticket> unassigned = ticketMapper.selectList(unassignedWrapper);
 
         for (Ticket ticket : unassigned) {
@@ -62,8 +74,20 @@ public class SlaCheckScheduler {
         // 2. Assigned OPEN/IN_PROGRESS tickets past resolution SLA — filter in SQL
         LambdaQueryWrapper<Ticket> assignedWrapper = new LambdaQueryWrapper<Ticket>()
                 .in(Ticket::getStatus, "OPEN", "IN_PROGRESS")
-                .isNotNull(Ticket::getAssignedTo())
-                .and(w -> buildOverdueFilter(w, slas, now, true));
+                .isNotNull(Ticket::getAssignedTo());
+        assignedWrapper.and(w -> {
+            for (int i = 0; i < slas.size(); i++) {
+                SlaConfig sla = slas.get(i);
+                long deadline = now - (long) sla.getResolutionMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
+                if (i == 0) {
+                    w.eq(Ticket::getPriority, sla.getPriority())
+                     .lt(Ticket::getCreatedDate, deadline);
+                } else {
+                    w.or().eq(Ticket::getPriority, sla.getPriority())
+                     .lt(Ticket::getCreatedDate, deadline);
+                }
+            }
+        });
         List<Ticket> assigned = ticketMapper.selectList(assignedWrapper);
 
         for (Ticket ticket : assigned) {
@@ -86,29 +110,5 @@ public class SlaCheckScheduler {
                 .filter(s -> s.getPriority().equalsIgnoreCase(priority))
                 .findFirst()
                 .orElse(null);
-    }
-
-    /**
-     * Build a nested OR filter group: (priority=X AND created_date < deadline) OR (...)
-     * First iteration uses eq+lt directly (no leading OR), subsequent use w.or().
-     *
-     * @param w             the nested wrapper from .and()
-     * @param slas          loaded SLA configs
-     * @param now           current time millis
-     * @param useResolution true = resolution SLA, false = response SLA
-     */
-    private void buildOverdueFilter(LambdaQueryWrapper<Ticket> w, List<SlaConfig> slas, long now, boolean useResolution) {
-        for (int i = 0; i < slas.size(); i++) {
-            SlaConfig sla = slas.get(i);
-            int minutes = useResolution ? sla.getResolutionMinutes() : sla.getResponseMinutes();
-            long deadline = now - (long) minutes * BusinessConstants.MILLIS_PER_MINUTE;
-            if (i == 0) {
-                w.eq(Ticket::getPriority, sla.getPriority())
-                 .lt(Ticket::getCreatedDate, deadline);
-            } else {
-                w.or(sub -> sub.eq(Ticket::getPriority, sla.getPriority())
-                                .lt(Ticket::getCreatedDate, deadline));
-            }
-        }
     }
 }

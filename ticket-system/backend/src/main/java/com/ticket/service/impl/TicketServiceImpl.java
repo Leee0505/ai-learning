@@ -346,45 +346,22 @@ public class TicketServiceImpl implements TicketService {
             // Admin sees all — no userId filter
         };
 
-        // 1. Unassigned → past response SLA (SQL-filtered)
-        LambdaQueryWrapper<Ticket> unassignedWrapper = new LambdaQueryWrapper<>();
-        unassignedWrapper.eq(Ticket::getStatus, "OPEN")
-                .isNull(Ticket::getAssignedTo());
-        applyVisibility.accept(unassignedWrapper);
-        unassignedWrapper.and(w -> {
-            for (int i = 0; i < slas.size(); i++) {
-                SlaConfig sla = slas.get(i);
-                long deadline = now - (long) sla.getResponseMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
-                if (i == 0) {
-                    w.eq(Ticket::getPriority, sla.getPriority())
-                     .lt(Ticket::getCreatedDate, deadline);
-                } else {
-                    w.or().eq(Ticket::getPriority, sla.getPriority())
-                     .lt(Ticket::getCreatedDate, deadline);
-                }
-            }
-        });
-        overdue.addAll(ticketMapper.selectList(unassignedWrapper));
+        // Query: non-closed tickets, then filter by SLA deadline
+        LambdaQueryWrapper<Ticket> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(Ticket::getStatus, "OPEN", "IN_PROGRESS");
+        applyVisibility.accept(wrapper);
 
-        // 2. Assigned → past resolution SLA (SQL-filtered)
-        LambdaQueryWrapper<Ticket> assignedWrapper = new LambdaQueryWrapper<>();
-        assignedWrapper.in(Ticket::getStatus, "OPEN", "IN_PROGRESS")
-                .isNotNull(Ticket::getAssignedTo());
-        applyVisibility.accept(assignedWrapper);
-        assignedWrapper.and(w -> {
-            for (int i = 0; i < slas.size(); i++) {
-                SlaConfig sla = slas.get(i);
-                long deadline = now - (long) sla.getResolutionMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
-                if (i == 0) {
-                    w.eq(Ticket::getPriority, sla.getPriority())
-                     .lt(Ticket::getCreatedDate, deadline);
-                } else {
-                    w.or().eq(Ticket::getPriority, sla.getPriority())
-                     .lt(Ticket::getCreatedDate, deadline);
-                }
-            }
-        });
-        overdue.addAll(ticketMapper.selectList(assignedWrapper));
+        Map<String, SlaConfig> slaByPriority = slas.stream()
+                .collect(Collectors.toMap(SlaConfig::getPriority, s -> s));
+
+        List<Ticket> tickets = ticketMapper.selectList(wrapper);
+        for (Ticket t : tickets) {
+            SlaConfig sla = slaByPriority.get(t.getPriority());
+            if (sla == null) continue;
+            int slaMinutes = t.getAssignedTo() == null ? sla.getResponseMinutes() : sla.getResolutionMinutes();
+            long deadline = t.getCreatedDate() + (long) slaMinutes * BusinessConstants.MILLIS_PER_MINUTE;
+            if (now > deadline) overdue.add(t);
+        }
 
         return overdue.stream().map(TicketDetailResponse::from).collect(Collectors.toList());
     }

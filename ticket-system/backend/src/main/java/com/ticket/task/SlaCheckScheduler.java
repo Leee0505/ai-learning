@@ -14,6 +14,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 public class SlaCheckScheduler {
@@ -40,75 +42,42 @@ public class SlaCheckScheduler {
             return;
         }
 
+        Map<String, SlaConfig> slaByPriority = slas.stream()
+                .collect(Collectors.toMap(SlaConfig::getPriority, s -> s));
+
         int detected = 0;
 
-        // 1. Unassigned OPEN tickets past response SLA — filter in SQL
-        LambdaQueryWrapper<Ticket> unassignedWrapper = new LambdaQueryWrapper<Ticket>()
-                .eq(Ticket::getStatus, "OPEN")
-                .isNull(Ticket::getAssignedTo());
-        unassignedWrapper.and(w -> {
-            for (int i = 0; i < slas.size(); i++) {
-                SlaConfig sla = slas.get(i);
-                long deadline = now - (long) sla.getResponseMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
-                if (i == 0) {
-                    w.eq(Ticket::getPriority, sla.getPriority())
-                     .lt(Ticket::getCreatedDate, deadline);
-                } else {
-                    w.or().eq(Ticket::getPriority, sla.getPriority())
-                     .lt(Ticket::getCreatedDate, deadline);
+        // Query: all non-closed tickets (status-filtered at DB level)
+        List<Ticket> active = ticketMapper.selectList(new LambdaQueryWrapper<Ticket>()
+                .in(Ticket::getStatus, "OPEN", "IN_PROGRESS"));
+
+        for (Ticket ticket : active) {
+            SlaConfig sla = slaByPriority.get(ticket.getPriority());
+            if (sla == null) continue;
+
+            if (ticket.getAssignedTo() == null) {
+                // Unassigned → check response SLA
+                long deadline = ticket.getCreatedDate() + (long) sla.getResponseMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
+                if (now > deadline) {
+                    int overdueMin = (int) ((now - deadline) / BusinessConstants.MILLIS_PER_MINUTE);
+                    eventPublisher.publishTicketOverdue(
+                            new TicketOverdueEvent(ticket.getId(), "UNASSIGNED_OVERDUE", overdueMin, null, ticket.getPriority()));
+                    detected++;
+                }
+            } else {
+                // Assigned → check resolution SLA
+                long deadline = ticket.getCreatedDate() + (long) sla.getResolutionMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
+                if (now > deadline) {
+                    int overdueMin = (int) ((now - deadline) / BusinessConstants.MILLIS_PER_MINUTE);
+                    eventPublisher.publishTicketOverdue(
+                            new TicketOverdueEvent(ticket.getId(), "RESOLUTION_OVERDUE", overdueMin, ticket.getAssignedTo(), ticket.getPriority()));
+                    detected++;
                 }
             }
-        });
-        List<Ticket> unassigned = ticketMapper.selectList(unassignedWrapper);
-
-        for (Ticket ticket : unassigned) {
-            SlaConfig sla = findSla(slas, ticket.getPriority());
-            if (sla == null) continue;
-            long deadline = ticket.getCreatedDate() + (long) sla.getResponseMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
-            int overdueMin = (int) ((now - deadline) / BusinessConstants.MILLIS_PER_MINUTE);
-            eventPublisher.publishTicketOverdue(
-                    new TicketOverdueEvent(ticket.getId(), "UNASSIGNED_OVERDUE", overdueMin, null, ticket.getPriority()));
-            detected++;
-        }
-
-        // 2. Assigned OPEN/IN_PROGRESS tickets past resolution SLA — filter in SQL
-        LambdaQueryWrapper<Ticket> assignedWrapper = new LambdaQueryWrapper<Ticket>()
-                .in(Ticket::getStatus, "OPEN", "IN_PROGRESS")
-                .isNotNull(Ticket::getAssignedTo());
-        assignedWrapper.and(w -> {
-            for (int i = 0; i < slas.size(); i++) {
-                SlaConfig sla = slas.get(i);
-                long deadline = now - (long) sla.getResolutionMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
-                if (i == 0) {
-                    w.eq(Ticket::getPriority, sla.getPriority())
-                     .lt(Ticket::getCreatedDate, deadline);
-                } else {
-                    w.or().eq(Ticket::getPriority, sla.getPriority())
-                     .lt(Ticket::getCreatedDate, deadline);
-                }
-            }
-        });
-        List<Ticket> assigned = ticketMapper.selectList(assignedWrapper);
-
-        for (Ticket ticket : assigned) {
-            SlaConfig sla = findSla(slas, ticket.getPriority());
-            if (sla == null) continue;
-            long deadline = ticket.getCreatedDate() + (long) sla.getResolutionMinutes() * BusinessConstants.MILLIS_PER_MINUTE;
-            int overdueMin = (int) ((now - deadline) / BusinessConstants.MILLIS_PER_MINUTE);
-            eventPublisher.publishTicketOverdue(
-                    new TicketOverdueEvent(ticket.getId(), "RESOLUTION_OVERDUE", overdueMin, ticket.getAssignedTo(), ticket.getPriority()));
-            detected++;
         }
 
         if (detected > 0) {
             log.info("Overdue check complete: {} overdue tickets detected", detected);
         }
-    }
-
-    private SlaConfig findSla(List<SlaConfig> slas, String priority) {
-        return slas.stream()
-                .filter(s -> s.getPriority().equalsIgnoreCase(priority))
-                .findFirst()
-                .orElse(null);
     }
 }

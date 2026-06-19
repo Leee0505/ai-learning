@@ -1,8 +1,21 @@
 -- H2-compatible test schema (MySQL mode)
 -- Adapted from V1__init_schema.sql and V3__create_ticket_tables.sql
 
+CREATE TABLE IF NOT EXISTS `tenant` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(100) NOT NULL,
+    `slug` VARCHAR(50) NOT NULL,
+    `status` TINYINT NOT NULL DEFAULT 1,
+    `created_date` BIGINT NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_tenant_slug` (`slug`)
+);
+
+INSERT INTO tenant (id, name, slug, status, created_date) VALUES (1, 'Default', 'default', 1, 0);
+
 CREATE TABLE IF NOT EXISTS `user` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `tenant_id` BIGINT NOT NULL DEFAULT 1,
     `username` VARCHAR(50) NOT NULL,
     `email` VARCHAR(100) NOT NULL,
     `phone` VARCHAR(20) DEFAULT NULL,
@@ -14,12 +27,13 @@ CREATE TABLE IF NOT EXISTS `user` (
     `last_modified_by` BIGINT DEFAULT NULL,
     `last_modified_date` BIGINT DEFAULT NULL,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_username` (`username`),
-    UNIQUE KEY `uk_email` (`email`)
+    UNIQUE KEY `uk_tenant_username` (`tenant_id`, `username`),
+    UNIQUE KEY `uk_tenant_email` (`tenant_id`, `email`)
 );
 
 CREATE TABLE IF NOT EXISTS `invite_token` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `tenant_id` BIGINT NOT NULL DEFAULT 1,
     `token` VARCHAR(64) NOT NULL,
     `email` VARCHAR(100) NOT NULL,
     `expires_at` BIGINT NOT NULL,
@@ -29,11 +43,12 @@ CREATE TABLE IF NOT EXISTS `invite_token` (
     `last_modified_by` BIGINT DEFAULT NULL,
     `last_modified_date` BIGINT DEFAULT NULL,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_token` (`token`)
+    UNIQUE KEY `uk_tenant_token` (`tenant_id`, `token`)
 );
 
 CREATE TABLE IF NOT EXISTS `audit_log` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `tenant_id` BIGINT NOT NULL DEFAULT 1,
     `user_id` BIGINT NOT NULL,
     `action` VARCHAR(50) NOT NULL,
     `target_type` VARCHAR(50) DEFAULT NULL,
@@ -49,6 +64,7 @@ CREATE TABLE IF NOT EXISTS `audit_log` (
 
 CREATE TABLE IF NOT EXISTS `ticket` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `tenant_id` BIGINT NOT NULL DEFAULT 1,
     `title` VARCHAR(255) NOT NULL,
     `description` TEXT DEFAULT NULL,
     `status` VARCHAR(20) NOT NULL DEFAULT 'OPEN',
@@ -66,6 +82,7 @@ CREATE TABLE IF NOT EXISTS `ticket` (
 
 CREATE TABLE IF NOT EXISTS `ticket_reply` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `tenant_id` BIGINT NOT NULL DEFAULT 1,
     `ticket_id` BIGINT NOT NULL,
     `user_id` BIGINT NOT NULL,
     `content` TEXT NOT NULL,
@@ -80,6 +97,7 @@ CREATE TABLE IF NOT EXISTS `ticket_reply` (
 
 CREATE TABLE IF NOT EXISTS `ticket_field_config` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `tenant_id` BIGINT NOT NULL DEFAULT 1,
     `name` VARCHAR(100) NOT NULL,
     `field_key` VARCHAR(50) NOT NULL,
     `field_type` VARCHAR(20) NOT NULL DEFAULT 'TEXT',
@@ -92,11 +110,12 @@ CREATE TABLE IF NOT EXISTS `ticket_field_config` (
     `last_modified_by` BIGINT DEFAULT NULL,
     `last_modified_date` BIGINT DEFAULT NULL,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_field_key` (`field_key`)
+    UNIQUE KEY `uk_tenant_field_key` (`tenant_id`, `field_key`)
 );
 
 CREATE TABLE IF NOT EXISTS `sla_config` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `tenant_id` BIGINT NOT NULL DEFAULT 1,
     `priority` VARCHAR(20) NOT NULL,
     `response_minutes` INT NOT NULL,
     `resolution_minutes` INT NOT NULL,
@@ -106,7 +125,7 @@ CREATE TABLE IF NOT EXISTS `sla_config` (
     `last_modified_by` BIGINT DEFAULT NULL,
     `last_modified_date` BIGINT DEFAULT NULL,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_priority` (`priority`)
+    UNIQUE KEY `uk_tenant_priority` (`tenant_id`, `priority`)
 );
 
 -- Seed default SLA rules for tests
@@ -123,6 +142,7 @@ INSERT INTO ticket_field_config (name, field_key, field_type, options, display_o
 
 CREATE TABLE IF NOT EXISTS `notification` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `tenant_id` BIGINT NOT NULL DEFAULT 1,
     `user_id` BIGINT NOT NULL,
     `type` VARCHAR(30) NOT NULL,
     `ticket_id` BIGINT DEFAULT NULL,
@@ -135,6 +155,7 @@ CREATE TABLE IF NOT EXISTS `notification` (
 
 CREATE TABLE IF NOT EXISTS `ticket_attachment` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `tenant_id` BIGINT NOT NULL DEFAULT 1,
     `ticket_id` BIGINT DEFAULT NULL,
     `reply_id` BIGINT DEFAULT NULL,
     `filename` VARCHAR(255) NOT NULL,

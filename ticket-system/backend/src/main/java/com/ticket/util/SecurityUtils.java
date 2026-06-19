@@ -1,6 +1,8 @@
 package com.ticket.util;
 
 import com.ticket.security.UserDetailsImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
@@ -8,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
  */
 public final class SecurityUtils {
 
+    private static final Logger log = LoggerFactory.getLogger(SecurityUtils.class);
     private SecurityUtils() {}
 
     /**
@@ -33,12 +36,22 @@ public final class SecurityUtils {
     public static Long getCurrentTenantId() {
         try {
             var auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl principal) {
-                Long tenantId = principal.getTenantId();
-                return tenantId != null ? tenantId : 1L;
+            if (auth != null) {
+                var principal = auth.getPrincipal();
+                log.info("[SECURITY-UTILS] principal type={}, value={}",
+                        principal != null ? principal.getClass().getSimpleName() : "null",
+                        principal);
+                if (principal instanceof UserDetailsImpl udi) {
+                    Long tenantId = udi.getTenantId();
+                    log.info("[SECURITY-UTILS] getCurrentTenantId() = {}", tenantId);
+                    return tenantId != null ? tenantId : 1L;
+                }
+                log.info("[SECURITY-UTILS] principal not UserDetailsImpl, defaulting to 1");
+            } else {
+                log.info("[SECURITY-UTILS] no authentication, defaulting to 1");
             }
         } catch (Exception ignored) {
-            // No authentication context available
+            log.info("[SECURITY-UTILS] exception, defaulting to 1");
         }
         return 1L;
     }

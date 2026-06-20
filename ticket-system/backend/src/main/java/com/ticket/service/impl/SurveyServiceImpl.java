@@ -182,6 +182,24 @@ public class SurveyServiceImpl implements SurveyService {
         sectionMapper.deleteById(sectionId);
     }
 
+    @Override
+    @Transactional
+    public void updatePageTitle(Long pageId, String title) {
+        SurveyPage page = pageMapper.selectById(pageId);
+        if (page == null) throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND, "page not found");
+        page.setTitle(title);
+        pageMapper.updateById(page);
+    }
+
+    @Override
+    @Transactional
+    public void updateSectionTitle(Long sectionId, String title) {
+        SurveySection section = sectionMapper.selectById(sectionId);
+        if (section == null) throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND, "section not found");
+        section.setTitle(title);
+        sectionMapper.updateById(section);
+    }
+
     // ── Builder — Questions ──
 
     @Override

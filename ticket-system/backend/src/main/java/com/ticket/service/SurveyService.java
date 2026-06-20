@@ -5,6 +5,8 @@ import com.ticket.dto.response.*;
 
 import com.ticket.dto.response.PageResponse;
 
+import java.util.List;
+
 public interface SurveyService {
     // Template CRUD
     SurveyTemplateResponse createTemplate(CreateSurveyTemplateRequest request, Long adminId);
@@ -21,6 +23,8 @@ public interface SurveyService {
     // Builder — sections
     SurveyTemplateResponse.SectionResponse addSection(Long pageId, String title, Long adminId);
     void deleteSection(Long sectionId);
+    void updatePageTitle(Long pageId, String title);
+    void updateSectionTitle(Long sectionId, String title);
 
     // Builder — questions
     SurveyTemplateResponse.QuestionResponse addQuestion(Long sectionId, AddQuestionRequest request, Long adminId);

@@ -14,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import com.ticket.dto.response.PageResponse;
 
 @RestController
@@ -92,6 +93,15 @@ public class SurveyController {
         return ApiResult.success();
     }
 
+    @PutMapping("/pages/{pageId}")
+    @Operation(summary = "Update a page title")
+    public ApiResult<Void> updatePage(@PathVariable Long pageId, @RequestBody Map<String, String> body) {
+        String title = body.get("title");
+        if (title == null || title.isBlank()) return ApiResult.error(400, "title is required");
+        surveyService.updatePageTitle(pageId, title);
+        return ApiResult.success();
+    }
+
     // ── Builder — Sections ──
 
     @PostMapping("/pages/{pageId}/sections")
@@ -106,6 +116,15 @@ public class SurveyController {
     @Operation(summary = "Delete a section")
     public ApiResult<Void> deleteSection(@PathVariable Long sectionId) {
         surveyService.deleteSection(sectionId);
+        return ApiResult.success();
+    }
+
+    @PutMapping("/sections/{sectionId}")
+    @Operation(summary = "Update a section title")
+    public ApiResult<Void> updateSection(@PathVariable Long sectionId, @RequestBody Map<String, String> body) {
+        String title = body.get("title");
+        if (title == null || title.isBlank()) return ApiResult.error(400, "title is required");
+        surveyService.updateSectionTitle(sectionId, title);
         return ApiResult.success();
     }
 

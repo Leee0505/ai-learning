@@ -190,5 +190,6 @@ onMounted(fetchList)
 .dialog-save { padding: 8px 20px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: var(--color-primary); border: none; border-radius: var(--radius-md); cursor: pointer; }
 .dialog-save:hover:not(:disabled) { opacity: 0.9; }
 .dialog-save:disabled { opacity: 0.5; cursor: not-allowed; }
-</style>
+
 .sys-badge { font-size: var(--text-xs); color: var(--color-text-muted); background: var(--color-gray-100); padding: 4px 10px; border-radius: var(--radius-full); }
+</style>

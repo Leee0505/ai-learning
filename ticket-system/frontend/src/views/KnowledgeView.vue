@@ -238,5 +238,6 @@ onMounted(fetchList)
   .kb-sidebar { flex-direction: row; flex-wrap: wrap; }
   .kb-cats { display: flex; gap: 4px; flex-wrap: wrap; }
 }
-</style>
+
 .sys-badge { font-size: var(--text-xs); color: var(--color-text-muted); background: var(--color-gray-100); padding: 4px 10px; border-radius: var(--radius-full); }
+</style>

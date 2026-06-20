@@ -426,7 +426,8 @@ async function handleSaveSla() {
 .field-row { display: flex; align-items: center; gap: var(--space-md); padding: 12px var(--space-lg); border-bottom: 1px solid var(--color-gray-100); cursor: pointer; transition: background var(--transition-fast); }
 .field-row:hover { background: var(--color-primary-bg); }
 .field-row--selected { background: #F5F3FF; }
-.drag-handle { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; font-size: 20px; color: var(--color-gray-400); cursor: grab; user-select: none; }
+.drag-handle { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; color: var(--color-gray-400); cursor: grab; user-select: none; }
+.drag-handle svg { width: 20px; height: 20px; }
 .drag-handle:active { cursor: grabbing; transform: scale(0.95); }
 .field-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .field-name { font-weight: 500; font-size: var(--text-sm); color: var(--color-text-primary); }
@@ -452,7 +453,8 @@ async function handleSaveSla() {
 .sla-table td { padding: 12px 20px; font-size: var(--text-sm); color: var(--color-text-primary); border-bottom: 1px solid var(--color-gray-100); font-family: var(--font-mono); }
 
 /* Action buttons */
-.act-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; background: none; border: none; border-radius: var(--radius-md); color: var(--color-text-secondary); cursor: pointer; font-size: 16px; transition: color 150ms, background 150ms; }
+.act-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; background: none; border: none; border-radius: var(--radius-md); color: var(--color-text-secondary); cursor: pointer; transition: color 150ms, background 150ms; }
+.act-btn svg { width: 18px; height: 18px; }
 .act-btn--edit:hover { color: var(--color-primary); background: var(--color-primary-bg); }
 .act-btn--delete:hover { color: var(--color-danger); background: #FEE2E2; }
 
@@ -473,6 +475,7 @@ async function handleSaveSla() {
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-lg) var(--space-lg) 0; }
 .modal-title { font-family: var(--font-heading); font-size: var(--text-xl); font-weight: 600; margin: 0; }
 .modal-close { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0; background: none; border: none; border-radius: var(--radius-md); cursor: pointer; }
+.modal-close svg { width: 18px; height: 18px; }
 .modal-close:hover { background: var(--color-gray-100); }
 .modal-body { padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md); }
 .modal-footer { display: flex; justify-content: flex-end; gap: var(--space-sm); padding: 0 var(--space-lg) var(--space-lg); }

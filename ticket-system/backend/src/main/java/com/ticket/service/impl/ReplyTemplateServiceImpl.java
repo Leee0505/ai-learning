@@ -59,7 +59,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
                         .eq(ReplyTemplate::getTenantId, SecurityUtils.getCurrentTenantId())
                         .eq(ReplyTemplate::getTitle, request.getTitle()));
         if (count > 0) {
-            throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
+            throw new BusinessException(ErrorCode.REPLY_TEMPLATE_TITLE_DUPLICATE);
         }
         // Validate content length (max 5000 chars)
         if (request.getContent().length() > BusinessConstants.MAX_TEMPLATE_CONTENT_LENGTH) {
@@ -82,7 +82,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
     public ReplyTemplateResponse updateTemplate(Long id, CreateTemplateRequest request, Long userId) {
         ReplyTemplate t = templateMapper.selectById(id);
         if (t == null) {
-            throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND);
+            throw new BusinessException(ErrorCode.REPLY_TEMPLATE_NOT_FOUND);
         }
         // System defaults (tenant_id=NULL) only editable by admin
         if (t.getTenantId() == null && !SecurityUtils.isAdmin()) {
@@ -95,7 +95,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
                         .eq(ReplyTemplate::getTitle, request.getTitle())
                         .ne(ReplyTemplate::getId, id));
         if (count > 0) {
-            throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
+            throw new BusinessException(ErrorCode.REPLY_TEMPLATE_TITLE_DUPLICATE);
         }
         if (request.getContent().length() > BusinessConstants.MAX_TEMPLATE_CONTENT_LENGTH) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under " + BusinessConstants.MAX_TEMPLATE_CONTENT_LENGTH + " characters");
@@ -116,7 +116,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
     public void deleteTemplate(Long id, Long userId) {
         ReplyTemplate t = templateMapper.selectById(id);
         if (t == null) {
-            throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND);
+            throw new BusinessException(ErrorCode.REPLY_TEMPLATE_NOT_FOUND);
         }
         if (t.getTenantId() == null && !SecurityUtils.isAdmin()) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can delete system default templates");

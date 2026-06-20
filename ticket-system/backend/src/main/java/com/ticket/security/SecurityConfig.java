@@ -49,6 +49,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/accept-invite").permitAll()
                 .requestMatchers("/api/auth/invite").hasRole(RoleConstants.ADMIN)
                 .requestMatchers("/api/auth/**").authenticated()
+                .requestMatchers("/api/admin/surveys/**").hasRole(RoleConstants.ADMIN)
+                .requestMatchers("/api/surveys/**").authenticated()
                 .requestMatchers("/api/admin/tenants/**").hasRole(RoleConstants.ADMIN)
                 .requestMatchers("/api/admin/**").hasRole(RoleConstants.ADMIN)
                 .requestMatchers("/api/templates/**").authenticated()

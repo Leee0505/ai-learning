@@ -86,7 +86,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
                         .eq(KnowledgeArticle::getTenantId, SecurityUtils.getCurrentTenantId())
                         .eq(KnowledgeArticle::getTitle, request.getTitle()));
         if (count > 0) {
-            throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
+            throw new BusinessException(ErrorCode.REPLY_TEMPLATE_TITLE_DUPLICATE);
         }
         if (request.getContent().length() > BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under " + BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH + " characters");
@@ -121,7 +121,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
                         .eq(KnowledgeArticle::getTitle, request.getTitle())
                         .ne(KnowledgeArticle::getId, id));
         if (count > 0) {
-            throw new BusinessException(ErrorCode.TEMPLATE_TITLE_DUPLICATE);
+            throw new BusinessException(ErrorCode.REPLY_TEMPLATE_TITLE_DUPLICATE);
         }
         if (request.getContent().length() > BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under " + BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH + " characters");

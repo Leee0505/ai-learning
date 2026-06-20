@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { loginApi, logoutApi, getCurrentUserApi } from '@/api/auth'
+import { loginApi, registerApi, logoutApi, getCurrentUserApi } from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   // State
@@ -26,6 +26,15 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(login, password) {
     const { data } = await loginApi({ login, password })
+    if (data.code === 200) {
+      setTokens(data.data.accessToken, data.data.refreshToken)
+      setUser(data.data.user)
+    }
+    return data
+  }
+
+  async function register(registerData) {
+    const { data } = await registerApi(registerData)
     if (data.code === 200) {
       setTokens(data.data.accessToken, data.data.refreshToken)
       setUser(data.data.user)
@@ -62,6 +71,6 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     accessToken, refreshToken, user,
     isLoggedIn, isAdmin, isAgent,
-    setTokens, setUser, login, fetchUser, logout, clearAuth
+    setTokens, setUser, login, register, fetchUser, logout, clearAuth
   }
 })

@@ -155,10 +155,11 @@
             <div v-if="showRuleForm" class="rule-form">
               <div class="rule-step">
                 <label class="rule-step-label">1. Source question</label>
-                <select v-model="newRule.sourcePageId" class="input rule-cascade-select" @change="onCascadePage">
+                <select v-if="availableSourcePagesForTarget.length > 0" v-model="newRule.sourcePageId" class="input rule-cascade-select" @change="onCascadePage">
                   <option :value="null" disabled>Select page...</option>
                   <option v-for="p in availableSourcePagesForTarget" :key="'rp'+p.id" :value="p.id">{{ p.title }}</option>
                 </select>
+                <div v-else class="rule-empty-hint">No earlier questions exist to use as conditions</div>
                 <select v-if="newRule.sourcePageId" v-model="newRule.sourceSectionId" class="input rule-cascade-select" @change="onCascadeSection">
                   <option :value="null" disabled>Select section...</option>
                   <option v-for="s in availableSourceSectionsForTarget" :key="'rs'+s.id" :value="s.id">{{ s.title }}</option>
@@ -247,10 +248,11 @@
             <div v-if="showRuleForm" class="rule-form">
               <div class="rule-step">
                 <label class="rule-step-label">1. Source question</label>
-                <select v-model="newRule.sourcePageId" class="input rule-cascade-select" @change="onCascadePage">
+                <select v-if="availableSourcePagesForTarget.length > 0" v-model="newRule.sourcePageId" class="input rule-cascade-select" @change="onCascadePage">
                   <option :value="null" disabled>Select page...</option>
                   <option v-for="p in availableSourcePagesForTarget" :key="'rp'+p.id" :value="p.id">{{ p.title }}</option>
                 </select>
+                <div v-else class="rule-empty-hint">No earlier questions exist to use as conditions</div>
                 <select v-if="newRule.sourcePageId" v-model="newRule.sourceSectionId" class="input rule-cascade-select" @change="onCascadeSection">
                   <option :value="null" disabled>Select section...</option>
                   <option v-for="s in availableSourceSectionsForTarget" :key="'rs'+s.id" :value="s.id">{{ s.title }}</option>
@@ -1065,8 +1067,8 @@ async function deleteRule(ruleId) {
 .canvas-section-title-input:hover { border-color: var(--color-gray-200); }
 .canvas-section-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
 .canvas-section-desc { font-size: var(--text-sm); color: var(--color-text-muted); margin: 0 0 var(--space-sm); }
-.inline-rules-btn { padding: 4px 10px; font-size: 10px; font-weight: 500; font-family: var(--font-body); color: var(--color-primary); background: var(--color-primary-bg); border: 1px solid var(--color-primary-light); border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; min-height: 28px; transition: background var(--transition-fast); }
-.inline-rules-btn:hover { background: var(--color-primary); color: var(--color-white); }
+.inline-rules-btn { padding: 6px 14px; font-size: var(--text-xs); font-weight: 500; font-family: var(--font-body); color: var(--color-text-secondary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; min-height: 36px; transition: all var(--transition-fast); }
+.inline-rules-btn:hover { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-bg); }
 .canvas-section-del { width: 32px; height: 32px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
 .canvas-section:hover .canvas-section-del { display: flex; align-items: center; justify-content: center; }
 .canvas-section-del:hover { background: #FEE2E2; color: #B91C1C; }
@@ -1157,6 +1159,7 @@ async function deleteRule(ruleId) {
 .rule-step { background: var(--color-gray-50); border-radius: var(--radius-md); padding: var(--space-sm); }
 .rule-step-label { display: block; font-size: 10px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
 .rule-cascade-select { margin-top: 4px; }
+.rule-empty-hint { font-size: var(--text-xs); color: var(--color-text-muted); padding: 8px 0; font-style: italic; }
 .rule-step .input:not(:first-child) { margin-top: 4px; }
 .rule-form-btns { display: flex; gap: 6px; margin-top: 2px; }
 

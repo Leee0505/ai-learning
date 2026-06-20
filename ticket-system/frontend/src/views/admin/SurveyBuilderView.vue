@@ -148,18 +148,20 @@
               {{ showRuleForm ? 'Cancel' : '+ Add Rule' }}
             </button>
             <div v-if="showRuleForm" class="rule-form">
-              <select v-model="newRule.sourceQuestionId" class="input">
+              <select v-model="newRule.sourceQuestionId" class="input" style="margin-bottom:6px" @change="onSourceQuestionChange">
                 <option :value="null" disabled>Source question...</option>
-                <option v-for="q in allQuestions" :key="'sq'+q.id" :value="q.id">{{ q.title }}</option>
+                <option v-for="q in questionsBeforeCurrent" :key="'sq'+q.id" :value="q.id">{{ q.title }} ({{ q.type.replace('_',' ') }})</option>
+                <option v-if="questionsBeforeCurrent.length === 0" disabled>No earlier questions available</option>
               </select>
-              <select v-model="newRule.op" class="input">
-                <option value="eq">equals</option><option value="neq">not equals</option>
-                <option value="answered">is answered</option><option value="not_answered">not answered</option>
-                <option value="contains">contains</option><option value="in">in</option>
-                <option value="gt">&gt;</option><option value="lt">&lt;</option>
+              <select v-model="newRule.op" class="input" style="margin-bottom:6px">
+                <option v-for="op in availableOperators" :key="op.value" :value="op.value">{{ op.label }}</option>
               </select>
-              <input v-if="newRule.op !== 'answered' && newRule.op !== 'not_answered'" v-model="newRule.value" class="input" placeholder="Value" />
-              <button class="btn-primary" style="width:100%;font-size:var(--text-xs);margin-top:4px" @click="addRule">Add</button>
+              <select v-if="sourceQuestionHasOptions" v-model="newRule.value" class="input" style="margin-bottom:6px">
+                <option :value="null" disabled>Select value...</option>
+                <option v-for="opt in sourceQuestionOptions" :key="opt" :value="opt">{{ opt }}</option>
+              </select>
+              <input v-else-if="newRule.op !== 'answered' && newRule.op !== 'not_answered' && newRule.op !== 'is_empty' && newRule.op !== 'not_empty'" v-model="newRule.value" class="input" :placeholder="sourceQuestionType === 'RATING' || sourceQuestionType === 'NUMBER' ? 'Enter number' : 'Value'" style="margin-bottom:6px" />
+              <button class="btn-primary" style="width:100%;font-size:var(--text-xs);margin-top:4px" :disabled="!newRule.sourceQuestionId || !newRule.op" @click="addRule">Add</button>
             </div>
           </div>
         </div>
@@ -224,6 +226,40 @@ const allQuestions = computed(() => {
   }
   return qs
 })
+
+// Questions that come BEFORE the selected question (eligible as rule sources)
+const questionsBeforeCurrent = computed(() => {
+  if (!selectedQuestion.value) return []
+  const before = []
+  let found = false
+  for (const q of allQuestions.value) {
+    if (q.id === selectedQuestion.value.id) { found = true; break }
+    before.push(q)
+  }
+  return before
+})
+
+// Operators filtered by source question type
+const availableOperators = computed(() => {
+  const t = sourceQuestionType.value
+  if (!t) return []
+  const common = [{ value: 'answered', label: 'is answered' }, { value: 'not_answered', label: 'is not answered' }]
+  if (t === 'SINGLE_CHOICE' || t === 'DROPDOWN') return [...common, { value: 'eq', label: 'equals' }, { value: 'neq', label: 'not equals' }]
+  if (t === 'MULTI_CHOICE') return [...common, { value: 'in', label: 'includes' }, { value: 'not_in', label: 'does not include' }]
+  if (t === 'TEXT' || t === 'TEXTAREA') return [...common, { value: 'eq', label: 'equals' }, { value: 'neq', label: 'not equals' }, { value: 'contains', label: 'contains' }, { value: 'not_contains', label: 'does not contain' }, { value: 'is_empty', label: 'is empty' }, { value: 'not_empty', label: 'is not empty' }]
+  if (t === 'RATING' || t === 'NUMBER') return [...common, { value: 'eq', label: 'equals' }, { value: 'neq', label: 'not equals' }, { value: 'gt', label: 'greater than' }, { value: 'gte', label: '≥' }, { value: 'lt', label: 'less than' }, { value: 'lte', label: '≤' }]
+  if (t === 'DATE') return [...common, { value: 'eq', label: 'equals' }, { value: 'neq', label: 'not equals' }, { value: 'gt', label: 'after' }, { value: 'lt', label: 'before' }]
+  return [...common, { value: 'eq', label: 'equals' }, { value: 'neq', label: 'not equals' }]
+})
+
+const sourceQuestion = computed(() => allQuestions.value.find(q => q.id === newRule.sourceQuestionId))
+const sourceQuestionType = computed(() => sourceQuestion.value?.type || '')
+const sourceQuestionHasOptions = computed(() => ['SINGLE_CHOICE','MULTI_CHOICE','DROPDOWN'].includes(sourceQuestionType.value))
+const sourceQuestionOptions = computed(() => {
+  if (!sourceQuestionHasOptions.value) return []
+  return parseOptions(sourceQuestion.value?.options)
+})
+function onSourceQuestionChange() { newRule.op = 'eq'; newRule.value = '' }
 
 // Initialize reactive maps when template loads
 watch(template, (t) => {

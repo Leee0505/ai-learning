@@ -33,7 +33,7 @@
           <!-- Page title (editable) -->
           <div class="canvas-page-header">
             <input v-model="currentPageTitle" class="canvas-page-title-input" @blur="savePageTitle" @keyup.enter="($event.target.blur())" placeholder="Page title" />
-            <button class="inline-rules-btn" @click="openRuleFor('PAGE', currentPage.id)" :aria-label="'Page visibility rules'" :title="'Page visibility rules'">
+            <button class="inline-rules-btn" :class="{ 'inline-rules-btn--empty': !canAddRuleForTarget && countRulesFor('PAGE', currentPage.id) === 0 }" @click="canAddRuleForTarget && openRuleFor('PAGE', currentPage.id)" :aria-label="'Page visibility rules'" :title="canAddRuleForTarget ? 'Page visibility rules' : 'Add questions to previous pages first'">
               {{ countRulesFor('PAGE', currentPage.id) || 'No' }} rule{{ countRulesFor('PAGE', currentPage.id) !== 1 ? 's' : '' }}
             </button>
             <button class="canvas-add-section" @click="addSection(currentPage.id)">+ Add Section</button>
@@ -46,7 +46,7 @@
                 {{ expandedNodes['s'+section.id] ? '▾' : '▸' }}
               </button>
               <input v-model="sectionTitles[section.id]" class="canvas-section-title-input" @blur="saveSectionTitle(section.id)" @keyup.enter="($event.target.blur())" placeholder="Section title" />
-              <button class="inline-rules-btn" @click.stop="openRuleFor('SECTION', section.id)" :aria-label="'Section visibility rules'" :title="'Section visibility rules'">
+              <button class="inline-rules-btn" :class="{ 'inline-rules-btn--empty': !canAddRuleForTarget && countRulesFor('SECTION', section.id) === 0 }" @click.stop="canAddRuleForTarget && openRuleFor('SECTION', section.id)" :aria-label="'Section visibility rules'" :title="canAddRuleForTarget ? 'Section visibility rules' : 'Add questions to previous sections first'">
                 {{ countRulesFor('SECTION', section.id) || 'No' }} rule{{ countRulesFor('SECTION', section.id) !== 1 ? 's' : '' }}
               </button>
               <button class="canvas-section-del" @click="deleteSection(section.id)" aria-label="Delete section">×</button>
@@ -151,7 +151,7 @@
               </span>
               <button class="rule-del" @click="deleteRule(rule.id)" aria-label="Delete rule">×</button>
             </div>
-            <button v-if="!showRuleForm" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="openRuleForm">+ Add Rule</button>
+            <button v-if="!showRuleForm && canAddRuleForTarget" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="openRuleForm">+ Add Rule</button>
             <div v-if="showRuleForm" class="rule-form">
               <div class="rule-step">
                 <label class="rule-step-label">1. Source question</label>
@@ -169,7 +169,7 @@
                   <option v-for="q in availableSourceQuestionsForTarget" :key="'rq'+q.id" :value="q.id">{{ q.title }} ({{ q.type.replace('_',' ') }})</option>
                 </select>
               </div>
-              <div class="rule-step">
+              <div v-if="availableSourcePagesForTarget.length > 0" class="rule-step">
                 <label class="rule-step-label">2. Condition</label>
                 <select v-model="newRule.op" class="input">
                   <option v-for="op in availableOperators" :key="op.value" :value="op.value">{{ op.label }}</option>
@@ -244,7 +244,7 @@
               </span>
               <button class="rule-del" @click="deleteRule(rule.id)" aria-label="Delete rule">×</button>
             </div>
-            <button v-if="!showRuleForm" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="openRuleForm">+ Add Rule</button>
+            <button v-if="!showRuleForm && canAddRuleForTarget" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="openRuleForm">+ Add Rule</button>
             <div v-if="showRuleForm" class="rule-form">
               <div class="rule-step">
                 <label class="rule-step-label">1. Source question</label>
@@ -262,7 +262,7 @@
                   <option v-for="q in availableSourceQuestionsForTarget" :key="'rq'+q.id" :value="q.id">{{ q.title }} ({{ q.type.replace('_',' ') }})</option>
                 </select>
               </div>
-              <div class="rule-step">
+              <div v-if="availableSourcePagesForTarget.length > 0" class="rule-step">
                 <label class="rule-step-label">2. Condition</label>
                 <select v-model="newRule.op" class="input">
                   <option v-for="op in availableOperators" :key="op.value" :value="op.value">{{ op.label }}</option>
@@ -319,6 +319,19 @@ function openRuleFor(type, id) {
   if (type !== 'QUESTION') selectedQuestion.value = null
   showRuleForm.value = false
 }
+const canAddRuleForTarget = computed(() => {
+  if (!template.value?.pages) return false
+  // A rule is possible if any earlier question exists
+  return allQuestions.value.some(q => {
+    if (!selectedQuestion.value && !ruleTarget.id) return false
+    const targetId = ruleTarget.type === 'QUESTION' ? selectedQuestion.value?.id : ruleTarget.id
+    if (!targetId) return false
+    const qIdx = allQuestions.value.findIndex(aq => aq.id === q.id)
+    const tIdx = allQuestions.value.findIndex(aq => aq.id === targetId)
+    return qIdx >= 0 && qIdx < tIdx
+  })
+})
+
 function countRulesFor(type, id) {
   if (!template.value?.pages) return 0
   let count = 0
@@ -1067,8 +1080,10 @@ async function deleteRule(ruleId) {
 .canvas-section-title-input:hover { border-color: var(--color-gray-200); }
 .canvas-section-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
 .canvas-section-desc { font-size: var(--text-sm); color: var(--color-text-muted); margin: 0 0 var(--space-sm); }
-.inline-rules-btn { padding: 6px 14px; font-size: var(--text-xs); font-weight: 500; font-family: var(--font-body); color: var(--color-text-secondary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; min-height: 36px; transition: all var(--transition-fast); }
-.inline-rules-btn:hover { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-primary-bg); }
+.inline-rules-btn { padding: 10px 20px; font-size: var(--text-sm); font-weight: 500; font-family: var(--font-body); color: var(--color-primary); background: var(--color-primary-bg); border: 1px dashed var(--color-primary); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; min-height: 44px; transition: all var(--transition-fast); }
+.inline-rules-btn:hover { background: var(--color-primary); color: var(--color-white); }
+.inline-rules-btn--empty { color: var(--color-text-muted); background: var(--color-gray-50); border-color: var(--color-gray-200); cursor: default; }
+.inline-rules-btn--empty:hover { background: var(--color-gray-50); color: var(--color-text-muted); }
 .canvas-section-del { width: 32px; height: 32px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
 .canvas-section:hover .canvas-section-del { display: flex; align-items: center; justify-content: center; }
 .canvas-section-del:hover { background: #FEE2E2; color: #B91C1C; }

@@ -112,7 +112,7 @@
                 <button v-if="!showAddQ || showAddQSection !== section.id" class="canvas-add-q" @click="showAddQ = true; showAddQSection = section.id">+ Add Question</button>
                 <div v-else class="canvas-add-q-types">
                   <button v-for="qt in QUICK_TYPES" :key="qt.value" class="canvas-add-q-type" @click="addQuestion(section.id, qt.value); showAddQ = false">
-                    <span class="canvas-add-q-icon">{{ qt.icon }}</span>{{ qt.label }}
+                    <span class="canvas-add-q-abbr">{{ qt.abbr }}</span>{{ qt.label }}
                   </button>
                   <button class="canvas-add-q-type canvas-add-q-cancel" @click="showAddQ = false">Cancel</button>
                 </div>
@@ -159,7 +159,7 @@
             <div v-if="showRuleForm" class="rule-form">
               <select v-model="newRule.sourceQuestionId" class="input" style="margin-bottom:6px" @change="onSourceQuestionChange">
                 <option :value="null" disabled>Source question...</option>
-                <option v-for="q in questionsBeforeCurrent" :key="'sq'+q.id" :value="q.id">{{ q.title }} ({{ q.type.replace('_',' ') }})</option>
+                <option v-for="q in questionsBeforeCurrent" :key="'sq'+q.id" :value="q.id">{{ getQuestionPath(q) }}</option>
                 <option v-if="questionsBeforeCurrent.length === 0" disabled>No earlier questions available</option>
               </select>
               <select v-model="newRule.op" class="input" style="margin-bottom:6px">
@@ -208,13 +208,14 @@ const showAddQ = ref(false)
 const showAddQSection = ref(null)
 
 const QUICK_TYPES = [
-  { value: 'TEXT', label: 'Text', icon: 'Aa' },
-  { value: 'SINGLE_CHOICE', label: 'Choice', icon: '◉' },
-  { value: 'MULTI_CHOICE', label: 'Multi', icon: '☑' },
-  { value: 'TEXTAREA', label: 'Long text', icon: '¶' },
-  { value: 'DATE', label: 'Date', icon: '📅' },
-  { value: 'RATING', label: 'Rating', icon: '★' },
-  { value: 'DROPDOWN', label: 'Dropdown', icon: '▼' },
+  { value: 'TEXT', label: 'Text', abbr: 'T' },
+  { value: 'TEXTAREA', label: 'Long Text', abbr: 'L' },
+  { value: 'SINGLE_CHOICE', label: 'Choice', abbr: '○' },
+  { value: 'MULTI_CHOICE', label: 'Multi-choice', abbr: '☐' },
+  { value: 'DROPDOWN', label: 'Dropdown', abbr: '▾' },
+  { value: 'RATING', label: 'Rating', abbr: '★' },
+  { value: 'DATE', label: 'Date', abbr: 'D' },
+  { value: 'TABLE', label: 'Table', abbr: '⊞' },
 ]
 
 // Reactive maps for inline editing
@@ -464,6 +465,16 @@ function getQuestionTitle(qid) {
   const q = allQuestions.value.find(q => q.id === qid)
   return q ? q.title : 'Q#' + qid
 }
+function getQuestionPath(q) {
+  if (!template.value?.pages) return q.title
+  for (const p of template.value.pages) {
+    for (const s of p.sections || []) {
+      const found = (s.questions || []).find(qq => qq.id === q.id)
+      if (found) return `Page "${p.title}" › ${found.title} (${found.type.replace('_',' ')})`
+    }
+  }
+  return `${q.title} (${q.type.replace('_',' ')})`
+}
 
 // ── Page Actions ──
 
@@ -692,7 +703,7 @@ async function deleteRule(ruleId) {
 .canvas-add-q-types { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-xs); }
 .canvas-add-q-type { display: flex; align-items: center; gap: 4px; padding: 8px 12px; font-size: var(--text-xs); font-weight: 500; font-family: var(--font-body); color: var(--color-text-primary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; min-height: 36px; transition: all var(--transition-fast); }
 .canvas-add-q-type:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-bg); }
-.canvas-add-q-icon { font-size: 13px; }
+.canvas-add-q-abbr { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border-radius: 3px; background: var(--color-gray-100); color: var(--color-text-secondary); flex-shrink: 0; }
 .canvas-add-q-cancel { color: var(--color-text-muted); border-style: dashed; }
 .canvas-add-q-cancel:hover { color: var(--color-text-secondary); border-color: var(--color-gray-400); background: var(--color-gray-50); }
 .canvas-add-q-wrap { margin-top: var(--space-xs); }

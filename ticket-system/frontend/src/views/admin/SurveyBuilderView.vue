@@ -208,7 +208,7 @@ const QUESTION_TYPES = [
   { value: 'TABLE', label: 'Table' },
 ]
 
-const editForm = reactive({ title: '', type: '', required: false, optionsText: '' })
+const editForm = reactive({ title: '', type: '', required: false })
 const newRule = reactive({ sourceQuestionId: null, op: 'eq', value: '' })
 
 const allQuestions = computed(() => {
@@ -250,7 +250,8 @@ function selectQuestion(q) {
   editForm.title = q.title
   editForm.type = q.type
   editForm.required = q.required
-  editForm.optionsText = parseOptions(q.options).join('\n')
+  // Inline options handled by getOptionsList(), which reads from q.options on first access
+  delete q._optionsCache
 }
 
 function parseOptions(optionsJson) {
@@ -296,24 +297,28 @@ async function saveOptions(q) {
   await updateQuestionApi(q.id, { options: JSON.stringify({ options: items }) })
 }
 async function saveAndReturn() {
-  // Save current page title
+  // Save page title
   if (currentPage.value) {
     await updatePageApi(currentPage.value.id, { title: currentPage.value.title })
   }
-  // Save all section titles
+  // Save all section & question titles + inline options
   for (const s of currentPage.value?.sections || []) {
     if (sectionTitles[s.id] && sectionTitles[s.id] !== s.title) {
       await updateSectionApi(s.id, { title: sectionTitles[s.id] })
     }
-  }
-  // Save all question titles
-  for (const q of allQuestions.value) {
-    if (questionTitles[q.id] && questionTitles[q.id] !== q.title) {
-      await updateQuestionApi(q.id, { title: questionTitles[q.id] })
+    for (const q of s.questions || []) {
+      if (questionTitles[q.id] && questionTitles[q.id] !== q.title) {
+        await updateQuestionApi(q.id, { title: questionTitles[q.id] })
+      }
+      // Save inline options for choice/dropdown types
+      if (hasOptions(q.type) && q._optionsCache) {
+        const items = q._optionsCache.filter(s => s.trim())
+        if (items.length > 0) {
+          await updateQuestionApi(q.id, { options: JSON.stringify({ options: items }) })
+        }
+      }
     }
   }
-  // Blur active element
-  if (document.activeElement) document.activeElement.blur()
   router.push('/admin/surveys')
 }
 function getRatingMax(optionsJson) {
@@ -393,7 +398,8 @@ async function saveQuestionProperties() {
   if (!selectedQuestion.value) return
   let options = selectedQuestion.value.options
   if (hasOptions(editForm.type)) {
-    const items = editForm.optionsText.split('\n').map(s => s.trim()).filter(Boolean)
+    // Use inline-edited options (getOptionsList), not stale editForm.optionsText
+    const items = getOptionsList(selectedQuestion.value).filter(s => s.trim())
     options = JSON.stringify({ options: items })
   }
   await updateQuestionApi(selectedQuestion.value.id, {
@@ -401,7 +407,7 @@ async function saveQuestionProperties() {
   })
   await store.fetchTemplate(template.value.id)
   const updated = allQuestions.value.find(q => q.id === selectedQuestion.value.id)
-  if (updated) selectQuestion(updated)
+  if (updated) { delete updated._optionsCache; selectQuestion(updated) }
 }
 async function deleteQuestion(qid) {
   await deleteQuestionApi(qid); ElMessage.success('Question deleted')

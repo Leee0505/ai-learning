@@ -68,6 +68,20 @@
         </div>
       </div>
     </div>
+
+    <!-- Pending Surveys -->
+    <div v-if="pendingSurveys.length > 0" class="dash-surveys">
+      <h2 class="dash-surveys-title">Pending Surveys</h2>
+      <div class="dash-surveys-list">
+        <div v-for="inst in pendingSurveys" :key="inst.id" class="dash-survey-card" @click="$router.push('/surveys')">
+          <div class="dash-survey-info">
+            <span class="dash-survey-name">{{ inst.title }}</span>
+            <span class="dash-survey-meta">{{ inst.completedPages }}/{{ inst.totalPages }} pages</span>
+          </div>
+          <span :class="['status-badge', 'status-' + inst.status.toLowerCase()]">{{ inst.status.replace(/_/g, ' ') }}</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -76,6 +90,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getDashboardStats } from '@/api/tickets'
+import { getMyInstancesApi } from '@/api/survey'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -83,6 +98,7 @@ const router = useRouter()
 const loading = ref(true)
 const error = ref(false)
 const stats = ref({ total: 0, open: 0, inProgress: 0, resolved: 0, closed: 0 })
+const pendingSurveys = ref([])
 
 onMounted(async () => {
   try {
@@ -92,6 +108,13 @@ onMounted(async () => {
     }
   } catch { error.value = true }
   finally { loading.value = false }
+
+  try {
+    const { data } = await getMyInstancesApi()
+    if (data.code === 200) {
+      pendingSurveys.value = (data.data || []).filter(i => i.status !== 'COMPLETED')
+    }
+  } catch { /* no surveys */ }
 })
 
 async function retry() {
@@ -238,4 +261,16 @@ async function retry() {
 .skeleton-bar { height: 32px; width: 48px; margin: 0 auto; }
 .skeleton-text { height: 14px; width: 80px; margin: 0 auto; }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+.dash-surveys { margin-top: var(--space-xl); }
+.dash-surveys-title { font-size: var(--text-lg); font-weight: 600; margin: 0 0 var(--space-md); }
+.dash-surveys-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+.dash-survey-card { display: flex; align-items: center; justify-content: space-between; padding: var(--space-md); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; transition: box-shadow var(--transition-fast); }
+.dash-survey-card:hover { box-shadow: var(--shadow-sm); }
+.dash-survey-info { display: flex; flex-direction: column; gap: 2px; }
+.dash-survey-name { font-size: var(--text-sm); font-weight: 500; }
+.dash-survey-meta { font-size: var(--text-xs); color: var(--color-text-muted); }
+.status-badge { font-size: var(--text-xs); font-weight: 600; padding: 2px 8px; border-radius: var(--radius-full); }
+.status-ready_to_start, .status-in_progress { background: #FEF3C7; color: #92400E; }
+.status-submitted { background: #DBEAFE; color: #1D4ED8; }
 </style>

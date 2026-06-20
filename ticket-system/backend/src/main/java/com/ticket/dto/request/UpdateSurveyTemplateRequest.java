@@ -6,4 +6,5 @@ import lombok.Data;
 public class UpdateSurveyTemplateRequest {
     private String title;
     private String description;
+    private String status;
 }

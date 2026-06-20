@@ -193,4 +193,12 @@ public class SurveyController {
         surveyService.deleteVisibilityRule(ruleId);
         return ApiResult.success();
     }
+
+    // ── Results ──
+
+    @GetMapping("/{id}/results")
+    @Operation(summary = "Get aggregated results for a template")
+    public ApiResult<SurveyResultResponse> results(@PathVariable Long id) {
+        return ApiResult.success(surveyService.getTemplateResults(id));
+    }
 }

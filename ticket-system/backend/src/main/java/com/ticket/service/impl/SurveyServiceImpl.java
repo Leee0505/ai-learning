@@ -106,6 +106,33 @@ public class SurveyServiceImpl implements SurveyService {
         SurveyTemplate t = findTemplateOrFail(id);
         if (StringUtils.hasText(request.getTitle())) t.setTitle(request.getTitle());
         if (request.getDescription() != null) t.setDescription(request.getDescription());
+
+        // Handle status transitions
+        if (request.getStatus() != null) {
+            String newStatus = request.getStatus();
+            if (BusinessConstants.SURVEY_STATUS_PUBLISHED.equals(newStatus)) {
+                // Archive any previously published version in the same origin chain
+                if (t.getOriginId() != null) {
+                    templateMapper.selectList(new LambdaQueryWrapper<SurveyTemplate>()
+                            .eq(SurveyTemplate::getOriginId, t.getOriginId())
+                            .eq(SurveyTemplate::getStatus, BusinessConstants.SURVEY_STATUS_PUBLISHED))
+                            .forEach(old -> {
+                                old.setStatus(BusinessConstants.SURVEY_STATUS_ARCHIVED);
+                                templateMapper.updateById(old);
+                            });
+                } else {
+                    templateMapper.selectList(new LambdaQueryWrapper<SurveyTemplate>()
+                            .eq(SurveyTemplate::getOriginId, t.getId())
+                            .eq(SurveyTemplate::getStatus, BusinessConstants.SURVEY_STATUS_PUBLISHED))
+                            .forEach(old -> {
+                                old.setStatus(BusinessConstants.SURVEY_STATUS_ARCHIVED);
+                                templateMapper.updateById(old);
+                            });
+                }
+            }
+            t.setStatus(newStatus);
+        }
+
         t.setLastModifiedBy(adminId);
         t.setLastModifiedDate(System.currentTimeMillis());
         templateMapper.updateById(t);
@@ -502,6 +529,65 @@ public class SurveyServiceImpl implements SurveyService {
 
         log.info("Survey submitted: instanceId={} userId={}", instanceId, userId);
         return toInstanceResponse(instance);
+    }
+
+    // ── Results ──
+
+    @Override
+    public SurveyResultResponse getTemplateResults(Long templateId) {
+        SurveyTemplate template = findTemplateOrFail(templateId);
+        SurveyResultResponse result = new SurveyResultResponse();
+        result.setTemplateId(templateId);
+        result.setTemplateTitle(template.getTitle());
+
+        List<SurveyInstance> instances = instanceMapper.selectList(new LambdaQueryWrapper<SurveyInstance>()
+                .eq(SurveyInstance::getTemplateId, templateId));
+        result.setTotalInstances(instances.size());
+        result.setCompletedInstances((int) instances.stream()
+                .filter(i -> BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(i.getStatus())
+                        || BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(i.getStatus()))
+                .count());
+
+        // Aggregate answers by question
+        List<SurveyQuestion> questions = questionMapper.selectList(new LambdaQueryWrapper<SurveyQuestion>()
+                .inSql(SurveyQuestion::getSectionId,
+                        "SELECT id FROM survey_section WHERE page_id IN (SELECT id FROM survey_page WHERE template_id = "
+                                + templateId + ")")
+                .orderByAsc(SurveyQuestion::getDisplayOrder));
+
+        List<SurveyResultResponse.QuestionResult> qResults = new ArrayList<>();
+        for (SurveyQuestion q : questions) {
+            SurveyResultResponse.QuestionResult qr = new SurveyResultResponse.QuestionResult();
+            qr.setQuestionId(q.getId());
+            qr.setTitle(q.getTitle());
+            qr.setType(q.getType());
+
+            List<SurveyAnswer> answers = answerMapper.selectList(new LambdaQueryWrapper<SurveyAnswer>()
+                    .eq(SurveyAnswer::getQuestionId, q.getId()));
+
+            if ("SINGLE_CHOICE".equals(q.getType()) || "DROPDOWN".equals(q.getType())
+                    || "MULTI_CHOICE".equals(q.getType())) {
+                Map<String, Integer> counts = new HashMap<>();
+                for (SurveyAnswer a : answers) {
+                    String[] vals = a.getValue() != null ? a.getValue().split(",") : new String[0];
+                    for (String v : vals) {
+                        String trimmed = v.trim();
+                        if (!trimmed.isEmpty())
+                            counts.merge(trimmed, 1, Integer::sum);
+                    }
+                }
+                qr.setChoiceCounts(counts);
+            } else {
+                List<String> texts = answers.stream()
+                        .map(SurveyAnswer::getValue)
+                        .filter(v -> v != null && !v.isEmpty())
+                        .collect(Collectors.toList());
+                qr.setTextAnswers(texts);
+            }
+            qResults.add(qr);
+        }
+        result.setQuestions(qResults);
+        return result;
     }
 
     // ── Private Helpers ──

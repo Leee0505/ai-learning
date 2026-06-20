@@ -39,8 +39,12 @@ public class AgentController {
     })
     @PreAuthorize("hasAnyRole('" + RoleConstants.AGENT + "', '" + RoleConstants.ADMIN + "')")
     public ApiResult<List<UserResponse>> listAgents() {
-        var agents = userMapper.selectList(new LambdaQueryWrapper<User>()
-                .eq(User::getTenantId, SecurityUtils.getCurrentTenantId())
+        var wrapper = new LambdaQueryWrapper<User>();
+        // Admin sees agents from all tenants; others see only their own tenant
+        if (!SecurityUtils.isAdmin()) {
+            wrapper.eq(User::getTenantId, SecurityUtils.getCurrentTenantId());
+        }
+        var agents = userMapper.selectList(wrapper
                 .eq(User::getRole, RoleConstants.ROLE_AGENT)
                 .eq(User::getStatus, 1) // only enabled agents
                 .orderByAsc(User::getUsername))

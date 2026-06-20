@@ -37,7 +37,15 @@
       "Bash(curl -s http://localhost:5173)",
       "Bash(curl -s http://localhost:8080/api/admin/users?page=1\\\\&size=10)",
       "Bash(curl -s http://localhost:8080/api/admin/users?page=1\\\\&size=10 -H \"Accept: application/json\")",
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "Bash(head -5 node_modules/sockjs-client/package.json)",
+      "Bash(grep -E '\"main\"|\"module\"' node_modules/sockjs-client/package.json)",
+      "Bash(dir /s /b \"C:\\\\Program Files\\\\apache-maven*\")",
+      "Bash(dir /s /b \"%USERPROFILE%\\\\.m2\\\\*\")",
+      "Bash(find /c \"mvn\" \"E:\\\\WorkSpace-IDEA\\\\ai-learning\" -name \"mvnw*\")",
+      "Bash(cmd.exe /c \"where mvn\")",
+      "Bash(cmd.exe /c \"mvn --version\")",
+      "Bash(\"/c/Users/19202/AppData/Roaming/JetBrains/IntelliJIdea2026.1/plugins/maven/lib/maven3/bin/mvn\" test *)"
     ]
   }
 }

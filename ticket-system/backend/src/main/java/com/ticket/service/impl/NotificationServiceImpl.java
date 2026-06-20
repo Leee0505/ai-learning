@@ -7,6 +7,7 @@ import com.ticket.common.constant.BusinessConstants;
 import com.ticket.common.constant.RoleConstants;
 import com.ticket.dto.response.NotificationResponse;
 import com.ticket.entity.Notification;
+import com.ticket.entity.User;
 import com.ticket.event.TicketAssignedEvent;
 import com.ticket.event.TicketCreatedEvent;
 import com.ticket.event.TicketOverdueEvent;

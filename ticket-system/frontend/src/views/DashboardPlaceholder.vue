@@ -229,7 +229,8 @@ async function retry() {
     font-size: var(--text-xl);
   }
 }
-</style>
+
+/* Error & skeleton states */
 .dash-error { padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg); background: #FEF2F2; border: 1px solid #FECACA; border-radius: var(--radius-lg); color: #991B1B; font-size: var(--text-sm); }
 .dash-error a { color: #B91C1C; text-decoration: underline; cursor: pointer; }
 .skeleton-card { background: var(--color-white); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: var(--space-lg); text-align: center; display: flex; flex-direction: column; gap: var(--space-sm); }

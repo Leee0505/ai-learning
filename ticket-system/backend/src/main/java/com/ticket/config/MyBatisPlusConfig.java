@@ -23,11 +23,6 @@ public class MyBatisPlusConfig {
         interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
             @Override
             public Expression getTenantId() {
-                // Admin users bypass tenant isolation to see cross-tenant data.
-                // Returning null tells MyBatis-Plus to skip injecting WHERE tenant_id = ?
-                if (SecurityUtils.isAdmin()) {
-                    return null;
-                }
                 return new LongValue(SecurityUtils.getCurrentTenantId());
             }
 
@@ -36,12 +31,18 @@ public class MyBatisPlusConfig {
 
             @Override
             public boolean ignoreTable(String tableName) {
-                boolean skip = "user".equalsIgnoreCase(tableName)
+                // Admin bypasses ALL tenant isolation — sees data across all tenants.
+                // We do this here (not in getTenantId()) because returning null from
+                // getTenantId() generates "WHERE tenant_id = NULL" in MP 3.5.5
+                // which matches zero rows, instead of skipping the filter.
+                if (SecurityUtils.isAdmin()) {
+                    return true;
+                }
+                return "user".equalsIgnoreCase(tableName)
                         || "tenant".equalsIgnoreCase(tableName)
                         || "invite_token".equalsIgnoreCase(tableName)
                         || "reply_template".equalsIgnoreCase(tableName)
                         || "knowledge_article".equalsIgnoreCase(tableName);
-                return skip;
             }
         }));
         return interceptor;

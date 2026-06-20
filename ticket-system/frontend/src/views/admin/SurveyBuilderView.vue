@@ -63,7 +63,7 @@
                   <span class="canvas-q-number">{{ qi + 1 }}</span>
                   <input v-model="questionTitles[q.id]" class="canvas-q-title-input"
                          @blur="saveQuestionTitle(q.id)" @keyup.enter="($event.target.blur())"
-                         @click.stop placeholder="Question" />
+                         @focus="selectQuestion(q)" placeholder="Question" />
                   <span v-if="q.required" class="canvas-q-required">*</span>
                   <span :class="['canvas-q-type-badge', 'qtype-' + q.type.toLowerCase()]">{{ q.type.replace('_',' ') }}</span>
                   <button class="canvas-q-del" @click.stop="deleteQuestion(q.id)" aria-label="Delete question">
@@ -72,10 +72,10 @@
                 </div>
 
                 <!-- Inline form input based on type -->
-                <div class="canvas-q-input" @click.stop>
+                <div class="canvas-q-input" @click="selectQuestion(q)">
                   <!-- TEXT / DATE -->
                   <input v-if="q.type === 'TEXT'" class="input" placeholder="Text answer — user will type here" />
-                  <input v-else-if="q.type === 'DATE'" class="input" type="date" />
+                  <input v-else-if="q.type === 'DATE'" class="input" type="text" placeholder="YYYY-MM-DD — user picks a date" readonly />
                   <textarea v-else-if="q.type === 'TEXTAREA'" class="input textarea" rows="2" placeholder="Long answer — user will type here"></textarea>
 
                   <!-- Inline editable options for choice types -->
@@ -499,7 +499,7 @@ async function deleteRule(ruleId) {
   position: relative;
 }
 .canvas-question:hover { border-color: var(--color-primary-light); box-shadow: var(--shadow-sm); }
-.canvas-question--selected { border-color: var(--color-primary); border-left-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(124,58,237,0.1); }
+.canvas-question--selected { border-color: var(--color-primary); border-left-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(124,58,237,0.15); background: #FAFAFE; }
 .canvas-q-number { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--color-primary); background: var(--color-primary-bg); border-radius: 50%; flex-shrink: 0; margin-right: 2px; }
 .canvas-q-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .canvas-q-title-input { flex: 1; font-size: var(--text-sm); font-weight: 500; border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }

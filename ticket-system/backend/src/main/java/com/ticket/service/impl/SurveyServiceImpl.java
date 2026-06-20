@@ -1,6 +1,7 @@
 package com.ticket.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ticket.common.constant.BusinessConstants;
 import com.ticket.common.constant.ErrorCode;
 import com.ticket.common.exception.BusinessException;
@@ -87,12 +88,15 @@ public class SurveyServiceImpl implements SurveyService {
     }
 
     @Override
-    public List<SurveyTemplateResponse> listTemplates() {
-        return templateMapper.selectList(new LambdaQueryWrapper<SurveyTemplate>()
-                .orderByDesc(SurveyTemplate::getCreatedDate))
-                .stream()
+    public PageResponse<SurveyTemplateResponse> listTemplates(int page, int size) {
+        var mpPage = templateMapper.selectPage(
+                Page.of(page, size),
+                new LambdaQueryWrapper<SurveyTemplate>()
+                        .orderByDesc(SurveyTemplate::getCreatedDate));
+        List<SurveyTemplateResponse> records = mpPage.getRecords().stream()
                 .map(this::toTemplateResponse)
                 .collect(Collectors.toList());
+        return PageResponse.of(mpPage, records);
     }
 
     @Override

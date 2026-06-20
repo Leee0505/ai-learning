@@ -14,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.ticket.dto.response.PageResponse;
 
 @RestController
 @RequestMapping("/api/admin/surveys")
@@ -31,9 +32,11 @@ public class SurveyController {
     // ── Template CRUD ──
 
     @GetMapping
-    @Operation(summary = "List all survey templates")
-    public ApiResult<List<SurveyTemplateResponse>> list() {
-        return ApiResult.success(surveyService.listTemplates());
+    @Operation(summary = "List survey templates with pagination")
+    public ApiResult<PageResponse<SurveyTemplateResponse>> list(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "12") int size) {
+        return ApiResult.success(surveyService.listTemplates(page, size));
     }
 
     @GetMapping("/{id}")

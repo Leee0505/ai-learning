@@ -3,13 +3,13 @@ package com.ticket.service;
 import com.ticket.dto.request.*;
 import com.ticket.dto.response.*;
 
-import java.util.List;
+import com.ticket.dto.response.PageResponse;
 
 public interface SurveyService {
     // Template CRUD
     SurveyTemplateResponse createTemplate(CreateSurveyTemplateRequest request, Long adminId);
     SurveyTemplateResponse getTemplate(Long templateId);
-    List<SurveyTemplateResponse> listTemplates();
+    PageResponse<SurveyTemplateResponse> listTemplates(int page, int size);
     SurveyTemplateResponse updateTemplate(Long id, UpdateSurveyTemplateRequest request, Long adminId);
     void deleteTemplate(Long id);
 

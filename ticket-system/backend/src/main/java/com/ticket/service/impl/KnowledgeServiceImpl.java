@@ -29,11 +29,15 @@ public class KnowledgeServiceImpl implements KnowledgeService {
 
     @Override
     public List<ReplyTemplateResponse> search(String keyword, String category) {
-        Long tenantId = SecurityUtils.getCurrentTenantId();
         LambdaQueryWrapper<KnowledgeArticle> wrapper = new LambdaQueryWrapper<>();
-        // System defaults (NULL) + current tenant's articles
-        wrapper.and(w -> w.isNull(KnowledgeArticle::getTenantId)
-                .or().eq(KnowledgeArticle::getTenantId, tenantId));
+        if (SecurityUtils.isAdmin()) {
+            // Admin sees all articles across all tenants (no tenant filter)
+        } else {
+            Long tenantId = SecurityUtils.getCurrentTenantId();
+            // System defaults (NULL) + current tenant's articles
+            wrapper.and(w -> w.isNull(KnowledgeArticle::getTenantId)
+                    .or().eq(KnowledgeArticle::getTenantId, tenantId));
+        }
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w.like(KnowledgeArticle::getTitle, keyword)
                     .or().like(KnowledgeArticle::getContent, keyword));

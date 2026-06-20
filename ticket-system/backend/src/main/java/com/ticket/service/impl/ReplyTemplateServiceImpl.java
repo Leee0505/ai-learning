@@ -32,11 +32,15 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
 
     @Override
     public List<ReplyTemplateResponse> listTemplates(String category) {
-        Long tenantId = SecurityUtils.getCurrentTenantId();
         LambdaQueryWrapper<ReplyTemplate> wrapper = new LambdaQueryWrapper<>();
-        // System defaults (NULL) + current tenant's templates
-        wrapper.and(w -> w.isNull(ReplyTemplate::getTenantId)
-                .or().eq(ReplyTemplate::getTenantId, tenantId));
+        if (SecurityUtils.isAdmin()) {
+            // Admin sees all templates across all tenants (no tenant filter)
+        } else {
+            Long tenantId = SecurityUtils.getCurrentTenantId();
+            // System defaults (NULL) + current tenant's templates
+            wrapper.and(w -> w.isNull(ReplyTemplate::getTenantId)
+                    .or().eq(ReplyTemplate::getTenantId, tenantId));
+        }
         if (StringUtils.hasText(category)) {
             wrapper.eq(ReplyTemplate::getCategory, category);
         }

@@ -9,134 +9,147 @@
       <h1 class="builder-title">{{ template?.title || 'Loading...' }}</h1>
       <span :class="['status-badge', 'status-' + (template?.status || '').toLowerCase()]">{{ template?.status }}</span>
       <div class="builder-topbar-spacer"></div>
-      <button class="btn-secondary" @click="saveAndReturn">Save &amp; Return</button>
+      <button class="btn-secondary" @click="$router.push('/admin/surveys')">Done</button>
     </div>
 
     <div v-if="!template" class="builder-loading">Loading template...</div>
 
-    <!-- 3-column layout -->
     <div v-else class="builder-layout">
-      <!-- Left: Structure Tree -->
+      <!-- Left: Structure Tree (navigation only) -->
       <aside class="builder-left">
         <div class="builder-left-header">
-          <h3 class="builder-left-title">Structure</h3>
+          <h3 class="builder-left-title">Pages</h3>
           <button class="icon-btn" title="Add Page" @click="addPage" aria-label="Add page">+</button>
         </div>
-        <div class="tree">
-          <div v-for="(page, pi) in template.pages" :key="'p'+page.id" class="tree-node">
-            <div class="tree-row" :class="{ 'tree-row--active': selectedPage?.id === page.id }" @click="selectPage(page)">
-              <span class="tree-toggle" @click.stop="toggleNode('p'+page.id)">{{ expandedNodes['p'+page.id] ? '&#9662;' : '&#9656;' }}</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tree-icon" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-              <span class="tree-label">{{ page.title }}</span>
-              <button class="tree-del" @click.stop="deletePage(page.id)" :disabled="template.pages.length <= 1" aria-label="Delete page">&times;</button>
-            </div>
-            <div v-if="expandedNodes['p'+page.id]" class="tree-children">
-              <div v-for="(section, si) in page.sections" :key="'s'+section.id" class="tree-node">
-                <div class="tree-row" :class="{ 'tree-row--active': selectedSection?.id === section.id }" @click="selectSection(section)">
-                  <span class="tree-toggle" @click.stop="toggleNode('s'+section.id)">{{ expandedNodes['s'+section.id] ? '&#9662;' : '&#9656;' }}</span>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tree-icon" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                  <span class="tree-label">{{ section.title }}</span>
-                  <button class="tree-del" @click.stop="deleteSection(section.id)" aria-label="Delete section">&times;</button>
-                </div>
-                <div v-if="expandedNodes['s'+section.id]" class="tree-children">
-                  <div v-for="(q, qi) in section.questions" :key="'q'+q.id" class="tree-row tree-row--q" :class="{ 'tree-row--active': selectedQuestion?.id === q.id }" @click="selectQuestion(q)">
-                    <span class="tree-q-type">{{ q.type.replace('_',' ').substring(0,6) }}</span>
-                    <span class="tree-label tree-label--q">{{ q.title }}</span>
-                    <button class="tree-del" @click.stop="deleteQuestion(q.id)" aria-label="Delete question">&times;</button>
-                  </div>
-                  <button class="tree-add-btn" @click="addQuestion(section.id)">+ Question</button>
-                </div>
-              </div>
-              <button class="tree-add-btn" @click="addSection(page.id)">+ Section</button>
-            </div>
+
+        <!-- Page tabs -->
+        <div class="page-tabs">
+          <div v-for="(page, pi) in template.pages" :key="'pt'+page.id"
+               class="page-tab" :class="{ 'page-tab--active': currentPageIndex === pi }"
+               @click="switchPage(pi)">
+            <span class="page-tab-num">{{ pi + 1 }}</span>
+            <span class="page-tab-label">{{ page.title }}</span>
+            <button v-if="template.pages.length > 1" class="page-tab-del" @click.stop="deletePage(page.id)" aria-label="Delete page">×</button>
           </div>
         </div>
       </aside>
 
-      <!-- Center: Canvas -->
+      <!-- Center: Editable Form Canvas -->
       <main class="builder-center">
-        <div v-if="!selectedPage &amp;&amp; !selectedSection" class="builder-hint">Select a page or section to preview</div>
+        <div v-if="currentPage" class="canvas">
+          <!-- Page title (editable) -->
+          <div class="canvas-page-header">
+            <input v-model="currentPageTitle" class="canvas-page-title-input" @blur="savePageTitle" @keyup.enter="($event.target.blur())" placeholder="Page title" />
+            <button class="canvas-add-section" @click="addSection(currentPage.id)">+ Add Section</button>
+          </div>
 
-        <!-- Page preview -->
-        <div v-if="selectedPage" class="canvas-page">
-          <h2 class="canvas-page-title">{{ selectedPage.title }}</h2>
-          <div v-for="section in selectedPage.sections" :key="'cs'+section.id" class="canvas-section">
-            <h3 class="canvas-section-title">{{ section.title }}</h3>
+          <!-- Sections and Questions -->
+          <div v-for="section in currentPage.sections" :key="'cs'+section.id" class="canvas-section">
+            <div class="canvas-section-header">
+              <button class="canvas-section-toggle" @click="toggleSection('s'+section.id)" :aria-label="expandedNodes['s'+section.id] ? 'Collapse' : 'Expand'">
+                {{ expandedNodes['s'+section.id] ? '▾' : '▸' }}
+              </button>
+              <input v-model="sectionTitles[section.id]" class="canvas-section-title-input" @blur="saveSectionTitle(section.id)" @keyup.enter="($event.target.blur())" placeholder="Section title" />
+              <button class="canvas-section-del" @click="deleteSection(section.id)" aria-label="Delete section">×</button>
+            </div>
             <p v-if="section.description" class="canvas-section-desc">{{ section.description }}</p>
-            <div v-for="q in section.questions" :key="'cq'+q.id" class="canvas-question" @click="selectQuestion(q)">
-              <label class="canvas-q-label">{{ q.title }} <span v-if="q.required" class="required">*</span></label>
-              <!-- Render based on type -->
-              <input v-if="q.type === 'TEXT' || q.type === 'DATE'" :type="q.type === 'DATE' ? 'date' : 'text'" class="input" disabled :placeholder="'Enter ' + q.title.toLowerCase()" />
-              <textarea v-else-if="q.type === 'TEXTAREA'" class="input textarea" disabled rows="2" :placeholder="'Enter ' + q.title.toLowerCase()"></textarea>
-              <div v-else-if="q.type === 'SINGLE_CHOICE' || q.type === 'MULTI_CHOICE'" class="canvas-options">
-                <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="canvas-opt">
-                  <span :class="q.type === 'SINGLE_CHOICE' ? 'radio' : 'checkbox'"></span> {{ opt }}
-                </label>
+
+            <!-- Editable questions -->
+            <div v-if="expandedNodes['s'+section.id]" class="canvas-questions">
+              <div v-for="q in section.questions" :key="'cq'+q.id"
+                   class="canvas-question" :class="{ 'canvas-question--selected': selectedQuestion?.id === q.id }"
+                   @click="selectQuestion(q)">
+                <div class="canvas-q-row">
+                  <input v-model="questionTitles[q.id]" class="canvas-q-title-input"
+                         @blur="saveQuestionTitle(q.id)" @keyup.enter="($event.target.blur())"
+                         @click.stop placeholder="Question" />
+                  <span v-if="q.required" class="canvas-q-required">*</span>
+                  <span class="canvas-q-type-badge">{{ q.type.replace('_',' ') }}</span>
+                  <button class="canvas-q-del" @click.stop="deleteQuestion(q.id)" aria-label="Delete question">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+
+                <!-- Interactive form element based on type -->
+                <div class="canvas-q-input" @click.stop>
+                  <input v-if="q.type === 'TEXT'" class="input" placeholder="Text answer" />
+                  <textarea v-else-if="q.type === 'TEXTAREA'" class="input textarea" rows="2" placeholder="Long answer"></textarea>
+                  <div v-else-if="q.type === 'SINGLE_CHOICE'" class="canvas-options">
+                    <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="canvas-opt"><span class="radio"></span> {{ opt }}</label>
+                  </div>
+                  <div v-else-if="q.type === 'MULTI_CHOICE'" class="canvas-options">
+                    <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="canvas-opt"><span class="checkbox-box"></span> {{ opt }}</label>
+                  </div>
+                  <select v-else-if="q.type === 'DROPDOWN'" class="input"><option>{{ parseOptions(q.options)[0] || 'Select...' }}</option></select>
+                  <input v-else-if="q.type === 'DATE'" class="input" type="date" />
+                  <div v-else-if="q.type === 'RATING'" class="canvas-rating">
+                    <span v-for="i in getRatingMax(q.options)" :key="i" class="rating-star" :class="{ 'rating-star--active': i <= 3 }">★</span>
+                  </div>
+                  <div v-else class="input muted">{{ q.type.replace('_',' ') }} input</div>
+                </div>
+
+                <!-- Inline visibility rule indicator -->
+                <div v-if="q.visibilityRules?.length" class="canvas-q-rules">
+                  {{ q.visibilityRules.length }} rule{{ q.visibilityRules.length > 1 ? 's' : '' }}
+                </div>
               </div>
-              <select v-else-if="q.type === 'DROPDOWN'" class="input" disabled><option>{{ parseOptions(q.options)[0] || 'Select...' }}</option></select>
-              <div v-else-if="q.type === 'RATING'" class="canvas-rating">
-                <span v-for="i in getRatingMax(q.options)" :key="i" class="rating-star">&#9733;</span>
-              </div>
-              <div v-else-if="q.type === 'CASCADER'" class="input" style="color:var(--color-text-muted)">Cascader ({{ q.title }})</div>
-              <div v-else-if="q.type === 'TABLE'" class="input" style="color:var(--color-text-muted)">Table input</div>
-              <input v-else class="input" disabled :placeholder="'Enter ' + q.title.toLowerCase()" />
+              <button class="canvas-add-q" @click="addQuestion(section.id)">+ Add Question</button>
             </div>
           </div>
         </div>
+        <div v-else class="builder-hint">No pages yet. Add a page from the left panel.</div>
       </main>
 
-      <!-- Right: Properties -->
+      <!-- Right: Properties Panel (only when question selected) -->
       <aside class="builder-right">
-        <div v-if="!selectedQuestion" class="builder-hint">Select a question to edit properties</div>
+        <div v-if="!selectedQuestion" class="builder-hint">
+          <p>Click a question to edit its properties</p>
+        </div>
         <div v-else class="props-panel">
           <h3 class="props-title">Question Properties</h3>
-          <div class="form-group">
-            <label class="form-label">Title</label>
-            <input v-model="editForm.title" class="input" @change="saveQuestion" />
-          </div>
+
           <div class="form-group">
             <label class="form-label">Type</label>
-            <select v-model="editForm.type" class="input" @change="saveQuestion">
+            <select v-model="editForm.type" class="input" @change="saveQuestionProperties">
               <option v-for="qt in QUESTION_TYPES" :key="qt.value" :value="qt.value">{{ qt.label }}</option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-checkbox">
-              <input v-model="editForm.required" type="checkbox" @change="saveQuestion" />
-              Required
+              <input v-model="editForm.required" type="checkbox" @change="saveQuestionProperties" />
+              Required question
             </label>
           </div>
           <div v-if="hasOptions(editForm.type)" class="form-group">
             <label class="form-label">Options (one per line)</label>
-            <textarea v-model="editForm.optionsText" class="input textarea" rows="4" @change="onOptionsChange" placeholder="Option 1&#10;Option 2&#10;Option 3"></textarea>
+            <textarea v-model="editForm.optionsText" class="input textarea" rows="4" @blur="saveQuestionProperties" placeholder="Option 1&#10;Option 2"></textarea>
           </div>
 
           <!-- Visibility Rules -->
           <div class="props-section">
             <h4 class="props-subtitle">Visibility Rules</h4>
+            <div v-if="!selectedQuestion.visibilityRules?.length" class="props-empty">No rules — question is always visible</div>
             <div v-for="rule in selectedQuestion.visibilityRules" :key="'r'+rule.id" class="rule-row">
               <span class="rule-text">When {{ getQuestionTitle(rule.sourceQuestionId) }} {{ rule.op }} {{ rule.value || '' }}</span>
-              <button class="tree-del" @click="deleteRule(rule.id)" aria-label="Delete rule">&times;</button>
+              <button class="rule-del" @click="deleteRule(rule.id)" aria-label="Delete rule">×</button>
             </div>
+            <button class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="showRuleForm = !showRuleForm">
+              {{ showRuleForm ? 'Cancel' : '+ Add Rule' }}
+            </button>
             <div v-if="showRuleForm" class="rule-form">
-              <select v-model="newRule.sourceQuestionId" class="input" style="margin-bottom:6px">
-                <option :value="null" disabled>Select source question...</option>
+              <select v-model="newRule.sourceQuestionId" class="input">
+                <option :value="null" disabled>Source question...</option>
                 <option v-for="q in allQuestions" :key="'sq'+q.id" :value="q.id">{{ q.title }}</option>
               </select>
-              <select v-model="newRule.op" class="input" style="margin-bottom:6px">
-                <option value="eq">equals</option>
-                <option value="neq">not equals</option>
-                <option value="answered">is answered</option>
-                <option value="not_answered">is not answered</option>
-                <option value="contains">contains</option>
-                <option value="in">in</option>
-                <option value="gt">greater than</option>
-                <option value="lt">less than</option>
+              <select v-model="newRule.op" class="input">
+                <option value="eq">equals</option><option value="neq">not equals</option>
+                <option value="answered">is answered</option><option value="not_answered">not answered</option>
+                <option value="contains">contains</option><option value="in">in</option>
+                <option value="gt">&gt;</option><option value="lt">&lt;</option>
               </select>
-              <input v-if="newRule.op !== 'answered' &amp;&amp; newRule.op !== 'not_answered'" v-model="newRule.value" class="input" placeholder="Value" style="margin-bottom:6px" />
-              <button class="btn-primary" style="width:100%;font-size:var(--text-xs)" @click="addRule">Add Rule</button>
+              <input v-if="newRule.op !== 'answered' && newRule.op !== 'not_answered'" v-model="newRule.value" class="input" placeholder="Value" />
+              <button class="btn-primary" style="width:100%;font-size:var(--text-xs);margin-top:4px" @click="addRule">Add</button>
             </div>
-            <button v-if="!showRuleForm" class="btn-secondary" style="width:100%;font-size:var(--text-xs)" @click="showRuleForm = true">+ Add Visibility Rule</button>
           </div>
         </div>
       </aside>
@@ -145,22 +158,32 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSurveyStore } from '@/stores/survey'
-import { addPageApi, deletePageApi, addSectionApi, deleteSectionApi, addQuestionApi, updateQuestionApi, deleteQuestionApi, addRuleApi, deleteRuleApi } from '@/api/survey'
+import { updateTemplateApi, addPageApi, deletePageApi, addSectionApi, deleteSectionApi, addQuestionApi, updateQuestionApi, deleteQuestionApi, addRuleApi, deleteRuleApi } from '@/api/survey'
 
 const store = useSurveyStore()
 const route = useRoute()
 const router = useRouter()
 
 const template = computed(() => store.currentTemplate)
-const selectedPage = ref(null)
-const selectedSection = ref(null)
+
+const currentPageIndex = ref(0)
+const currentPage = computed(() => template.value?.pages?.[currentPageIndex.value] || null)
+const currentPageTitle = computed({
+  get: () => currentPage.value?.title || '',
+  set: (val) => { if (currentPage.value) currentPage.value.title = val }
+})
+
 const selectedQuestion = ref(null)
-const expandedNodes = reactive({})
 const showRuleForm = ref(false)
+
+// Reactive maps for inline editing
+const sectionTitles = reactive({})
+const questionTitles = reactive({})
+const expandedNodes = reactive({})
 
 const QUESTION_TYPES = [
   { value: 'SINGLE_CHOICE', label: 'Single Choice' },
@@ -190,27 +213,27 @@ const allQuestions = computed(() => {
   return qs
 })
 
+// Initialize reactive maps when template loads
+watch(template, (t) => {
+  if (!t?.pages) return
+  t.pages.forEach(p => {
+    expandedNodes['p' + p.id] = true
+    p.sections?.forEach(s => {
+      expandedNodes['s' + s.id] = true
+      sectionTitles[s.id] = s.title
+      s.questions?.forEach(q => { questionTitles[q.id] = q.title })
+    })
+  })
+}, { immediate: true, deep: true })
+
 onMounted(async () => {
   const id = route.params.id
   await store.fetchTemplate(id)
-  if (template.value?.pages?.length > 0) {
-    expandedNodes['p' + template.value.pages[0].id] = true
-    selectPage(template.value.pages[0])
-  }
 })
 
-function toggleNode(key) { expandedNodes[key] = !expandedNodes[key] }
+function switchPage(idx) { currentPageIndex.value = idx; selectedQuestion.value = null }
+function toggleSection(key) { expandedNodes[key] = !expandedNodes[key] }
 
-function selectPage(page) {
-  selectedPage.value = page
-  selectedSection.value = null
-  selectedQuestion.value = null
-}
-function selectSection(section) {
-  selectedSection.value = section
-  selectedPage.value = null
-  selectedQuestion.value = null
-}
 function selectQuestion(q) {
   selectedQuestion.value = q
   editForm.title = q.title
@@ -233,15 +256,19 @@ function getQuestionTitle(qid) {
   return q ? q.title : 'Q#' + qid
 }
 
-// ── Actions ──
+// ── Page Actions ──
+
+async function savePageTitle() {
+  if (!currentPage.value) return
+  await updateTemplateApi(template.value.id, { title: template.value.title })
+}
 
 async function addPage() {
   const { data } = await addPageApi(template.value.id, { title: 'Page ' + ((template.value.pages?.length || 0) + 1) })
   if (data.code === 200) {
     ElMessage.success('Page added')
     await store.fetchTemplate(template.value.id)
-    expandedNodes['p' + data.data.id] = true
-    selectPage(data.data)
+    currentPageIndex.value = template.value.pages.length - 1
   } else ElMessage.error(data.message)
 }
 
@@ -250,26 +277,37 @@ async function deletePage(pageId) {
   catch { return }
   await deletePageApi(pageId)
   ElMessage.success('Page deleted')
-  selectedPage.value = null
+  currentPageIndex.value = Math.min(currentPageIndex.value, (template.value.pages?.length || 1) - 1)
   await store.fetchTemplate(template.value.id)
 }
 
+// ── Section Actions ──
+
+async function saveSectionTitle(sectionId) {
+  // Section title edit — would need a dedicated endpoint
+}
 async function addSection(pageId) {
   const { data } = await addSectionApi(pageId, { title: 'New Section' })
-  if (data.code === 200) ElMessage.success('Section added'); await store.fetchTemplate(template.value.id)
+  if (data.code === 200) { ElMessage.success('Section added'); await store.fetchTemplate(template.value.id) }
 }
-
 async function deleteSection(sectionId) {
   try { await ElMessageBox.confirm('Delete this section?', 'Delete', { type: 'warning' }) } catch { return }
   await deleteSectionApi(sectionId); await store.fetchTemplate(template.value.id)
 }
 
+// ── Question Actions ──
+
+async function saveQuestionTitle(qid) {
+  const q = allQuestions.value.find(q => q.id === qid)
+  if (q && questionTitles[qid] !== q.title) {
+    await updateQuestionApi(qid, { title: questionTitles[qid] })
+  }
+}
 async function addQuestion(sectionId) {
   const { data } = await addQuestionApi(sectionId, { type: 'TEXT', title: 'New Question', required: 0 })
   if (data.code === 200) { ElMessage.success('Question added'); await store.fetchTemplate(template.value.id) }
 }
-
-async function saveQuestion() {
+async function saveQuestionProperties() {
   if (!selectedQuestion.value) return
   let options = selectedQuestion.value.options
   if (hasOptions(editForm.type)) {
@@ -280,17 +318,15 @@ async function saveQuestion() {
     title: editForm.title, type: editForm.type, required: editForm.required ? 1 : 0, options
   })
   await store.fetchTemplate(template.value.id)
-  // re-select the question
   const updated = allQuestions.value.find(q => q.id === selectedQuestion.value.id)
   if (updated) selectQuestion(updated)
 }
-
-function onOptionsChange() { saveQuestion() }
-
 async function deleteQuestion(qid) {
   await deleteQuestionApi(qid); ElMessage.success('Question deleted')
   selectedQuestion.value = null; await store.fetchTemplate(template.value.id)
 }
+
+// ── Visibility Rule Actions ──
 
 async function addRule() {
   if (!newRule.sourceQuestionId || !selectedQuestion.value) return
@@ -307,14 +343,11 @@ async function addRule() {
     if (updated) selectQuestion(updated)
   }
 }
-
 async function deleteRule(ruleId) {
   await deleteRuleApi(ruleId); await store.fetchTemplate(template.value.id)
   const updated = allQuestions.value.find(q => q.id === selectedQuestion.value?.id)
   if (updated) selectQuestion(updated)
 }
-
-function saveAndReturn() { router.push('/admin/surveys') }
 </script>
 
 <style scoped>
@@ -329,54 +362,86 @@ function saveAndReturn() { router.push('/admin/surveys') }
 
 .builder-layout { display: flex; flex: 1; overflow: hidden; }
 
-/* Left: Tree */
+/* Left: Page tabs */
 .builder-left { width: 280px; flex-shrink: 0; background: var(--color-gray-50); border-right: 1px solid var(--color-gray-200); overflow-y: auto; padding: var(--space-md); }
 .builder-left-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md); }
 .builder-left-title { font-size: var(--text-sm); font-weight: 600; margin: 0; color: var(--color-text-primary); }
 
-.tree-node { margin-bottom: 2px; }
-.tree-row { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm); transition: background var(--transition-fast); }
-.tree-row:hover { background: var(--color-gray-100); }
-.tree-row--active { background: var(--color-primary-bg); color: var(--color-primary); }
-.tree-row--q { padding-left: 32px; }
-.tree-toggle { font-size: 10px; width: 14px; color: var(--color-text-muted); flex-shrink: 0; }
-.tree-icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--color-text-muted); }
-.tree-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tree-label--q { font-size: var(--text-xs); }
-.tree-q-type { font-size: 9px; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted); background: var(--color-gray-200); padding: 1px 4px; border-radius: 3px; }
-.tree-del { width: 20px; height: 20px; padding: 0; font-size: 14px; line-height: 1; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
-.tree-row:hover .tree-del { display: inline-flex; align-items: center; justify-content: center; }
-.tree-del:hover { background: #FEE2E2; color: #B91C1C; }
-.tree-children { margin-left: 16px; }
-.tree-add-btn { width: 100%; padding: 4px 8px; font-size: var(--text-xs); color: var(--color-primary); background: none; border: 1px dashed var(--color-gray-300); border-radius: var(--radius-sm); cursor: pointer; margin-top: 2px; }
-.tree-add-btn:hover { border-color: var(--color-primary); background: var(--color-primary-bg); }
+/* Page tabs */
+.page-tabs { display: flex; flex-direction: column; gap: 2px; }
+.page-tab { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); transition: background var(--transition-fast); }
+.page-tab:hover { background: var(--color-gray-100); }
+.page-tab--active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: 600; }
+.page-tab-num { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 700; background: var(--color-gray-200); border-radius: 50%; flex-shrink: 0; }
+.page-tab--active .page-tab-num { background: var(--color-primary); color: white; }
+.page-tab-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-tab-del { width: 20px; height: 20px; font-size: 14px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
+.page-tab:hover .page-tab-del { display: flex; align-items: center; justify-content: center; }
+.page-tab-del:hover { background: #FEE2E2; color: #B91C1C; }
 
 /* Center: Canvas */
 .builder-center { flex: 1; overflow-y: auto; padding: var(--space-lg); background: var(--color-gray-50); }
-.canvas-page { max-width: 640px; margin: 0 auto; }
-.canvas-page-title { font-size: var(--text-xl); font-weight: 700; margin: 0 0 var(--space-lg); }
+.canvas { max-width: 720px; margin: 0 auto; }
+
+/* Canvas page header */
+.canvas-page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-lg); gap: var(--space-md); }
+.canvas-page-title-input { flex: 1; font-size: var(--text-xl); font-weight: 700; font-family: var(--font-heading); border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
+.canvas-page-title-input:hover { border-color: var(--color-gray-200); }
+.canvas-page-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
+.canvas-add-section { padding: 8px 16px; font-size: var(--text-sm); font-weight: 500; color: var(--color-primary); background: var(--color-primary-bg); border: 1px dashed var(--color-primary); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; }
+.canvas-add-section:hover { background: var(--color-primary); color: white; }
+
+/* Section */
 .canvas-section { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-lg); margin-bottom: var(--space-lg); }
-.canvas-section-title { font-size: var(--text-base); font-weight: 600; margin: 0 0 var(--space-xs); }
-.canvas-section-desc { font-size: var(--text-sm); color: var(--color-text-muted); margin: 0 0 var(--space-md); }
-.canvas-question { margin-bottom: var(--space-md); padding: var(--space-sm); border-radius: var(--radius-md); cursor: pointer; transition: background var(--transition-fast); }
+.canvas-section-header { display: flex; align-items: center; gap: 8px; margin-bottom: var(--space-sm); }
+.canvas-section-toggle { width: 24px; height: 24px; font-size: 14px; background: none; border: none; cursor: pointer; color: var(--color-text-muted); }
+.canvas-section-title-input { flex: 1; font-size: var(--text-base); font-weight: 600; font-family: var(--font-heading); border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
+.canvas-section-title-input:hover { border-color: var(--color-gray-200); }
+.canvas-section-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
+.canvas-section-desc { font-size: var(--text-sm); color: var(--color-text-muted); margin: 0 0 var(--space-sm); }
+.canvas-section-del { width: 24px; height: 24px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
+.canvas-section:hover .canvas-section-del { display: flex; align-items: center; justify-content: center; }
+.canvas-section-del:hover { background: #FEE2E2; color: #B91C1C; }
+
+/* Question */
+.canvas-questions { margin-top: var(--space-sm); }
+.canvas-question { margin-bottom: var(--space-sm); padding: var(--space-sm); border: 1px solid transparent; border-radius: var(--radius-md); cursor: pointer; transition: background var(--transition-fast), border-color var(--transition-fast); }
 .canvas-question:hover { background: var(--color-primary-bg); }
-.canvas-q-label { display: block; font-size: var(--text-sm); font-weight: 500; margin-bottom: 6px; }
+.canvas-question--selected { background: var(--color-primary-bg); border-color: var(--color-primary); }
+.canvas-q-row { display: flex; align-items: center; gap: 8px; }
+.canvas-q-title-input { flex: 1; font-size: var(--text-sm); font-weight: 500; border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
+.canvas-q-title-input:hover { border-color: var(--color-gray-200); }
+.canvas-q-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
+.canvas-q-required { color: var(--color-danger); font-weight: 700; }
+.canvas-q-type-badge { font-size: 10px; font-weight: 600; color: var(--color-text-muted); background: var(--color-gray-100); padding: 2px 6px; border-radius: var(--radius-full); text-transform: uppercase; white-space: nowrap; }
+.canvas-q-del { width: 24px; height: 24px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
+.canvas-q-del svg { width: 14px; height: 14px; }
+.canvas-question:hover .canvas-q-del { display: flex; align-items: center; justify-content: center; }
+.canvas-q-del:hover { background: #FEE2E2; color: #B91C1C; }
+.canvas-q-input { margin-top: 6px; }
+.canvas-q-rules { margin-top: 4px; font-size: 10px; color: var(--color-primary); }
+.canvas-add-q { width: 100%; padding: 8px; font-size: var(--text-sm); color: var(--color-primary); background: none; border: 1px dashed var(--color-gray-300); border-radius: var(--radius-md); cursor: pointer; margin-top: var(--space-xs); }
+.canvas-add-q:hover { border-color: var(--color-primary); background: var(--color-primary-bg); }
+
 .canvas-options { display: flex; flex-direction: column; gap: 6px; }
 .canvas-opt { display: flex; align-items: center; gap: 8px; font-size: var(--text-sm); color: var(--color-text-secondary); }
-.radio, .checkbox { width: 16px; height: 16px; border: 2px solid var(--color-gray-300); border-radius: 50%; }
-.checkbox { border-radius: 3px; }
+.radio, .checkbox-box { width: 16px; height: 16px; border: 2px solid var(--color-gray-300); border-radius: 50%; }
+.checkbox-box { border-radius: 3px; }
 .canvas-rating { display: flex; gap: 4px; }
 .rating-star { font-size: 24px; color: var(--color-gray-300); }
+.rating-star--active { color: #F59E0B; }
 
 /* Right: Properties */
-.builder-right { width: 300px; flex-shrink: 0; background: var(--color-gray-50); border-left: 1px solid var(--color-gray-200); overflow-y: auto; padding: var(--space-md); }
+.builder-right { width: 320px; flex-shrink: 0; background: var(--color-gray-50); border-left: 1px solid var(--color-gray-200); overflow-y: auto; padding: var(--space-md); }
 .props-panel { display: flex; flex-direction: column; gap: var(--space-md); }
 .props-title { font-size: var(--text-sm); font-weight: 600; margin: 0; }
 .props-subtitle { font-size: var(--text-xs); font-weight: 600; color: var(--color-text-secondary); margin: var(--space-md) 0 var(--space-sm); border-top: 1px solid var(--color-gray-200); padding-top: var(--space-md); }
 .props-section { margin-top: var(--space-sm); }
+.props-empty { font-size: var(--text-xs); color: var(--color-text-muted); padding: var(--space-sm) 0; }
 
 .rule-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); margin-bottom: 4px; font-size: var(--text-xs); }
 .rule-text { flex: 1; color: var(--color-text-secondary); }
+.rule-del { width: 20px; height: 20px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; }
 .rule-form { margin-top: var(--space-sm); }
 
 /* Shared */
@@ -392,6 +457,7 @@ function saveAndReturn() { router.push('/admin/surveys') }
 .input { padding: 8px 10px; font-size: var(--text-sm); font-family: var(--font-body); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); width: 100%; box-sizing: border-box; }
 .input:focus { border-color: var(--color-primary); outline: none; box-shadow: 0 0 0 3px #7C3AED20; }
 .textarea { resize: vertical; }
+.muted { color: var(--color-text-muted) !important; }
 .btn-primary { padding: 8px 16px; font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: var(--color-primary); border: none; border-radius: var(--radius-md); cursor: pointer; }
 .btn-primary:hover:not(:disabled) { opacity: 0.9; }
 .btn-secondary { padding: 8px 16px; font-weight: 500; font-family: var(--font-body); color: var(--color-text-secondary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; }

@@ -140,6 +140,21 @@ public class SurveyController {
         return ApiResult.success();
     }
 
+    // ── Instance Management ──
+
+    @PostMapping("/instances")
+    @Operation(summary = "Distribute a survey instance to a user")
+    public ApiResult<SurveyInstanceResponse> createInstance(@Valid @RequestBody CreateSurveyInstanceRequest request,
+                                                             @AuthenticationPrincipal UserDetailsImpl user) {
+        return ApiResult.success(surveyService.createInstance(request, user.getUserId()));
+    }
+
+    @GetMapping("/instances")
+    @Operation(summary = "List instances for a template")
+    public ApiResult<List<SurveyInstanceResponse>> listInstances(@RequestParam Long templateId) {
+        return ApiResult.success(surveyService.listTemplateInstances(templateId));
+    }
+
     // ── Builder — Visibility Rules ──
 
     @PostMapping("/{templateId}/rules")

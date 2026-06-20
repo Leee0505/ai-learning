@@ -80,9 +80,9 @@
 
                   <!-- Inline editable options for choice types -->
                   <div v-else-if="hasOptions(q.type)" class="canvas-options" @click.stop>
-                    <div v-for="(opt, oi) in getOptionsList(q)" :key="oi" class="canvas-option-row">
+                    <div v-for="(opt, oi) in getOptionsList(q)" :key="opt.key || oi" class="canvas-option-row">
                       <span :class="q.type === 'MULTI_CHOICE' ? ['canvas-option-marker','checkbox-marker'] : 'canvas-option-marker'"></span>
-                      <input class="canvas-option-input" :value="opt"
+                      <input class="canvas-option-input" :value="opt.label"
                              @blur="updateOption(q, oi, $event.target.value)"
                              @keyup.enter="updateOption(q, oi, $event.target.value); if (oi === getOptionsList(q).length - 1) { addOption(q); nextTick(() => $el?.nextElementSibling?.querySelector('input')?.focus()) }" />
                       <button class="canvas-option-remove" @click.stop="removeOption(q, oi)" :aria-label="'Remove option ' + (oi+1)">×</button>
@@ -142,7 +142,7 @@
             <div v-if="!selectedQuestion.visibilityRules?.length" class="props-empty">No rules — question is always visible</div>
             <div v-for="rule in selectedQuestion.visibilityRules" :key="'r'+rule.id" class="rule-row" :class="{ 'rule-row--broken': isRuleBroken(rule) }">
               <span class="rule-text">
-                When {{ getQuestionTitle(rule.sourceQuestionId) }} {{ rule.op }} {{ rule.value || '' }}
+                When {{ getQuestionTitle(rule.sourceQuestionId) }} {{ rule.op }} {{ getOptionLabel(rule.sourceQuestionId, rule.value) || rule.value || '' }}
                 <span v-if="isRuleBroken(rule)" class="rule-broken-badge" title="Source question options have changed — rule may not match">⚠</span>
               </span>
               <button class="rule-del" @click="deleteRule(rule.id)" aria-label="Delete rule">×</button>
@@ -159,7 +159,7 @@
               </select>
               <select v-if="sourceQuestionHasOptions" v-model="newRule.value" class="input" style="margin-bottom:6px">
                 <option :value="null" disabled>Select value...</option>
-                <option v-for="opt in sourceQuestionOptions" :key="opt" :value="opt">{{ opt }}</option>
+                <option v-for="opt in sourceQuestionOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </select>
               <input v-else-if="newRule.op !== 'answered' && newRule.op !== 'not_answered' && newRule.op !== 'is_empty' && newRule.op !== 'not_empty'" v-model="newRule.value" class="input" :placeholder="sourceQuestionType === 'RATING' || sourceQuestionType === 'NUMBER' ? 'Enter number' : 'Value'" style="margin-bottom:6px" />
               <div class="rule-form-btns">
@@ -201,7 +201,7 @@ const showRuleForm = ref(false)
 const sectionTitles = reactive({})
 const questionTitles = reactive({})
 const expandedNodes = reactive({})
-const optionsCache = reactive({}) // questionId → string[]
+const optionsCache = reactive({}) // questionId → [{key, label}]
 
 const QUESTION_TYPES = [
   { value: 'SINGLE_CHOICE', label: 'Single Choice' },
@@ -261,7 +261,8 @@ const sourceQuestionType = computed(() => sourceQuestion.value?.type || '')
 const sourceQuestionHasOptions = computed(() => ['SINGLE_CHOICE','MULTI_CHOICE','DROPDOWN'].includes(sourceQuestionType.value))
 const sourceQuestionOptions = computed(() => {
   if (!sourceQuestionHasOptions.value) return []
-  return parseOptions(sourceQuestion.value?.options)
+  const opts = parseOptions(sourceQuestion.value?.options)
+  return opts.map(o => ({ label: o.label, value: o.key })) // use key as value
 })
 function onSourceQuestionChange() { newRule.op = 'eq'; newRule.value = '' }
 
@@ -294,14 +295,39 @@ function selectQuestion(q) {
 }
 
 function parseOptions(optionsJson) {
-  try { const o = JSON.parse(optionsJson || '{}'); return o.options || [] }
-  catch { return [] }
+  try {
+    const o = JSON.parse(optionsJson || '{}')
+    const raw = o.options || []
+    if (raw.length === 0) return []
+    // New format: [{key, label}]
+    if (typeof raw[0] === 'object') return raw
+    // Old format: ["A","B","C"] → convert to [{key:"A",label:"A"}]
+    return raw.map(s => ({ key: s, label: s }))
+  } catch { return [] }
 }
 function getOptionsList(q) {
   if (!optionsCache[q.id]) {
-    optionsCache[q.id] = [...parseOptions(q.options)]
+    optionsCache[q.id] = parseOptions(q.options).map(o => ({ ...o }))
   }
   return optionsCache[q.id]
+}
+// Get option labels only (for display in select/dropdown)
+function getOptionLabels(optionsJson) {
+  return parseOptions(optionsJson).map(o => o.label)
+}
+// Get key by label or key (for backward compat resolution)
+function getOptionKeyByLabel(optionsJson, labelOrKey) {
+  const opts = parseOptions(optionsJson)
+  const found = opts.find(o => o.label === labelOrKey || o.key === labelOrKey)
+  return found ? found.key : labelOrKey
+}
+// Get option label by key (for displaying rule values)
+function getOptionLabel(sourceQid, key) {
+  const srcQ = allQuestions.value.find(q => q.id === sourceQid)
+  if (!srcQ) return key
+  const opts = parseOptions(srcQ.options)
+  const found = opts.find(o => o.key === key)
+  return found ? found.label : key
 }
 function getQuestionIndex(q) {
   if (!currentPage.value) return 0
@@ -313,12 +339,14 @@ function getQuestionIndex(q) {
 }
 function addOption(q) {
   if (!optionsCache[q.id]) optionsCache[q.id] = []
-  optionsCache[q.id].push('')
+  const key = 'opt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
+  optionsCache[q.id].push({ key, label: '' })
 }
 function updateOption(q, index, value) {
   if (!optionsCache[q.id]) return
-  if (optionsCache[q.id][index] !== value) {
-    optionsCache[q.id][index] = value
+  const opt = optionsCache[q.id][index]
+  if (opt && opt.label !== value) {
+    opt.label = value
     saveOptions(q)
   }
 }
@@ -328,42 +356,25 @@ function removeOption(q, index) {
   saveOptions(q)
 }
 function saveOptions(q) {
-  const newItems = (optionsCache[q.id] || []).filter(s => s.trim())
-  if (newItems.length > 0) {
-    const lower = newItems.map(s => s.trim().toLowerCase())
-    if (new Set(lower).size !== newItems.length) {
+  const items = (optionsCache[q.id] || []).filter(o => o.label.trim())
+  if (items.length > 0) {
+    const labels = items.map(o => o.label.trim().toLowerCase())
+    if (new Set(labels).size !== items.length) {
       ElMessage.warning('Options must be unique — duplicate found')
       return
     }
   }
-  // Auto-repair downstream rules when options change
-  const oldItems = parseOptions(q.options)
-  if (oldItems.length > 0 && JSON.stringify(oldItems) !== JSON.stringify(newItems)) {
-    const downstream = findDownstreamRules(q.id)
-    for (const rule of downstream) {
-      const oldVal = rule.value || ''
-      // Try to find the old value in old options, map to same index in new options
-      const oldIdx = oldItems.indexOf(oldVal)
-      if (oldIdx >= 0 && oldIdx < newItems.length) {
-        // Option exists at same index — update to new text
-        const newVal = newItems[oldIdx]
-        if (newVal !== oldVal) {
-          updateQuestionApi(rule.targetId, {}) // placeholder — we can't update rule value via question API
-        }
-      }
-    }
-    // Since we don't have a direct "update rule value" API from here,
-    // just notify the user that rules may need attention
-    const renamed = oldItems.filter((o, i) => newItems[i] && newItems[i] !== o)
-    const deleted = oldItems.filter((o, i) => i >= newItems.length || !newItems.includes(o))
-    if (renamed.length > 0 || deleted.length > 0) {
-      let msg = ''
-      if (renamed.length > 0) msg += `Renamed: ${renamed.join(' → ' + newItems[oldItems.indexOf(renamed[0])]).substring(0, 30)}... `
-      if (deleted.length > 0) msg += `Removed: ${deleted.join(', ')}`
-      ElMessage.warning('Options changed — review visibility rules that reference this question')
+  const newOpts = items.map(o => ({ key: o.key, label: o.label.trim() }))
+  // Detect option label changes and warn — keys are stable so rules still work
+  const oldOpts = parseOptions(q.options)
+  for (const oldO of oldOpts) {
+    const newO = newOpts.find(n => n.key === oldO.key)
+    if (newO && newO.label !== oldO.label) {
+      // Label changed but key is stable — rules based on this key still work
+      break
     }
   }
-  updateQuestionApi(q.id, { options: JSON.stringify({ options: newItems }) }).catch(() => {})
+  updateQuestionApi(q.id, { options: JSON.stringify({ options: newOpts }) }).catch(() => {})
 }
 
 // Find all visibility rules that reference a given source question
@@ -394,9 +405,10 @@ async function saveAndReturn() {
       }
       // Save inline options for choice/dropdown types
       if (hasOptions(q.type) && optionsCache[q.id]) {
-        const items = optionsCache[q.id].filter(s => s.trim())
+        const items = optionsCache[q.id].filter(o => o.label.trim())
         if (items.length > 0) {
-          await updateQuestionApi(q.id, { options: JSON.stringify({ options: items }) })
+          const newOpts = items.map(o => ({ key: o.key, label: o.label.trim() }))
+          await updateQuestionApi(q.id, { options: JSON.stringify({ options: newOpts }) })
         }
       }
     }
@@ -480,8 +492,9 @@ async function saveQuestionProperties() {
   if (!selectedQuestion.value) return
   let options = selectedQuestion.value.options
   if (hasOptions(editForm.type)) {
-    const items = (optionsCache[selectedQuestion.value.id] || []).filter(s => s.trim())
-    options = JSON.stringify({ options: items })
+    const items = (optionsCache[selectedQuestion.value.id] || []).filter(o => o.label.trim())
+    const newOpts = items.map(o => ({ key: o.key, label: o.label.trim() }))
+    options = JSON.stringify({ options: newOpts })
   }
   await updateQuestionApi(selectedQuestion.value.id, {
     title: editForm.title, type: editForm.type, required: editForm.required ? 1 : 0, options
@@ -506,7 +519,7 @@ function isRuleBroken(rule) {
   if (opts.length === 0) return false
   // For 'in', check each value; for others, check the single value
   const vals = rule.op === 'in' || rule.op === 'not_in' ? (rule.value || '').split(',') : [rule.value]
-  return vals.some(v => !opts.includes(v))
+  return vals.some(key => !opts.some(o => o.key === key))
 }
 
 async function addRule() {
@@ -552,8 +565,8 @@ async function deleteRule(ruleId) {
 <style scoped>
 .builder { display: flex; flex-direction: column; height: calc(100vh - 64px); overflow: hidden; }
 .builder-topbar { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); background: var(--color-white); border-bottom: 1px solid var(--color-gray-200); flex-shrink: 0; }
-.builder-back { display: flex; align-items: center; gap: 4px; padding: 6px 12px; font-size: var(--text-sm); font-family: var(--font-body); color: var(--color-text-secondary); background: none; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; }
-.builder-back svg { width: 16px; height: 16px; }
+.builder-back { display: flex; align-items: center; gap: 4px; padding: 8px 16px; font-size: var(--text-sm); font-family: var(--font-body); color: var(--color-text-secondary); background: none; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; min-height: 44px; }
+.builder-back svg { width: 18px; height: 18px; }
 .builder-title { font-size: var(--text-lg); font-weight: 600; margin: 0; }
 .builder-topbar-spacer { flex: 1; }
 .builder-loading { padding: var(--space-2xl); text-align: center; color: var(--color-text-muted); }
@@ -568,7 +581,7 @@ async function deleteRule(ruleId) {
 
 /* Page tabs */
 .page-tabs { display: flex; flex-direction: column; gap: 2px; }
-.page-tab { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); transition: background var(--transition-fast); }
+.page-tab { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); transition: background var(--transition-fast); min-height: 44px; }
 .page-tab:hover { background: var(--color-gray-100); }
 .page-tab--active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: 600; }
 .page-tab-num { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 700; background: var(--color-gray-200); border-radius: 50%; flex-shrink: 0; }
@@ -579,26 +592,27 @@ async function deleteRule(ruleId) {
 .page-tab-del:hover { background: #FEE2E2; color: #B91C1C; }
 
 /* Center: Canvas */
-.builder-center { flex: 1; overflow-y: auto; padding: var(--space-lg); background: #F8F9FB; }
+.builder-center { flex: 1; overflow-y: auto; padding: var(--space-xl); background: #F8F9FB; }
 .canvas { max-width: 860px; margin: 0 auto; }
 
 /* Canvas page header */
-.canvas-page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-lg); gap: var(--space-md); }
-.canvas-page-title-input { flex: 1; font-size: var(--text-xl); font-weight: 700; font-family: var(--font-heading); border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
+.canvas-page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2xl); gap: var(--space-md); }
+.canvas-page-title-input { flex: 1; font-size: var(--text-2xl); font-weight: 700; font-family: var(--font-heading); border: 1px solid transparent; background: transparent; padding: 8px 12px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
 .canvas-page-title-input:hover { border-color: var(--color-gray-200); }
 .canvas-page-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
-.canvas-add-section { padding: 8px 16px; font-size: var(--text-sm); font-weight: 500; color: var(--color-primary); background: var(--color-primary-bg); border: 1px dashed var(--color-primary); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; }
+.canvas-add-section { padding: 10px 20px; font-size: var(--text-sm); font-weight: 500; color: var(--color-primary); background: var(--color-primary-bg); border: 1px dashed var(--color-primary); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; min-height: 44px; }
 .canvas-add-section:hover { background: var(--color-primary); color: white; }
 
 /* Section */
 .canvas-section { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-lg); margin-bottom: var(--space-lg); }
 .canvas-section-header { display: flex; align-items: center; gap: 8px; margin-bottom: var(--space-sm); }
-.canvas-section-toggle { width: 24px; height: 24px; font-size: 14px; background: none; border: none; cursor: pointer; color: var(--color-text-muted); }
-.canvas-section-title-input { flex: 1; font-size: var(--text-base); font-weight: 600; font-family: var(--font-heading); border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
+.canvas-section-toggle { width: 32px; height: 32px; font-size: 14px; background: none; border: none; cursor: pointer; color: var(--color-text-muted); border-radius: var(--radius-sm); }
+.canvas-section-toggle:hover { background: var(--color-gray-100); }
+.canvas-section-title-input { flex: 1; font-size: var(--text-base); font-weight: 600; font-family: var(--font-heading); border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; min-height: 32px; }
 .canvas-section-title-input:hover { border-color: var(--color-gray-200); }
 .canvas-section-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
 .canvas-section-desc { font-size: var(--text-sm); color: var(--color-text-muted); margin: 0 0 var(--space-sm); }
-.canvas-section-del { width: 24px; height: 24px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
+.canvas-section-del { width: 32px; height: 32px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
 .canvas-section:hover .canvas-section-del { display: flex; align-items: center; justify-content: center; }
 .canvas-section-del:hover { background: #FEE2E2; color: #B91C1C; }
 
@@ -609,15 +623,15 @@ async function deleteRule(ruleId) {
   border: 1px solid var(--color-gray-200);
   border-left: 3px solid var(--color-gray-200);
   border-radius: var(--radius-md);
-  padding: var(--space-md);
-  margin-bottom: var(--space-md);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
   cursor: pointer;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   position: relative;
 }
 .canvas-question:hover { border-color: var(--color-primary-light); box-shadow: var(--shadow-sm); }
 .canvas-question--selected { border-color: var(--color-primary); border-left-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(124,58,237,0.15); background: #FAFAFE; }
-.canvas-q-number { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--color-primary); background: var(--color-primary-bg); border-radius: 50%; flex-shrink: 0; margin-right: 2px; }
+.canvas-q-number { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--color-primary); background: var(--color-primary-bg); border-radius: 50%; flex-shrink: 0; margin-right: 2px; }
 .canvas-q-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .canvas-q-title-input { flex: 1; font-size: var(--text-sm); font-weight: 500; border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
 .canvas-q-title-input:hover { border-color: var(--color-gray-200); }
@@ -633,25 +647,25 @@ async function deleteRule(ruleId) {
 .qtype-cascader { background: #FCE7F3; color: #9D174D; }
 .qtype-rating { background: #FFF7ED; color: #C2410C; }
 .qtype-table { background: #E0F2FE; color: #0369A1; }
-.canvas-q-del { width: 28px; height: 28px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
+.canvas-q-del { width: 32px; height: 32px; min-width: 32px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
 .canvas-q-del svg { width: 14px; height: 14px; }
 .canvas-question:hover .canvas-q-del { display: flex; align-items: center; justify-content: center; }
 .canvas-q-del:hover { background: #FEE2E2; color: #B91C1C; }
 .canvas-q-input { padding-left: 0; }
 .canvas-q-rules { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--color-gray-200); font-size: 10px; color: var(--color-primary); display: flex; align-items: center; gap: 4px; }
-.canvas-add-q { width: 100%; padding: 10px; font-size: var(--text-sm); color: var(--color-primary); background: none; border: 1px dashed var(--color-gray-300); border-radius: var(--radius-md); cursor: pointer; margin-top: var(--space-xs); }
+.canvas-add-q { width: 100%; padding: 12px; font-size: var(--text-sm); color: var(--color-primary); background: none; border: 1px dashed var(--color-gray-300); border-radius: var(--radius-md); cursor: pointer; margin-top: var(--space-xs); min-height: 44px; }
 .canvas-add-q:hover { border-color: var(--color-primary); background: var(--color-primary-bg); }
 
 /* Inline editable options (for choice/dropdown types) */
 .canvas-options { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
-.canvas-option-row { display: flex; align-items: center; gap: 8px; }
+.canvas-option-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
 .canvas-option-marker { width: 16px; height: 16px; border: 2px solid var(--color-gray-300); border-radius: 50%; flex-shrink: 0; }
 .checkbox-marker { border-radius: 3px; }
-.canvas-option-input { flex: 1; font-size: var(--text-sm); padding: 6px 8px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); outline: none; color: var(--color-text-primary); }
+.canvas-option-input { flex: 1; font-size: var(--text-sm); padding: 8px 10px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); outline: none; color: var(--color-text-primary); }
 .canvas-option-input:focus { border-color: var(--color-primary); }
-.canvas-option-remove { width: 24px; height: 24px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; font-size: 16px; }
+.canvas-option-remove { width: 32px; height: 32px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; font-size: 18px; }
 .canvas-option-remove:hover { background: #FEE2E2; color: #B91C1C; }
-.canvas-option-add { padding: 4px 8px; font-size: var(--text-xs); color: var(--color-primary); background: none; border: none; cursor: pointer; margin-top: 2px; }
+.canvas-option-add { padding: 8px 12px; font-size: var(--text-xs); color: var(--color-primary); background: none; border: none; cursor: pointer; margin-top: 2px; min-height: 36px; }
 .canvas-option-add:hover { text-decoration: underline; }
 .canvas-options-hint { font-size: var(--text-xs); color: var(--color-text-muted); font-style: italic; margin-top: 4px; }
 .canvas-rating { display: flex; gap: 4px; margin-top: 4px; }
@@ -659,18 +673,18 @@ async function deleteRule(ruleId) {
 .rating-star--active { color: #F59E0B; }
 
 /* Right: Properties */
-.builder-right { width: 320px; flex-shrink: 0; background: var(--color-gray-50); border-left: 1px solid var(--color-gray-200); overflow-y: auto; padding: var(--space-md); }
-.props-panel { display: flex; flex-direction: column; gap: var(--space-md); }
-.props-title { font-size: var(--text-sm); font-weight: 600; margin: 0; }
+.builder-right { width: 320px; flex-shrink: 0; background: var(--color-gray-50); border-left: 1px solid var(--color-gray-200); overflow-y: auto; padding: var(--space-lg); }
+.props-panel { display: flex; flex-direction: column; gap: var(--space-lg); }
+.props-title { font-size: var(--text-base); font-weight: 600; margin: 0 0 var(--space-sm); }
 .props-subtitle { font-size: var(--text-xs); font-weight: 600; color: var(--color-text-secondary); margin: var(--space-md) 0 var(--space-sm); border-top: 1px solid var(--color-gray-200); padding-top: var(--space-md); }
 .props-section { margin-top: var(--space-sm); }
 .props-empty { font-size: var(--text-xs); color: var(--color-text-muted); padding: var(--space-sm) 0; }
 
-.rule-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); margin-bottom: 4px; font-size: var(--text-xs); }
+.rule-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); margin-bottom: 4px; font-size: var(--text-xs); min-height: 36px; }
 .rule-row--broken { border-color: #FCD34D; background: #FFFBEB; }
 .rule-text { flex: 1; color: var(--color-text-secondary); display: flex; align-items: center; gap: 4px; }
 .rule-broken-badge { font-size: 11px; cursor: help; }
-.rule-del { width: 20px; height: 20px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; }
+.rule-del { width: 24px; height: 24px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; }
 .rule-form { margin-top: var(--space-sm); }
 .rule-form-btns { display: flex; gap: 6px; margin-top: 4px; }
 
@@ -679,7 +693,7 @@ async function deleteRule(ruleId) {
 .status-draft { background: #D1FAE5; color: #047857; }
 .status-published { background: #DBEAFE; color: #1D4ED8; }
 .icon-btn { width: 28px; height: 28px; padding: 0; font-size: 18px; font-weight: 600; color: var(--color-primary); background: var(--color-primary-bg); border: none; border-radius: var(--radius-sm); cursor: pointer; }
-.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group { display: flex; flex-direction: column; gap: 8px; }
 .form-label { font-size: var(--text-xs); font-weight: 500; color: var(--color-text-secondary); }
 .form-checkbox { display: flex; align-items: center; gap: 8px; font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer; }
 .form-checkbox input { width: 16px; height: 16px; cursor: pointer; }
@@ -688,9 +702,9 @@ async function deleteRule(ruleId) {
 .input:focus { border-color: var(--color-primary); outline: none; box-shadow: 0 0 0 3px #7C3AED20; }
 .textarea { resize: vertical; }
 .muted { color: var(--color-text-muted) !important; }
-.btn-primary { padding: 8px 16px; font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: var(--color-primary); border: none; border-radius: var(--radius-md); cursor: pointer; }
+.btn-primary { padding: 10px 20px; font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: var(--color-primary); border: none; border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); min-height: 44px; }
 .btn-primary:hover:not(:disabled) { opacity: 0.9; }
-.btn-secondary { padding: 8px 16px; font-weight: 500; font-family: var(--font-body); color: var(--color-text-secondary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; }
+.btn-secondary { padding: 10px 20px; font-weight: 500; font-family: var(--font-body); color: var(--color-text-secondary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); min-height: 44px; }
 .btn-secondary:hover { background: var(--color-gray-50); }
 
 @media (max-width: 1024px) {

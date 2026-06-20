@@ -71,18 +71,18 @@
                 <!-- SINGLE_CHOICE / DROPDOWN (rendered as radio group) -->
                 <div v-else-if="q.type === 'SINGLE_CHOICE' || q.type === 'DROPDOWN'" class="fill-options">
                   <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="fill-opt">
-                    <input type="radio" :name="'q'+q.id" :value="opt"
-                           :checked="answers[q.id] === opt" @change="setAnswer(q.id, opt)" />
-                    {{ opt }}
+                    <input type="radio" :name="'q'+q.id" :value="opt.key"
+                           :checked="answers[q.id] === opt.key" @change="setAnswer(q.id, opt.key)" />
+                    {{ opt.label }}
                   </label>
                 </div>
 
                 <!-- MULTI_CHOICE -->
                 <div v-else-if="q.type === 'MULTI_CHOICE'" class="fill-options">
                   <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="fill-opt">
-                    <input type="checkbox" :value="opt"
-                           :checked="multiChecked(q.id, opt)" @change="toggleMulti(q.id, opt)" />
-                    {{ opt }}
+                    <input type="checkbox" :value="opt.key"
+                           :checked="multiChecked(q.id, opt.key)" @change="toggleMulti(q.id, opt.key)" />
+                    {{ opt.label }}
                   </label>
                 </div>
 
@@ -146,8 +146,15 @@ function visibleQuestions(section) {
 }
 
 function parseOptions(optionsJson) {
-  try { return JSON.parse(optionsJson || '{}').options || [] }
-  catch { return [] }
+  try {
+    const o = JSON.parse(optionsJson || '{}')
+    const raw = o.options || []
+    if (raw.length === 0) return []
+    // New format: [{key, label}]
+    if (typeof raw[0] === 'object') return raw
+    // Old format: ["A","B","C"] → convert to [{key:"A",label:"A"}]
+    return raw.map(s => ({ key: s, label: s }))
+  } catch { return [] }
 }
 function getRatingMax(optionsJson) {
   try { return JSON.parse(optionsJson || '{}').max || 5 }

@@ -12,7 +12,7 @@
     <div v-if="!results" class="loading">Loading...</div>
 
     <div v-else class="results-body">
-      <div v-for="q in results.questions" :key="q.questionId" class="result-card">
+      <div v-for="q in questionsWithLabels" :key="q.questionId" class="result-card">
         <h3 class="result-q-title">{{ q.title }} <span class="result-q-type">{{ q.type.replace('_',' ') }}</span></h3>
 
         <!-- Choice questions: bar chart -->
@@ -37,12 +37,57 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import request from '@/api/request'
+import { getTemplateApi } from '@/api/survey'
 
 const route = useRoute()
 const results = ref(null)
+const template = ref(null)
+
+// Parse options to get key→label mapping
+function parseOptions(optionsJson) {
+  try {
+    const o = JSON.parse(optionsJson || '{}')
+    const raw = o.options || []
+    if (raw.length === 0) return []
+    return typeof raw[0] === 'object' ? raw : raw.map(s => ({ key: s, label: s }))
+  } catch { return [] }
+}
+
+// Get label by key for a given question
+function getOptionLabel(questionId, key) {
+  if (!template.value?.pages) return key
+  for (const p of template.value.pages) {
+    for (const s of p.sections || []) {
+      for (const q of s.questions || []) {
+        if (q.id === questionId) {
+          const opts = parseOptions(q.options)
+          const found = opts.find(o => o.key === key)
+          return found ? found.label : key
+        }
+      }
+    }
+  }
+  return key
+}
+
+// Merge choiceCounts with labels — maps keys to labels for display
+const questionsWithLabels = computed(() => {
+  if (!results.value?.questions) return []
+  return results.value.questions.map(q => {
+    if (q.choiceCounts) {
+      const labeled = {}
+      for (const [key, count] of Object.entries(q.choiceCounts)) {
+        const label = getOptionLabel(q.questionId, key)
+        labeled[label] = count
+      }
+      return { ...q, choiceCounts: labeled }
+    }
+    return q
+  })
+})
 
 function barWidth(count, counts) {
   const max = Math.max(...Object.values(counts), 1)
@@ -53,6 +98,11 @@ onMounted(async () => {
   const id = route.params.id
   const { data } = await request.get(`/admin/surveys/${id}/results`)
   if (data.code === 200) results.value = data.data
+  // Fetch template for option key→label mapping
+  try {
+    const t = await getTemplateApi(id)
+    if (t.data?.code === 200) template.value = t.data.data
+  } catch { /* no template, fall back to raw keys */ }
 })
 </script>
 

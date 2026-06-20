@@ -9,7 +9,7 @@
       <h1 class="builder-title">{{ template?.title || 'Loading...' }}</h1>
       <span :class="['status-badge', 'status-' + (template?.status || '').toLowerCase()]">{{ template?.status }}</span>
       <div class="builder-topbar-spacer"></div>
-      <button class="btn-secondary" @click="$router.push('/admin/surveys')">Done</button>
+      <button class="btn-secondary" @click="saveAndReturn">Done</button>
     </div>
 
     <div v-if="!template" class="builder-loading">Loading template...</div>
@@ -59,8 +59,8 @@
               <div v-for="(q, qi) in section.questions" :key="'cq'+q.id"
                    class="canvas-question" :class="{ 'canvas-question--selected': selectedQuestion?.id === q.id }"
                    @click="selectQuestion(q)">
-                <span class="canvas-q-number">{{ qi + 1 }}</span>
                 <div class="canvas-q-row">
+                  <span class="canvas-q-number">{{ qi + 1 }}</span>
                   <input v-model="questionTitles[q.id]" class="canvas-q-title-input"
                          @blur="saveQuestionTitle(q.id)" @keyup.enter="($event.target.blur())"
                          @click.stop placeholder="Question" />
@@ -286,8 +286,20 @@ async function removeOption(q, index) {
   await saveOptions(q)
 }
 async function saveOptions(q) {
-  const items = getOptionsList(q).filter(Boolean)
+  const items = getOptionsList(q).filter(s => s.trim())
+  // Validate unique options (case-insensitive)
+  const lower = items.map(s => s.trim().toLowerCase())
+  if (new Set(lower).size !== items.length) {
+    ElMessage.warning('Options must be unique — duplicate found')
+    return
+  }
   await updateQuestionApi(q.id, { options: JSON.stringify({ options: items }) })
+}
+function saveAndReturn() {
+  // Blur active element to trigger any pending on-blur title/option saves
+  if (document.activeElement) document.activeElement.blur()
+  // Small delay for async save calls to fire, then navigate
+  setTimeout(() => router.push('/admin/surveys'), 200)
 }
 function getRatingMax(optionsJson) {
   try { return JSON.parse(optionsJson || '{}').max || 5 }
@@ -431,8 +443,8 @@ async function deleteRule(ruleId) {
 .page-tab-del:hover { background: #FEE2E2; color: #B91C1C; }
 
 /* Center: Canvas */
-.builder-center { flex: 1; overflow-y: auto; padding: var(--space-lg); background: var(--color-gray-50); }
-.canvas { max-width: 720px; margin: 0 auto; }
+.builder-center { flex: 1; overflow-y: auto; padding: var(--space-lg); background: #F8F9FB; }
+.canvas { max-width: 860px; margin: 0 auto; }
 
 /* Canvas page header */
 .canvas-page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-lg); gap: var(--space-md); }
@@ -469,7 +481,7 @@ async function deleteRule(ruleId) {
 }
 .canvas-question:hover { border-color: var(--color-primary-light); box-shadow: var(--shadow-sm); }
 .canvas-question--selected { border-color: var(--color-primary); border-left-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(124,58,237,0.1); }
-.canvas-q-number { position: absolute; top: var(--space-md); left: -28px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 700; color: var(--color-text-muted); background: var(--color-gray-100); border-radius: 50%; }
+.canvas-q-number { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--color-primary); background: var(--color-primary-bg); border-radius: 50%; flex-shrink: 0; margin-right: 2px; }
 .canvas-q-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .canvas-q-title-input { flex: 1; font-size: var(--text-sm); font-weight: 500; border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
 .canvas-q-title-input:hover { border-color: var(--color-gray-200); }

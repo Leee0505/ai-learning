@@ -607,7 +607,12 @@ function loadTableConfig(q) {
     const cfg = JSON.parse(q.options || '{}')
     const cols = cfg.columns || [{ label: 'Item', type: 'TEXT', key: 'col_1' }]
     tableColumns.length = 0
-    cols.forEach(c => tableColumns.push({ ...c }))
+    cols.forEach(c => {
+      tableColumns.push({
+        key: c.key, label: c.label, type: c.type,
+        _opts: c.type === 'DROPDOWN' ? (c.options && c.options.length ? [...c.options] : ['']) : undefined
+      })
+    })
     tableRows.value = cfg.rows || 3
   } catch {
     tableColumns.length = 0; tableColumns.push({ label: 'Item', type: 'TEXT', key: 'col_1' })
@@ -625,8 +630,11 @@ function removeTableColumn(idx) {
 }
 function onTableColTypeChange(ci) {
   const col = tableColumns[ci]
-  if (col.type === 'DROPDOWN' && !col._opts) col._opts = ['']
-  if (col.type !== 'DROPDOWN') delete col._opts
+  if (col.type === 'DROPDOWN') {
+    if (!col._opts || col._opts.length === 0) col._opts = ['']
+  } else {
+    delete col._opts
+  }
   saveTableConfig()
 }
 function addTableColOption(ci) {
@@ -1084,8 +1092,8 @@ async function deleteRule(ruleId) {
 .inline-rules-btn:hover { background: var(--color-primary); color: var(--color-white); }
 .inline-rules-btn--empty { color: var(--color-text-muted); background: var(--color-gray-50); border-color: var(--color-gray-200); cursor: default; }
 .inline-rules-btn--empty:hover { background: var(--color-gray-50); color: var(--color-text-muted); }
-.canvas-section-del { width: 32px; height: 32px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
-.canvas-section:hover .canvas-section-del { display: flex; align-items: center; justify-content: center; }
+.canvas-section-del { width: 32px; height: 32px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; visibility: hidden; display: flex; align-items: center; justify-content: center; }
+.canvas-section:hover .canvas-section-del { visibility: visible; }
 .canvas-section-del:hover { background: #FEE2E2; color: #B91C1C; }
 
 /* Question cards — clear visual separation */
@@ -1120,13 +1128,13 @@ async function deleteRule(ruleId) {
 .qtype-cascader { background: #FCE7F3; color: #9D174D; }
 .qtype-rating { background: #FFF7ED; color: #C2410C; }
 .qtype-table { background: #E0F2FE; color: #0369A1; }
-.canvas-q-arrow { width: 28px; height: 28px; padding: 0; background: var(--color-white); border: 1px solid var(--color-gray-200); color: var(--color-text-secondary); cursor: pointer; border-radius: var(--radius-sm); display: none; transition: all var(--transition-fast); }
+.canvas-q-arrow { width: 28px; height: 28px; padding: 0; background: var(--color-white); border: 1px solid var(--color-gray-200); color: var(--color-text-secondary); cursor: pointer; border-radius: var(--radius-sm); visibility: hidden; transition: all var(--transition-fast); display: inline-flex; align-items: center; justify-content: center; }
 .canvas-q-arrow svg { width: 14px; height: 14px; }
 .canvas-q-arrow:hover { background: var(--color-primary-bg); color: var(--color-primary); border-color: var(--color-primary); }
-.canvas-question:hover .canvas-q-arrow { display: inline-flex; align-items: center; justify-content: center; }
-.canvas-q-del { width: 32px; height: 32px; min-width: 32px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
+.canvas-question:hover .canvas-q-arrow { visibility: visible; }
+.canvas-q-del { width: 32px; height: 32px; min-width: 32px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; visibility: hidden; display: flex; align-items: center; justify-content: center; }
 .canvas-q-del svg { width: 14px; height: 14px; }
-.canvas-question:hover .canvas-q-del { display: flex; align-items: center; justify-content: center; }
+.canvas-question:hover .canvas-q-del { visibility: visible; }
 .canvas-q-del:hover { background: #FEE2E2; color: #B91C1C; }
 .canvas-q-input { padding-left: 0; }
 .canvas-q-rules { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--color-gray-200); font-size: 10px; color: var(--color-primary); display: flex; align-items: center; gap: 4px; }

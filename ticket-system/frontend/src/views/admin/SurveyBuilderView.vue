@@ -79,16 +79,16 @@
                   <textarea v-else-if="q.type === 'TEXTAREA'" class="input textarea" rows="2" placeholder="Long answer — user will type here"></textarea>
 
                   <!-- Inline editable options for choice types -->
-                  <div v-else-if="hasOptions(q.type)" class="canvas-options">
+                  <div v-else-if="hasOptions(q.type)" class="canvas-options" @click.stop>
                     <div v-for="(opt, oi) in getOptionsList(q)" :key="oi" class="canvas-option-row">
                       <span :class="q.type === 'MULTI_CHOICE' ? ['canvas-option-marker','checkbox-marker'] : 'canvas-option-marker'"></span>
                       <input class="canvas-option-input" :value="opt"
                              @blur="updateOption(q, oi, $event.target.value)"
                              @keyup.enter="updateOption(q, oi, $event.target.value); if (oi === getOptionsList(q).length - 1) { addOption(q); nextTick(() => $el?.nextElementSibling?.querySelector('input')?.focus()) }" />
-                      <button class="canvas-option-remove" @click="removeOption(q, oi)" :aria-label="'Remove option ' + (oi+1)">×</button>
+                      <button class="canvas-option-remove" @click.stop="removeOption(q, oi)" :aria-label="'Remove option ' + (oi+1)">×</button>
                     </div>
                     <div v-if="getOptionsList(q).length === 0" class="canvas-options-hint">No options yet. Click "Add option" below.</div>
-                    <button class="canvas-option-add" @click="addOption(q)">+ Add option</button>
+                    <button class="canvas-option-add" @click.stop="addOption(q)" type="button">+ Add option</button>
                   </div>
 
                   <!-- RATING -->
@@ -195,6 +195,7 @@ const showRuleForm = ref(false)
 const sectionTitles = reactive({})
 const questionTitles = reactive({})
 const expandedNodes = reactive({})
+const optionsCache = reactive({}) // questionId → string[]
 
 const QUESTION_TYPES = [
   { value: 'SINGLE_CHOICE', label: 'Single Choice' },
@@ -250,8 +251,6 @@ function selectQuestion(q) {
   editForm.title = q.title
   editForm.type = q.type
   editForm.required = q.required
-  // Inline options handled by getOptionsList(), which reads from q.options on first access
-  delete q._optionsCache
 }
 
 function parseOptions(optionsJson) {
@@ -259,8 +258,10 @@ function parseOptions(optionsJson) {
   catch { return [] }
 }
 function getOptionsList(q) {
-  if (!q._optionsCache) q._optionsCache = reactive([...parseOptions(q.options)])
-  return q._optionsCache
+  if (!optionsCache[q.id]) {
+    optionsCache[q.id] = [...parseOptions(q.options)]
+  }
+  return optionsCache[q.id]
 }
 function getQuestionIndex(q) {
   if (!currentPage.value) return 0
@@ -271,22 +272,23 @@ function getQuestionIndex(q) {
   return 0
 }
 function addOption(q) {
-  getOptionsList(q).push('')
+  if (!optionsCache[q.id]) optionsCache[q.id] = []
+  optionsCache[q.id].push('')
 }
 function updateOption(q, index, value) {
-  const list = getOptionsList(q)
-  if (list[index] !== value) {
-    list[index] = value
-    saveOptions(q) // fire-and-forget, UI updates immediately via reactivity
+  if (!optionsCache[q.id]) return
+  if (optionsCache[q.id][index] !== value) {
+    optionsCache[q.id][index] = value
+    saveOptions(q)
   }
 }
 function removeOption(q, index) {
-  getOptionsList(q).splice(index, 1)
+  if (!optionsCache[q.id]) return
+  optionsCache[q.id].splice(index, 1)
   saveOptions(q)
 }
 function saveOptions(q) {
-  const items = getOptionsList(q).filter(s => s.trim())
-  // Validate unique options (case-insensitive), skip empty list
+  const items = (optionsCache[q.id] || []).filter(s => s.trim())
   if (items.length > 0) {
     const lower = items.map(s => s.trim().toLowerCase())
     if (new Set(lower).size !== items.length) {
@@ -311,8 +313,8 @@ async function saveAndReturn() {
         await updateQuestionApi(q.id, { title: questionTitles[q.id] })
       }
       // Save inline options for choice/dropdown types
-      if (hasOptions(q.type) && q._optionsCache) {
-        const items = q._optionsCache.filter(s => s.trim())
+      if (hasOptions(q.type) && optionsCache[q.id]) {
+        const items = optionsCache[q.id].filter(s => s.trim())
         if (items.length > 0) {
           await updateQuestionApi(q.id, { options: JSON.stringify({ options: items }) })
         }
@@ -398,8 +400,7 @@ async function saveQuestionProperties() {
   if (!selectedQuestion.value) return
   let options = selectedQuestion.value.options
   if (hasOptions(editForm.type)) {
-    // Use inline-edited options (getOptionsList), not stale editForm.optionsText
-    const items = getOptionsList(selectedQuestion.value).filter(s => s.trim())
+    const items = (optionsCache[selectedQuestion.value.id] || []).filter(s => s.trim())
     options = JSON.stringify({ options: items })
   }
   await updateQuestionApi(selectedQuestion.value.id, {
@@ -407,7 +408,7 @@ async function saveQuestionProperties() {
   })
   await store.fetchTemplate(template.value.id)
   const updated = allQuestions.value.find(q => q.id === selectedQuestion.value.id)
-  if (updated) { delete updated._optionsCache; selectQuestion(updated) }
+  if (updated) selectQuestion(updated)
 }
 async function deleteQuestion(qid) {
   await deleteQuestionApi(qid); ElMessage.success('Question deleted')

@@ -42,7 +42,14 @@ public class MyBatisPlusConfig {
                         || "tenant".equalsIgnoreCase(tableName)
                         || "invite_token".equalsIgnoreCase(tableName)
                         || "reply_template".equalsIgnoreCase(tableName)
-                        || "knowledge_article".equalsIgnoreCase(tableName);
+                        || "knowledge_article".equalsIgnoreCase(tableName)
+                        // Survey child tables inherit tenant scope from parent
+                        || "survey_page".equalsIgnoreCase(tableName)
+                        || "survey_section".equalsIgnoreCase(tableName)
+                        || "survey_question".equalsIgnoreCase(tableName)
+                        || "survey_visibility_rule".equalsIgnoreCase(tableName)
+                        || "survey_instance_page".equalsIgnoreCase(tableName)
+                        || "survey_answer".equalsIgnoreCase(tableName);
             }
         }));
         return interceptor;

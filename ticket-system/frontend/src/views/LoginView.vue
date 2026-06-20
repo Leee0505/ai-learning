@@ -197,7 +197,7 @@ function handleForgotPassword() {
 }
 
 function handleRegister() {
-  ElMessage.info('Registration page will be available in a future update.')
+  router.push('/register')
 }
 </script>
 

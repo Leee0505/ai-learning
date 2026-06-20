@@ -64,19 +64,29 @@ public class SurveyVisibilityEngine {
     private boolean evaluateSingleRule(SurveyTemplateResponse.VisibilityRuleResponse rule,
                                         Map<Long, Object> answers) {
         Object answer = answers.get(rule.getSourceQuestionId());
-        if (answer == null || "".equals(answer)) {
-            return "not_answered".equals(rule.getOp());
-        }
-        if ("answered".equals(rule.getOp())) return true;
+        String answerStr = answer != null ? answer.toString() : "";
 
-        String answerStr = answer.toString();
+        // Operators that don't need a value
+        switch (rule.getOp()) {
+            case "answered":    return answer != null && !answerStr.isEmpty();
+            case "not_answered": return answer == null || answerStr.isEmpty();
+            case "is_empty":    return answerStr.isEmpty();
+            case "not_empty":   return !answerStr.isEmpty();
+        }
+
+        // From here, answer must exist
+        if (answerStr.isEmpty()) return false;
+
         String value = rule.getValue();
+        if (value == null) value = "";
 
         switch (rule.getOp()) {
             case "eq": return answerStr.equals(value);
             case "neq": return !answerStr.equals(value);
             case "contains": return answerStr.contains(value);
+            case "not_contains": return !answerStr.contains(value);
             case "in": return Arrays.asList(value.split(",")).contains(answerStr);
+            case "not_in": return !Arrays.asList(value.split(",")).contains(answerStr);
             case "gt": return toDouble(answerStr) > toDouble(value);
             case "gte": return toDouble(answerStr) >= toDouble(value);
             case "lt": return toDouble(answerStr) < toDouble(value);

@@ -270,31 +270,31 @@ function getQuestionIndex(q) {
   }
   return 0
 }
-async function addOption(q) {
-  const list = getOptionsList(q)
-  list.push('')
-  await saveOptions(q)
+function addOption(q) {
+  getOptionsList(q).push('')
 }
-async function updateOption(q, index, value) {
+function updateOption(q, index, value) {
   const list = getOptionsList(q)
   if (list[index] !== value) {
     list[index] = value
-    await saveOptions(q)
+    saveOptions(q) // fire-and-forget, UI updates immediately via reactivity
   }
 }
-async function removeOption(q, index) {
+function removeOption(q, index) {
   getOptionsList(q).splice(index, 1)
-  await saveOptions(q)
+  saveOptions(q)
 }
-async function saveOptions(q) {
+function saveOptions(q) {
   const items = getOptionsList(q).filter(s => s.trim())
-  // Validate unique options (case-insensitive)
-  const lower = items.map(s => s.trim().toLowerCase())
-  if (new Set(lower).size !== items.length) {
-    ElMessage.warning('Options must be unique — duplicate found')
-    return
+  // Validate unique options (case-insensitive), skip empty list
+  if (items.length > 0) {
+    const lower = items.map(s => s.trim().toLowerCase())
+    if (new Set(lower).size !== items.length) {
+      ElMessage.warning('Options must be unique — duplicate found')
+      return
+    }
   }
-  await updateQuestionApi(q.id, { options: JSON.stringify({ options: items }) })
+  updateQuestionApi(q.id, { options: JSON.stringify({ options: items }) }).catch(() => {})
 }
 async function saveAndReturn() {
   // Save page title

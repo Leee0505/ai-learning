@@ -103,6 +103,12 @@ const routes = [
         name: 'AdminSurveyBuilder',
         component: () => import('@/views/admin/SurveyBuilderView.vue'),
         meta: { requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'surveys',
+        name: 'MySurveys',
+        component: () => import('@/views/SurveyFillView.vue'),
+        meta: { requiresAuth: true }
       }
     ]
   }

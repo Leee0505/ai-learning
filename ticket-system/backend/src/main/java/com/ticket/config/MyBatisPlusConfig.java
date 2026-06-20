@@ -23,6 +23,11 @@ public class MyBatisPlusConfig {
         interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
             @Override
             public Expression getTenantId() {
+                // Admin users bypass tenant isolation to see cross-tenant data.
+                // Returning null tells MyBatis-Plus to skip injecting WHERE tenant_id = ?
+                if (SecurityUtils.isAdmin()) {
+                    return null;
+                }
                 return new LongValue(SecurityUtils.getCurrentTenantId());
             }
 

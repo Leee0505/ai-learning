@@ -40,6 +40,8 @@ public class SecurityConfig {
                 .requestMatchers("/v3/api-docs/**").permitAll()
                 // WebSocket endpoint (own auth via interceptor)
                 .requestMatchers("/ws/**").permitAll()
+                // Public endpoints (no auth required)
+                .requestMatchers("/api/public/**").permitAll()
                 // Auth endpoints
                 .requestMatchers("/api/auth/register").permitAll()
                 .requestMatchers("/api/auth/login").permitAll()

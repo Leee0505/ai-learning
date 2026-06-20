@@ -6,6 +6,8 @@ spring:
     password:
   flyway:
     enabled: false
+  kafka:
+    bootstrap-servers: localhost:9092
 
 rate-limit:
   max-requests-per-minute: 1000

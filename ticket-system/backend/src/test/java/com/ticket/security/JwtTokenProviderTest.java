@@ -44,7 +44,7 @@ class JwtTokenProviderTest {
 
     @Test
     void shouldGenerateAndValidateAccessToken() {
-        String token = jwtTokenProvider.generateAccessToken(1L, "ROLE_USER");
+        String token = jwtTokenProvider.generateAccessToken(1L, "ROLE_USER", 1L);
         assertThat(token).isNotBlank();
 
         Claims claims = jwtTokenProvider.validateToken(token);
@@ -71,7 +71,7 @@ class JwtTokenProviderTest {
 
     @Test
     void shouldReturnUserIdFromToken() {
-        String token = jwtTokenProvider.generateAccessToken(42L, "ROLE_AGENT");
+        String token = jwtTokenProvider.generateAccessToken(42L, "ROLE_AGENT", 1L);
         Long userId = jwtTokenProvider.getUserIdFromToken(token);
         assertThat(userId).isEqualTo(42L);
     }
@@ -95,7 +95,7 @@ class JwtTokenProviderTest {
         RBucket<String> mockBucket = mock(RBucket.class);
         doReturn(mockBucket).when(redissonClient).getBucket(anyString());
 
-        String token = jwtTokenProvider.generateAccessToken(1L, "ROLE_USER");
+        String token = jwtTokenProvider.generateAccessToken(1L, "ROLE_USER", 1L);
         jwtTokenProvider.blacklistAccessToken(token);
         // Should not throw — blacklisting sets TTL
     }

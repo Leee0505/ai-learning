@@ -33,6 +33,8 @@ class TicketServiceImplTest {
     private TicketAttachmentMapper ticketAttachmentMapper;
     private UserMapper userMapper;
     private FileStorageService fileStorage;
+    private com.ticket.event.EventPublisher eventPublisher;
+    private SlaConfigMapper slaConfigMapper;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -41,9 +43,11 @@ class TicketServiceImplTest {
         ticketAttachmentMapper = mock(TicketAttachmentMapper.class);
         userMapper = mock(UserMapper.class);
         fileStorage = mock(FileStorageService.class);
+        eventPublisher = mock(com.ticket.event.EventPublisher.class);
+        slaConfigMapper = mock(SlaConfigMapper.class);
 
         service = new TicketServiceImpl(ticketMapper, ticketReplyMapper, ticketAttachmentMapper,
-                userMapper, fileStorage);
+                userMapper, fileStorage, eventPublisher, slaConfigMapper);
     }
 
     // ──────────────────────────────────────────────
@@ -146,7 +150,7 @@ class TicketServiceImplTest {
         when(ticketMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(pageResult);
         when(userMapper.selectBatchIds(anyCollection())).thenReturn(List.of(createUser(userId, "testuser", role)));
 
-        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, 1, 20, userId, role, "desc");
+        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, 1, 20, userId, role, "desc");
 
         assertThat(response.getRecords()).hasSize(1);
         assertThat(response.getTotal()).isEqualTo(1);
@@ -171,7 +175,7 @@ class TicketServiceImplTest {
                 .thenReturn(List.of(createUser(1L, "user1", RoleConstants.ROLE_USER),
                                     createUser(3L, "user2", RoleConstants.ROLE_USER)));
 
-        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, 1, 20, agentId, role, "desc");
+        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, 1, 20, agentId, role, "desc");
 
         assertThat(response.getRecords()).hasSize(2);
         assertThat(response.getTotal()).isEqualTo(2);
@@ -190,7 +194,7 @@ class TicketServiceImplTest {
                 .thenReturn(List.of(createUser(1L, "user1", RoleConstants.ROLE_USER)));
 
         PageResponse<TicketResponse> response = service.listTickets(
-                BusinessConstants.TICKET_STATUS_OPEN, null, null, null, 1, 20, 2L, RoleConstants.ROLE_AGENT, "desc");
+                BusinessConstants.TICKET_STATUS_OPEN, null, null, null, null, 1, 20, 2L, RoleConstants.ROLE_AGENT, "desc");
 
         assertThat(response.getRecords()).hasSize(1);
         assertThat(response.getRecords().get(0).getStatus()).isEqualTo(BusinessConstants.TICKET_STATUS_OPEN);
@@ -204,7 +208,7 @@ class TicketServiceImplTest {
 
         when(ticketMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(emptyPage);
 
-        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, 1, 20, 1L, RoleConstants.ROLE_USER, "desc");
+        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, 1, 20, 1L, RoleConstants.ROLE_USER, "desc");
 
         assertThat(response.getRecords()).isEmpty();
         assertThat(response.getTotal()).isEqualTo(0);
@@ -223,7 +227,7 @@ class TicketServiceImplTest {
         when(userMapper.selectBatchIds(anyCollection()))
                 .thenReturn(List.of(createUser(1L, "user1", RoleConstants.ROLE_USER)));
 
-        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, 1, 20, 2L, RoleConstants.ROLE_AGENT, "desc");
+        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, 1, 20, 2L, RoleConstants.ROLE_AGENT, "desc");
 
         assertThat(response.getRecords()).hasSize(1);
         assertThat(response.getRecords().get(0).getAssignedToName()).isNull();

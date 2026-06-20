@@ -99,6 +99,10 @@
                     <span class="canvas-options-hint" style="margin-left:8px">{{ getRatingMax(q.options) }} stars</span>
                   </div>
 
+                  <table v-else-if="q.type === 'TABLE'" class="canvas-table">
+                    <thead><tr><th v-for="col in parseTableColumns(q.options)" :key="col.key">{{ col.label }}</th></tr></thead>
+                    <tbody><tr v-for="r in parseTableRows(q.options)" :key="r"><td v-for="col in parseTableColumns(q.options)" :key="col.key">—</td></tr></tbody>
+                  </table>
                   <div v-else class="input muted">{{ q.type.replace('_',' ') }} input</div>
                 </div>
 
@@ -142,6 +146,26 @@
               <input v-model="editForm.required" type="checkbox" @change="saveQuestionProperties" />
               Required question
             </label>
+          </div>
+
+          <!-- TABLE configuration -->
+          <div v-if="editForm.type === 'TABLE'" class="table-config">
+            <label class="form-label">Table Columns</label>
+            <div v-for="(col, ci) in tableColumns" :key="ci" class="table-col-row">
+              <input v-model="col.label" class="input" style="flex:1" placeholder="Column name" @blur="saveTableConfig" />
+              <select v-model="col.type" class="input" style="width:100px" @change="saveTableConfig">
+                <option value="TEXT">Text</option>
+                <option value="DROPDOWN">Dropdown</option>
+                <option value="DATE">Date</option>
+                <option value="NUMBER">Number</option>
+              </select>
+              <button class="table-col-del" @click="removeTableColumn(ci)" :disabled="tableColumns.length <= 1" aria-label="Remove column">×</button>
+            </div>
+            <button class="table-col-add" @click="addTableColumn">+ Add Column</button>
+            <div class="form-group" style="margin-top:8px">
+              <label class="form-label">Initial Rows</label>
+              <input v-model.number="tableRows" type="number" class="input" min="1" max="20" @change="saveTableConfig" style="width:80px" />
+            </div>
           </div>
 
           <!-- Visibility Rules -->
@@ -246,6 +270,8 @@ const QUESTION_TYPES = [
 ]
 
 const editForm = reactive({ title: '', type: '', required: false })
+const tableColumns = reactive([{ label: 'Item', type: 'TEXT', key: 'col_1' }])
+const tableRows = ref(3)
 const newRule = reactive({ sourcePageId: null, sourceSectionId: null, sourceQuestionId: null, op: 'eq', value: '' })
 
 const allQuestions = computed(() => {
@@ -373,6 +399,36 @@ function selectQuestion(q) {
   editForm.title = q.title
   editForm.type = q.type
   editForm.required = q.required
+  // Load TABLE config if applicable
+  if (q.type === 'TABLE') loadTableConfig(q)
+  else { tableColumns.length = 0; tableColumns.push({ label: 'Item', type: 'TEXT', key: 'col_1' }); tableRows.value = 3 }
+}
+function loadTableConfig(q) {
+  try {
+    const cfg = JSON.parse(q.options || '{}')
+    const cols = cfg.columns || [{ label: 'Item', type: 'TEXT', key: 'col_1' }]
+    tableColumns.length = 0
+    cols.forEach(c => tableColumns.push({ ...c }))
+    tableRows.value = cfg.rows || 3
+  } catch {
+    tableColumns.length = 0; tableColumns.push({ label: 'Item', type: 'TEXT', key: 'col_1' })
+    tableRows.value = 3
+  }
+}
+function addTableColumn() {
+  tableColumns.push({ label: 'Col ' + (tableColumns.length + 1), type: 'TEXT', key: 'col_' + Date.now() })
+  saveTableConfig()
+}
+function removeTableColumn(idx) {
+  if (tableColumns.length <= 1) return
+  tableColumns.splice(idx, 1)
+  saveTableConfig()
+}
+function saveTableConfig() {
+  if (selectedQuestion.value?.type !== 'TABLE') return
+  const options = JSON.stringify({ columns: [...tableColumns], rows: tableRows.value })
+  selectedQuestion.value.options = options
+  updateQuestionApi(selectedQuestion.value.id, { options }).catch(() => {})
 }
 
 function parseOptions(optionsJson) {
@@ -511,6 +567,14 @@ function getRatingValue(optionsJson) {
 async function setRatingMax(q, max) {
   await updateQuestionApi(q.id, { options: JSON.stringify({ max, value: max > 2 ? 3 : 1 }) })
   await store.fetchTemplate(template.value.id)
+}
+function parseTableColumns(optionsJson) {
+  try { return JSON.parse(optionsJson || '{}').columns || [{ key: 'col_1', label: 'Item', type: 'TEXT' }] }
+  catch { return [{ key: 'col_1', label: 'Item', type: 'TEXT' }] }
+}
+function parseTableRows(optionsJson) {
+  try { return JSON.parse(optionsJson || '{}').rows || 3 }
+  catch { return 3 }
 }
 function hasOptions(type) { return ['SINGLE_CHOICE','MULTI_CHOICE','DROPDOWN','CASCADER'].includes(type) }
 function getQuestionTitle(qid) {
@@ -807,6 +871,21 @@ async function deleteRule(ruleId) {
 .input:focus { border-color: var(--color-primary); outline: none; box-shadow: 0 0 0 3px #7C3AED20; }
 .textarea { resize: vertical; }
 .muted { color: var(--color-text-muted) !important; }
+
+/* Table config */
+.table-config { border-top: 1px solid var(--color-gray-200); padding-top: var(--space-md); margin-bottom: var(--space-sm); display: flex; flex-direction: column; gap: 4px; }
+.table-col-row { display: flex; align-items: center; gap: 6px; }
+.table-col-del { width: 28px; height: 28px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; font-size: 16px; }
+.table-col-del:hover:not(:disabled) { background: #FEE2E2; color: #B91C1C; }
+.table-col-del:disabled { opacity: 0.3; cursor: not-allowed; }
+.table-col-add { padding: 4px 8px; font-size: var(--text-xs); color: var(--color-primary); background: none; border: none; cursor: pointer; text-align: left; }
+.table-col-add:hover { text-decoration: underline; }
+
+/* Canvas table preview */
+.canvas-table { width: 100%; border-collapse: collapse; font-size: var(--text-xs); margin-top: 4px; }
+.canvas-table th, .canvas-table td { border: 1px solid var(--color-gray-200); padding: 4px 8px; text-align: left; }
+.canvas-table th { background: var(--color-gray-50); font-weight: 600; color: var(--color-text-secondary); }
+.canvas-table td { color: var(--color-text-muted); }
 .btn-primary { padding: 10px 20px; font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: var(--color-primary); border: none; border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); min-height: 44px; }
 .btn-primary:hover:not(:disabled) { opacity: 0.9; }
 .btn-secondary { padding: 10px 20px; font-weight: 500; font-family: var(--font-body); color: var(--color-text-secondary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); min-height: 44px; }

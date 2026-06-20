@@ -56,9 +56,10 @@
 
             <!-- Editable questions -->
             <div v-if="expandedNodes['s'+section.id]" class="canvas-questions">
-              <div v-for="q in section.questions" :key="'cq'+q.id"
+              <div v-for="(q, qi) in section.questions" :key="'cq'+q.id"
                    class="canvas-question" :class="{ 'canvas-question--selected': selectedQuestion?.id === q.id }"
                    @click="selectQuestion(q)">
+                <span class="canvas-q-number">{{ qi + 1 }}</span>
                 <div class="canvas-q-row">
                   <input v-model="questionTitles[q.id]" class="canvas-q-title-input"
                          @blur="saveQuestionTitle(q.id)" @keyup.enter="($event.target.blur())"
@@ -70,26 +71,40 @@
                   </button>
                 </div>
 
-                <!-- Interactive form element based on type -->
+                <!-- Inline form input based on type -->
                 <div class="canvas-q-input" @click.stop>
-                  <input v-if="q.type === 'TEXT'" class="input" placeholder="Text answer" />
-                  <textarea v-else-if="q.type === 'TEXTAREA'" class="input textarea" rows="2" placeholder="Long answer"></textarea>
-                  <div v-else-if="q.type === 'SINGLE_CHOICE'" class="canvas-options">
-                    <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="canvas-opt"><span class="radio"></span> {{ opt }}</label>
-                  </div>
-                  <div v-else-if="q.type === 'MULTI_CHOICE'" class="canvas-options">
-                    <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="canvas-opt"><span class="checkbox-box"></span> {{ opt }}</label>
-                  </div>
-                  <select v-else-if="q.type === 'DROPDOWN'" class="input"><option>{{ parseOptions(q.options)[0] || 'Select...' }}</option></select>
+                  <!-- TEXT / DATE -->
+                  <input v-if="q.type === 'TEXT'" class="input" placeholder="Text answer — user will type here" />
                   <input v-else-if="q.type === 'DATE'" class="input" type="date" />
-                  <div v-else-if="q.type === 'RATING'" class="canvas-rating">
-                    <span v-for="i in getRatingMax(q.options)" :key="i" class="rating-star" :class="{ 'rating-star--active': i <= 3 }">★</span>
+                  <textarea v-else-if="q.type === 'TEXTAREA'" class="input textarea" rows="2" placeholder="Long answer — user will type here"></textarea>
+
+                  <!-- Inline editable options for choice types -->
+                  <div v-else-if="hasOptions(q.type)" class="canvas-options">
+                    <div v-for="(opt, oi) in getOptionsList(q)" :key="oi" class="canvas-option-row">
+                      <span :class="q.type === 'MULTI_CHOICE' ? ['canvas-option-marker','checkbox-marker'] : 'canvas-option-marker'"></span>
+                      <input class="canvas-option-input" :value="opt"
+                             @blur="updateOption(q, oi, $event.target.value)"
+                             @keyup.enter="updateOption(q, oi, $event.target.value); if (oi === getOptionsList(q).length - 1) { addOption(q); nextTick(() => $el?.nextElementSibling?.querySelector('input')?.focus()) }" />
+                      <button class="canvas-option-remove" @click="removeOption(q, oi)" :aria-label="'Remove option ' + (oi+1)">×</button>
+                    </div>
+                    <div v-if="getOptionsList(q).length === 0" class="canvas-options-hint">No options yet. Click "Add option" below.</div>
+                    <button class="canvas-option-add" @click="addOption(q)">+ Add option</button>
                   </div>
+
+                  <!-- RATING -->
+                  <div v-else-if="q.type === 'RATING'" class="canvas-rating" @click.stop>
+                    <span v-for="i in getRatingMax(q.options)" :key="i" class="rating-star"
+                          :class="{ 'rating-star--active': i <= getRatingValue(q.options) }"
+                          @click="setRatingMax(q, i)">★</span>
+                    <span class="canvas-options-hint" style="margin-left:8px">{{ getRatingMax(q.options) }} stars</span>
+                  </div>
+
                   <div v-else class="input muted">{{ q.type.replace('_',' ') }} input</div>
                 </div>
 
-                <!-- Inline visibility rule indicator -->
+                <!-- Visibility rule indicator -->
                 <div v-if="q.visibilityRules?.length" class="canvas-q-rules">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   {{ q.visibilityRules.length }} rule{{ q.visibilityRules.length > 1 ? 's' : '' }}
                 </div>
               </div>
@@ -106,7 +121,7 @@
           <p>Click a question to edit its properties</p>
         </div>
         <div v-else class="props-panel">
-          <h3 class="props-title">Question Properties</h3>
+          <h3 class="props-title">Properties — Q{{ getQuestionIndex(selectedQuestion) + 1 }}</h3>
 
           <div class="form-group">
             <label class="form-label">Type</label>
@@ -119,10 +134,6 @@
               <input v-model="editForm.required" type="checkbox" @change="saveQuestionProperties" />
               Required question
             </label>
-          </div>
-          <div v-if="hasOptions(editForm.type)" class="form-group">
-            <label class="form-label">Options (one per line)</label>
-            <textarea v-model="editForm.optionsText" class="input textarea" rows="4" @blur="saveQuestionProperties" placeholder="Option 1&#10;Option 2"></textarea>
           </div>
 
           <!-- Visibility Rules -->
@@ -158,7 +169,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSurveyStore } from '@/stores/survey'
@@ -246,9 +257,49 @@ function parseOptions(optionsJson) {
   try { const o = JSON.parse(optionsJson || '{}'); return o.options || [] }
   catch { return [] }
 }
+function getOptionsList(q) {
+  if (!q._optionsCache) q._optionsCache = reactive([...parseOptions(q.options)])
+  return q._optionsCache
+}
+function getQuestionIndex(q) {
+  if (!currentPage.value) return 0
+  for (const s of currentPage.value.sections || []) {
+    const idx = (s.questions || []).findIndex(qq => qq.id === q.id)
+    if (idx >= 0) return idx
+  }
+  return 0
+}
+async function addOption(q) {
+  const list = getOptionsList(q)
+  list.push('')
+  await saveOptions(q)
+}
+async function updateOption(q, index, value) {
+  const list = getOptionsList(q)
+  if (list[index] !== value) {
+    list[index] = value
+    await saveOptions(q)
+  }
+}
+async function removeOption(q, index) {
+  getOptionsList(q).splice(index, 1)
+  await saveOptions(q)
+}
+async function saveOptions(q) {
+  const items = getOptionsList(q).filter(Boolean)
+  await updateQuestionApi(q.id, { options: JSON.stringify({ options: items }) })
+}
 function getRatingMax(optionsJson) {
   try { return JSON.parse(optionsJson || '{}').max || 5 }
   catch { return 5 }
+}
+function getRatingValue(optionsJson) {
+  try { return JSON.parse(optionsJson || '{}').value || 3 }
+  catch { return 3 }
+}
+async function setRatingMax(q, max) {
+  await updateQuestionApi(q.id, { options: JSON.stringify({ max, value: max > 2 ? 3 : 1 }) })
+  await store.fetchTemplate(template.value.id)
 }
 function hasOptions(type) { return ['SINGLE_CHOICE','MULTI_CHOICE','DROPDOWN','CASCADER'].includes(type) }
 function getQuestionTitle(qid) {
@@ -403,32 +454,51 @@ async function deleteRule(ruleId) {
 .canvas-section:hover .canvas-section-del { display: flex; align-items: center; justify-content: center; }
 .canvas-section-del:hover { background: #FEE2E2; color: #B91C1C; }
 
-/* Question */
+/* Question cards — clear visual separation */
 .canvas-questions { margin-top: var(--space-sm); }
-.canvas-question { margin-bottom: var(--space-sm); padding: var(--space-sm); border: 1px solid transparent; border-radius: var(--radius-md); cursor: pointer; transition: background var(--transition-fast), border-color var(--transition-fast); }
-.canvas-question:hover { background: var(--color-primary-bg); }
-.canvas-question--selected { background: var(--color-primary-bg); border-color: var(--color-primary); }
-.canvas-q-row { display: flex; align-items: center; gap: 8px; }
+.canvas-question {
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-left: 3px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  position: relative;
+}
+.canvas-question:hover { border-color: var(--color-primary-light); box-shadow: var(--shadow-sm); }
+.canvas-question--selected { border-color: var(--color-primary); border-left-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(124,58,237,0.1); }
+.canvas-q-number { position: absolute; top: var(--space-md); left: -28px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 700; color: var(--color-text-muted); background: var(--color-gray-100); border-radius: 50%; }
+.canvas-q-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .canvas-q-title-input { flex: 1; font-size: var(--text-sm); font-weight: 500; border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
 .canvas-q-title-input:hover { border-color: var(--color-gray-200); }
 .canvas-q-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
-.canvas-q-required { color: var(--color-danger); font-weight: 700; }
+.canvas-q-required { color: var(--color-danger); font-weight: 700; font-size: var(--text-sm); }
 .canvas-q-type-badge { font-size: 10px; font-weight: 600; color: var(--color-text-muted); background: var(--color-gray-100); padding: 2px 6px; border-radius: var(--radius-full); text-transform: uppercase; white-space: nowrap; }
-.canvas-q-del { width: 24px; height: 24px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
+.canvas-q-del { width: 28px; height: 28px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
 .canvas-q-del svg { width: 14px; height: 14px; }
 .canvas-question:hover .canvas-q-del { display: flex; align-items: center; justify-content: center; }
 .canvas-q-del:hover { background: #FEE2E2; color: #B91C1C; }
-.canvas-q-input { margin-top: 6px; }
-.canvas-q-rules { margin-top: 4px; font-size: 10px; color: var(--color-primary); }
-.canvas-add-q { width: 100%; padding: 8px; font-size: var(--text-sm); color: var(--color-primary); background: none; border: 1px dashed var(--color-gray-300); border-radius: var(--radius-md); cursor: pointer; margin-top: var(--space-xs); }
+.canvas-q-input { padding-left: 0; }
+.canvas-q-rules { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--color-gray-200); font-size: 10px; color: var(--color-primary); display: flex; align-items: center; gap: 4px; }
+.canvas-add-q { width: 100%; padding: 10px; font-size: var(--text-sm); color: var(--color-primary); background: none; border: 1px dashed var(--color-gray-300); border-radius: var(--radius-md); cursor: pointer; margin-top: var(--space-xs); }
 .canvas-add-q:hover { border-color: var(--color-primary); background: var(--color-primary-bg); }
 
-.canvas-options { display: flex; flex-direction: column; gap: 6px; }
-.canvas-opt { display: flex; align-items: center; gap: 8px; font-size: var(--text-sm); color: var(--color-text-secondary); }
-.radio, .checkbox-box { width: 16px; height: 16px; border: 2px solid var(--color-gray-300); border-radius: 50%; }
-.checkbox-box { border-radius: 3px; }
-.canvas-rating { display: flex; gap: 4px; }
-.rating-star { font-size: 24px; color: var(--color-gray-300); }
+/* Inline editable options (for choice/dropdown types) */
+.canvas-options { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.canvas-option-row { display: flex; align-items: center; gap: 8px; }
+.canvas-option-marker { width: 16px; height: 16px; border: 2px solid var(--color-gray-300); border-radius: 50%; flex-shrink: 0; }
+.checkbox-marker { border-radius: 3px; }
+.canvas-option-input { flex: 1; font-size: var(--text-sm); padding: 6px 8px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); outline: none; color: var(--color-text-primary); }
+.canvas-option-input:focus { border-color: var(--color-primary); }
+.canvas-option-remove { width: 24px; height: 24px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; font-size: 16px; }
+.canvas-option-remove:hover { background: #FEE2E2; color: #B91C1C; }
+.canvas-option-add { padding: 4px 8px; font-size: var(--text-xs); color: var(--color-primary); background: none; border: none; cursor: pointer; margin-top: 2px; }
+.canvas-option-add:hover { text-decoration: underline; }
+.canvas-options-hint { font-size: var(--text-xs); color: var(--color-text-muted); font-style: italic; margin-top: 4px; }
+.canvas-rating { display: flex; gap: 4px; margin-top: 4px; }
+.rating-star { font-size: 22px; color: var(--color-gray-300); cursor: pointer; }
 .rating-star--active { color: #F59E0B; }
 
 /* Right: Properties */

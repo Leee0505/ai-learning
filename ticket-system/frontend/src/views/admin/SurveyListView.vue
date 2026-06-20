@@ -58,6 +58,18 @@
       </div>
     </div>
 
+    <!-- Pagination -->
+    <div v-if="store.totalPages > 1" class="survey-pagination">
+      <button :disabled="store.page <= 1" class="page-btn" @click="store.fetchTemplates(store.page - 1)">Previous</button>
+      <span class="page-info">Page {{ store.page }} of {{ store.totalPages }} ({{ store.total }} total)</span>
+      <select class="size-select" :value="store.size" @change="store.size = Number($event.target.value); store.fetchTemplates(1)">
+        <option :value="12">12 / page</option>
+        <option :value="24">24 / page</option>
+        <option :value="48">48 / page</option>
+      </select>
+      <button :disabled="store.page >= store.totalPages" class="page-btn" @click="store.fetchTemplates(store.page + 1)">Next</button>
+    </div>
+
     <!-- Create Dialog -->
     <transition name="modal-fade">
       <div v-if="dialogVisible" class="modal-overlay" @click.self="dialogVisible = false">
@@ -250,6 +262,13 @@ async function handleDelete(template) {
 
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 150ms; }
 .modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
+
+.survey-pagination { display: flex; align-items: center; justify-content: center; gap: var(--space-md); margin-top: var(--space-xl); }
+.page-btn { padding: 8px 16px; font-size: var(--text-sm); font-weight: 500; font-family: var(--font-body); color: var(--color-text-primary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; }
+.page-btn:hover:not(:disabled) { background: var(--color-gray-50); }
+.page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.page-info { font-size: var(--text-sm); color: var(--color-text-secondary); }
+.size-select { padding: 6px 8px; font-size: var(--text-xs); font-family: var(--font-body); border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); cursor: pointer; }
 
 @media (max-width: 768px) {
   .survey-list { padding: var(--space-lg) var(--space-md); }

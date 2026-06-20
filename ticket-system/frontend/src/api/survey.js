@@ -1,7 +1,7 @@
 import request from './request'
 
 // Template CRUD (admin)
-export function getTemplatesApi() { return request.get('/admin/surveys') }
+export function getTemplatesApi(page = 1, size = 12) { return request.get('/admin/surveys', { params: { page, size } }) }
 export function getTemplateApi(id) { return request.get(`/admin/surveys/${id}`) }
 export function createTemplateApi(data) { return request.post('/admin/surveys', data) }
 export function updateTemplateApi(id, data) { return request.put(`/admin/surveys/${id}`, data) }

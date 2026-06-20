@@ -120,8 +120,8 @@ public class AdminServiceImpl implements AdminService {
         boolean changed = false;
 
         if (StringUtils.hasText(request.getUsername()) && !request.getUsername().equals(user.getUsername())) {
-            // Check uniqueness within tenant
-            Long tenantId = SecurityUtils.getCurrentTenantId();
+            // Check uniqueness within target user's tenant
+            Long tenantId = user.getTenantId();
             Long count = userMapper.selectCount(new LambdaQueryWrapper<User>()
                     .eq(User::getTenantId, tenantId)
                     .eq(User::getUsername, request.getUsername())
@@ -134,7 +134,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         if (StringUtils.hasText(request.getEmail()) && !request.getEmail().equals(user.getEmail())) {
-            Long tenantId = SecurityUtils.getCurrentTenantId();
+            Long tenantId = user.getTenantId();
             Long count = userMapper.selectCount(new LambdaQueryWrapper<User>()
                     .eq(User::getTenantId, tenantId)
                     .eq(User::getEmail, request.getEmail())

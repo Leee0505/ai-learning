@@ -552,7 +552,7 @@ function priorityClass(priority) {
 }
 .ticket-list-sortable:hover { color: var(--color-primary); }
 .sort-arrow {
-  color: var(--color-primary); font-size: var(--text-xs); margin-left: 2px;
+  width: 14px; height: 14px; vertical-align: middle; color: var(--color-primary);
 }
 
 /* Assignee */

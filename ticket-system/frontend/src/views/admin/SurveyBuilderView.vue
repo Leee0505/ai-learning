@@ -147,7 +147,7 @@
               </span>
               <button class="rule-del" @click="deleteRule(rule.id)" aria-label="Delete rule">×</button>
             </div>
-            <button v-if="!showRuleForm" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="showRuleForm = true">+ Add Rule</button>
+            <button v-if="!showRuleForm" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="openRuleForm">+ Add Rule</button>
             <div v-if="showRuleForm" class="rule-form">
               <select v-model="newRule.sourceQuestionId" class="input" style="margin-bottom:6px" @change="onSourceQuestionChange">
                 <option :value="null" disabled>Source question...</option>
@@ -163,7 +163,7 @@
               </select>
               <input v-else-if="newRule.op !== 'answered' && newRule.op !== 'not_answered' && newRule.op !== 'is_empty' && newRule.op !== 'not_empty'" v-model="newRule.value" class="input" :placeholder="sourceQuestionType === 'RATING' || sourceQuestionType === 'NUMBER' ? 'Enter number' : 'Value'" style="margin-bottom:6px" />
               <div class="rule-form-btns">
-                <button class="btn-secondary" style="flex:1;font-size:var(--text-xs)" @click="showRuleForm = false">Cancel</button>
+                <button class="btn-secondary" style="flex:1;font-size:var(--text-xs)" @click="closeRuleForm">Cancel</button>
                 <button class="btn-primary" style="flex:2;font-size:var(--text-xs)" :disabled="!newRule.sourceQuestionId || !newRule.op" @click="addRule">Add Rule</button>
               </div>
             </div>
@@ -264,6 +264,14 @@ const sourceQuestionOptions = computed(() => {
   const opts = parseOptions(sourceQuestion.value?.options)
   return opts.map(o => ({ label: o.label, value: o.key })) // use key as value
 })
+function openRuleForm() {
+  newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = ''
+  showRuleForm.value = true
+}
+function closeRuleForm() {
+  newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = ''
+  showRuleForm.value = false
+}
 function onSourceQuestionChange() { newRule.op = 'eq'; newRule.value = '' }
 
 // Initialize reactive maps when template loads
@@ -374,7 +382,9 @@ function saveOptions(q) {
       break
     }
   }
-  updateQuestionApi(q.id, { options: JSON.stringify({ options: newOpts }) }).catch(() => {})
+  const newOptionsJson = JSON.stringify({ options: newOpts })
+  q.options = newOptionsJson // sync local object so rule form dropdowns update
+  updateQuestionApi(q.id, { options: newOptionsJson }).catch(() => {})
 }
 
 // Find all visibility rules that reference a given source question
@@ -406,9 +416,11 @@ async function saveAndReturn() {
       // Save inline options for choice/dropdown types
       if (hasOptions(q.type) && optionsCache[q.id]) {
         const items = optionsCache[q.id].filter(o => o.label.trim())
+        const newOpts = items.map(o => ({ key: o.key, label: o.label.trim() }))
         if (items.length > 0) {
-          const newOpts = items.map(o => ({ key: o.key, label: o.label.trim() }))
-          await updateQuestionApi(q.id, { options: JSON.stringify({ options: newOpts }) })
+          const newOptionsJson = JSON.stringify({ options: newOpts })
+          q.options = newOptionsJson
+          await updateQuestionApi(q.id, { options: newOptionsJson })
         }
       }
     }

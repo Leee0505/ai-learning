@@ -66,6 +66,8 @@
                          @focus="selectQuestion(q)" placeholder="Question" />
                   <span v-if="q.required" class="canvas-q-required">*</span>
                   <span :class="['canvas-q-type-badge', 'qtype-' + q.type.toLowerCase()]">{{ q.type.replace('_',' ') }}</span>
+                  <button v-if="qi > 0" class="canvas-q-arrow" @click.stop="moveQuestion(section, qi, -1)" :aria-label="'Move question up'" title="Move up">↑</button>
+                  <button v-if="qi < section.questions.length - 1" class="canvas-q-arrow" @click.stop="moveQuestion(section, qi, 1)" :aria-label="'Move question down'" title="Move down">↓</button>
                   <button class="canvas-q-del" @click.stop="deleteQuestion(q.id)" aria-label="Delete question">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
@@ -151,15 +153,25 @@
           <!-- TABLE configuration -->
           <div v-if="editForm.type === 'TABLE'" class="table-config">
             <label class="form-label">Table Columns</label>
-            <div v-for="(col, ci) in tableColumns" :key="ci" class="table-col-row">
-              <input v-model="col.label" class="input" style="flex:1" placeholder="Column name" @blur="saveTableConfig" />
-              <select v-model="col.type" class="input" style="width:100px" @change="saveTableConfig">
-                <option value="TEXT">Text</option>
-                <option value="DROPDOWN">Dropdown</option>
-                <option value="DATE">Date</option>
-                <option value="NUMBER">Number</option>
-              </select>
-              <button class="table-col-del" @click="removeTableColumn(ci)" :disabled="tableColumns.length <= 1" aria-label="Remove column">×</button>
+            <div v-for="(col, ci) in tableColumns" :key="ci" class="table-col-item">
+              <div class="table-col-row">
+                <input v-model="col.label" class="input" style="flex:1" placeholder="Column name" @blur="saveTableConfig" />
+                <select v-model="col.type" class="input" style="width:100px" @change="onTableColTypeChange(ci)">
+                  <option value="TEXT">Text</option>
+                  <option value="DROPDOWN">Dropdown</option>
+                  <option value="DATE">Date</option>
+                  <option value="NUMBER">Number</option>
+                </select>
+                <button class="table-col-del" @click="removeTableColumn(ci)" :disabled="tableColumns.length <= 1" aria-label="Remove column">×</button>
+              </div>
+              <div v-if="col.type === 'DROPDOWN'" class="table-col-opts">
+                <input v-for="(opt, oi) in (col._opts || [])" :key="oi" :value="opt"
+                       class="input" style="font-size:11px;padding:4px 8px;margin-top:3px"
+                       :placeholder="'Option ' + (oi+1)"
+                       @blur="updateTableColOption(ci, oi, $event.target.value)"
+                       @keyup.enter="updateTableColOption(ci, oi, $event.target.value); if (oi === (col._opts||[]).length - 1) addTableColOption(ci)" />
+                <button class="table-col-add" @click="addTableColOption(ci)">+ Add option</button>
+              </div>
             </div>
             <button class="table-col-add" @click="addTableColumn">+ Add Column</button>
             <div class="form-group" style="margin-top:8px">
@@ -181,28 +193,32 @@
             </div>
             <button v-if="!showRuleForm" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="openRuleForm">+ Add Rule</button>
             <div v-if="showRuleForm" class="rule-form">
-              <label class="rule-step-label">1. Source question</label>
-              <select v-model="newRule.sourcePageId" class="input" style="margin-bottom:4px" @change="onCascadePage">
-                <option :value="null" disabled>Select page...</option>
-                <option v-for="p in availableSourcePages" :key="'rp'+p.id" :value="p.id">{{ p.title }}</option>
-              </select>
-              <select v-if="newRule.sourcePageId" v-model="newRule.sourceSectionId" class="input" style="margin-bottom:4px" @change="onCascadeSection">
-                <option :value="null" disabled>Select section...</option>
-                <option v-for="s in availableSourceSections" :key="'rs'+s.id" :value="s.id">{{ s.title }}</option>
-              </select>
-              <select v-if="newRule.sourceSectionId" v-model="newRule.sourceQuestionId" class="input" style="margin-bottom:6px" @change="onSourceQuestionChange">
-                <option :value="null" disabled>Select question...</option>
-                <option v-for="q in availableSourceQuestions" :key="'rq'+q.id" :value="q.id">{{ q.title }} ({{ q.type.replace('_',' ') }})</option>
-              </select>
-              <label class="rule-step-label">2. Condition</label>
-              <select v-model="newRule.op" class="input" style="margin-bottom:6px">
-                <option v-for="op in availableOperators" :key="op.value" :value="op.value">{{ op.label }}</option>
-              </select>
-              <select v-if="sourceQuestionHasOptions" v-model="newRule.value" class="input" style="margin-bottom:6px">
-                <option :value="null" disabled>Select value...</option>
-                <option v-for="opt in sourceQuestionOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-              <input v-else-if="newRule.op !== 'answered' && newRule.op !== 'not_answered' && newRule.op !== 'is_empty' && newRule.op !== 'not_empty'" v-model="newRule.value" class="input" :placeholder="sourceQuestionType === 'RATING' || sourceQuestionType === 'NUMBER' ? 'Enter number' : 'Value'" style="margin-bottom:6px" />
+              <div class="rule-step">
+                <label class="rule-step-label">1. Source question</label>
+                <select v-model="newRule.sourcePageId" class="input rule-cascade-select" @change="onCascadePage">
+                  <option :value="null" disabled>Select page...</option>
+                  <option v-for="p in availableSourcePages" :key="'rp'+p.id" :value="p.id">{{ p.title }}</option>
+                </select>
+                <select v-if="newRule.sourcePageId" v-model="newRule.sourceSectionId" class="input rule-cascade-select" @change="onCascadeSection">
+                  <option :value="null" disabled>Select section...</option>
+                  <option v-for="s in availableSourceSections" :key="'rs'+s.id" :value="s.id">{{ s.title }}</option>
+                </select>
+                <select v-if="newRule.sourceSectionId" v-model="newRule.sourceQuestionId" class="input rule-cascade-select" @change="onSourceQuestionChange">
+                  <option :value="null" disabled>Select question...</option>
+                  <option v-for="q in availableSourceQuestions" :key="'rq'+q.id" :value="q.id">{{ q.title }} ({{ q.type.replace('_',' ') }})</option>
+                </select>
+              </div>
+              <div class="rule-step">
+                <label class="rule-step-label">2. Condition</label>
+                <select v-model="newRule.op" class="input">
+                  <option v-for="op in availableOperators" :key="op.value" :value="op.value">{{ op.label }}</option>
+                </select>
+                <select v-if="sourceQuestionHasOptions" v-model="newRule.value" class="input" style="margin-top:6px">
+                  <option :value="null" disabled>Select value...</option>
+                  <option v-for="opt in sourceQuestionOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <input v-else-if="newRule.op !== 'answered' && newRule.op !== 'not_answered' && newRule.op !== 'is_empty' && newRule.op !== 'not_empty'" v-model="newRule.value" class="input" style="margin-top:6px" :placeholder="sourceQuestionType === 'RATING' || sourceQuestionType === 'NUMBER' ? 'Enter number' : 'Value'" />
+              </div>
               <div class="rule-form-btns">
                 <button class="btn-secondary" style="flex:1;font-size:var(--text-xs)" @click="closeRuleForm">Cancel</button>
                 <button class="btn-primary" style="flex:2;font-size:var(--text-xs)" :disabled="!newRule.sourceQuestionId || !newRule.op" @click="addRule">Add Rule</button>
@@ -220,6 +236,7 @@ import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSurveyStore } from '@/stores/survey'
+import request from '@/api/request'
 import { updateTemplateApi, addPageApi, deletePageApi, updatePageApi, addSectionApi, deleteSectionApi, updateSectionApi, addQuestionApi, updateQuestionApi, deleteQuestionApi, addRuleApi, deleteRuleApi } from '@/api/survey'
 
 const store = useSurveyStore()
@@ -424,9 +441,31 @@ function removeTableColumn(idx) {
   tableColumns.splice(idx, 1)
   saveTableConfig()
 }
+function onTableColTypeChange(ci) {
+  const col = tableColumns[ci]
+  if (col.type === 'DROPDOWN' && !col._opts) col._opts = ['']
+  if (col.type !== 'DROPDOWN') delete col._opts
+  saveTableConfig()
+}
+function addTableColOption(ci) {
+  const col = tableColumns[ci]
+  if (!col._opts) col._opts = []
+  col._opts.push('')
+}
+function updateTableColOption(ci, oi, value) {
+  const col = tableColumns[ci]
+  if (!col._opts) return
+  col._opts[oi] = value
+  saveTableConfig()
+}
 function saveTableConfig() {
   if (selectedQuestion.value?.type !== 'TABLE') return
-  const options = JSON.stringify({ columns: [...tableColumns], rows: tableRows.value })
+  const cols = tableColumns.map(c => {
+    const col = { key: c.key, label: c.label, type: c.type }
+    if (c.type === 'DROPDOWN' && c._opts) col.options = c._opts.filter(Boolean)
+    return col
+  })
+  const options = JSON.stringify({ columns: cols, rows: tableRows.value })
   selectedQuestion.value.options = options
   updateQuestionApi(selectedQuestion.value.id, { options }).catch(() => {})
 }
@@ -662,6 +701,25 @@ async function saveQuestionProperties() {
   const updated = allQuestions.value.find(q => q.id === selectedQuestion.value.id)
   if (updated) selectQuestion(updated)
 }
+async function moveQuestion(section, fromIdx, direction) {
+  const questions = section.questions
+  const toIdx = fromIdx + direction
+  if (toIdx < 0 || toIdx >= questions.length) return
+  // Swap in local array for instant UI
+  const tmp = questions[fromIdx]
+  questions[fromIdx] = questions[toIdx]
+  questions[toIdx] = tmp
+  // Build reorder items and persist
+  const items = questions.map((q, i) => ({ id: q.id, displayOrder: i + 1 }))
+  const { data } = await request.put(`/admin/surveys/sections/${section.id}/questions/reorder`, { items })
+  if (data?.code !== 200) {
+    // Revert on failure
+    const tmp2 = questions[fromIdx]
+    questions[fromIdx] = questions[toIdx]
+    questions[toIdx] = tmp2
+  }
+}
+
 async function deleteQuestion(qid) {
   await deleteQuestionApi(qid); ElMessage.success('Question deleted')
   selectedQuestion.value = null; await store.fetchTemplate(template.value.id)
@@ -807,6 +865,9 @@ async function deleteRule(ruleId) {
 .qtype-cascader { background: #FCE7F3; color: #9D174D; }
 .qtype-rating { background: #FFF7ED; color: #C2410C; }
 .qtype-table { background: #E0F2FE; color: #0369A1; }
+.canvas-q-arrow { width: 28px; height: 28px; padding: 0; background: var(--color-gray-50); border: 1px solid var(--color-gray-200); color: var(--color-text-muted); cursor: pointer; border-radius: 3px; font-size: 13px; line-height: 1; display: none; }
+.canvas-q-arrow:hover { background: var(--color-white); color: var(--color-text-primary); border-color: var(--color-gray-300); }
+.canvas-question:hover .canvas-q-arrow { display: inline-flex; align-items: center; justify-content: center; }
 .canvas-q-del { width: 32px; height: 32px; min-width: 32px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
 .canvas-q-del svg { width: 14px; height: 14px; }
 .canvas-question:hover .canvas-q-del { display: flex; align-items: center; justify-content: center; }
@@ -853,9 +914,12 @@ async function deleteRule(ruleId) {
 .rule-text { flex: 1; color: var(--color-text-secondary); display: flex; align-items: center; gap: 4px; }
 .rule-broken-badge { font-size: 11px; cursor: help; }
 .rule-del { width: 24px; height: 24px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; }
-.rule-form { margin-top: var(--space-sm); }
-.rule-step-label { display: block; font-size: 10px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
-.rule-form-btns { display: flex; gap: 6px; margin-top: 4px; }
+.rule-form { margin-top: var(--space-sm); display: flex; flex-direction: column; gap: var(--space-md); }
+.rule-step { background: var(--color-gray-50); border-radius: var(--radius-md); padding: var(--space-sm); }
+.rule-step-label { display: block; font-size: 10px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.rule-cascade-select { margin-top: 4px; }
+.rule-step .input:not(:first-child) { margin-top: 4px; }
+.rule-form-btns { display: flex; gap: 6px; margin-top: 2px; }
 
 /* Shared */
 .status-badge { font-size: var(--text-xs); font-weight: 600; padding: 2px 8px; border-radius: var(--radius-full); }
@@ -878,8 +942,10 @@ async function deleteRule(ruleId) {
 .table-col-del { width: 28px; height: 28px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; font-size: 16px; }
 .table-col-del:hover:not(:disabled) { background: #FEE2E2; color: #B91C1C; }
 .table-col-del:disabled { opacity: 0.3; cursor: not-allowed; }
+.table-col-item { margin-bottom: 6px; }
 .table-col-add { padding: 4px 8px; font-size: var(--text-xs); color: var(--color-primary); background: none; border: none; cursor: pointer; text-align: left; }
 .table-col-add:hover { text-decoration: underline; }
+.table-col-opts { margin-left: 6px; padding-left: 8px; border-left: 2px solid var(--color-gray-200); }
 
 /* Canvas table preview */
 .canvas-table { width: 100%; border-collapse: collapse; font-size: var(--text-xs); margin-top: 4px; }

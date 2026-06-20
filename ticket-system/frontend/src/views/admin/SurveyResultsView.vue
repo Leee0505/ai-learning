@@ -12,17 +12,16 @@
     <div v-if="!template" class="loading">Loading...</div>
 
     <div v-else class="view-body">
-      <div class="preview-layout">
-        <nav class="preview-nav" aria-label="Survey pages">
+        <div class="preview-page-tabs">
           <button v-for="(page, pi) in template.pages" :key="'pv'+page.id"
-                  class="preview-nav-btn" :class="{ 'preview-nav-btn--active': currentPageIdx === pi }"
+                  class="preview-tab" :class="{ 'preview-tab--active': currentPageIdx === pi }"
                   @click="currentPageIdx = pi">
-            <span class="preview-nav-num">{{ pi + 1 }}</span>
-            <span class="preview-nav-label">{{ page.title }}</span>
-            <span class="preview-nav-qs">{{ countPageQuestions(page) }} Q</span>
+            <span class="preview-tab-num">{{ pi + 1 }}</span>
+            {{ page.title }}
+            <span class="preview-tab-qs">{{ countPageQuestions(page) }}</span>
           </button>
-        </nav>
-        <main class="preview-content">
+        </div>
+        <main class="preview-content"
           <div v-if="currentPage" class="preview-page">
             <h2 class="preview-page-title">{{ currentPage.title }}</h2>
             <div v-for="section in currentPage.sections" :key="'ps'+section.id" class="preview-section">
@@ -111,7 +110,6 @@
             </div>
           </div>
         </main>
-      </div>
     </div>
   </div>
 </template>
@@ -184,17 +182,16 @@ onMounted(async () => {
 .status-published { background: #DBEAFE; color: #1D4ED8; }
 .status-archived { background: var(--color-gray-100); color: var(--color-text-secondary); }
 
-/* Layout */
-.preview-layout { display: flex; gap: var(--space-xl); }
-.preview-nav { width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; position: sticky; top: var(--space-xl); align-self: flex-start; }
-.preview-nav-btn { display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: var(--text-sm); font-family: var(--font-body); background: none; border: none; border-radius: var(--radius-md); cursor: pointer; color: var(--color-text-secondary); text-align: left; transition: all var(--transition-fast); }
-.preview-nav-btn:hover { background: var(--color-gray-50); }
-.preview-nav-btn--active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: 600; }
-.preview-nav-num { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 700; border-radius: 50%; background: var(--color-gray-200); flex-shrink: 0; }
-.preview-nav-btn--active .preview-nav-num { background: var(--color-primary); color: white; }
-.preview-nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.preview-nav-qs { font-size: 10px; color: var(--color-text-muted); flex-shrink: 0; }
-.preview-content { flex: 1; min-width: 0; padding-bottom: var(--space-3xl); }
+/* Top tabs */
+.preview-page-tabs { display: flex; align-items: center; gap: 4px; margin-bottom: var(--space-lg); border-bottom: 2px solid var(--color-gray-200); padding-bottom: var(--space-sm); overflow-x: auto; }
+.preview-tab { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: var(--radius-md) var(--radius-md) 0 0; cursor: pointer; font-size: var(--text-sm); font-family: var(--font-body); font-weight: 500; background: none; border: none; color: var(--color-text-secondary); transition: all var(--transition-fast); white-space: nowrap; }
+.preview-tab:hover { background: var(--color-gray-50); color: var(--color-text-primary); }
+.preview-tab--active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: 700; box-shadow: inset 0 -2px 0 var(--color-primary); }
+.preview-tab-num { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border-radius: 50%; background: var(--color-gray-200); flex-shrink: 0; }
+.preview-tab--active .preview-tab-num { background: var(--color-primary); color: white; }
+.preview-tab-qs { font-size: 10px; color: var(--color-text-muted); margin-left: 2px; }
+.preview-tab--active .preview-tab-qs { color: var(--color-primary); opacity: 0.7; }
+.preview-content { padding-bottom: var(--space-3xl); }
 
 /* Page */
 .preview-page { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-sm); }
@@ -263,10 +260,9 @@ onMounted(async () => {
 
 @media (max-width: 768px) {
   .view-page { padding: var(--space-md); }
-  .preview-layout { flex-direction: column; }
-  .preview-nav { width: 100%; flex-direction: row; overflow-x: auto; position: static; }
-  .preview-nav-btn { flex-shrink: 0; padding: 10px 14px; }
-  .preview-nav-label, .preview-nav-qs { display: none; }
+  .preview-page-tabs { gap: 2px; }
+  .preview-tab { padding: 8px 12px; font-size: var(--text-xs); }
+  .preview-tab-qs { display: none; }
   .preview-section { padding: 0 var(--space-lg); }
   .preview-page-title { padding: var(--space-lg); }
 }

@@ -15,27 +15,19 @@
     <div v-if="!template" class="builder-loading">Loading template...</div>
 
     <div v-else class="builder-layout">
-      <!-- Left: Structure Tree (navigation only) -->
-      <aside class="builder-left">
-        <div class="builder-left-header">
-          <h3 class="builder-left-title">Pages</h3>
-          <button class="icon-btn" title="Add Page" @click="addPage" aria-label="Add page">+</button>
-        </div>
-
-        <!-- Page tabs -->
-        <div class="page-tabs">
-          <div v-for="(page, pi) in template.pages" :key="'pt'+page.id"
-               class="page-tab" :class="{ 'page-tab--active': currentPageIndex === pi }"
-               @click="switchPage(pi)">
+      <!-- Center: Editable Form Canvas -->
+      <main class="builder-center">
+        <!-- Page tabs at top -->
+        <div class="canvas-page-tabs">
+          <button v-for="(page, pi) in template.pages" :key="'pt'+page.id"
+                  class="page-tab" :class="{ 'page-tab--active': currentPageIndex === pi }"
+                  @click="switchPage(pi)">
             <span class="page-tab-num">{{ pi + 1 }}</span>
             <span class="page-tab-label">{{ page.title }}</span>
             <button v-if="template.pages.length > 1" class="page-tab-del" @click.stop="deletePage(page.id)" aria-label="Delete page">×</button>
-          </div>
+          </button>
+          <button class="page-tab page-tab--add" @click="addPage" aria-label="Add page">+ Add Page</button>
         </div>
-      </aside>
-
-      <!-- Center: Editable Form Canvas -->
-      <main class="builder-center">
         <div v-if="currentPage" class="canvas">
           <!-- Page title (editable) -->
           <div class="canvas-page-header">
@@ -795,26 +787,23 @@ async function deleteRule(ruleId) {
 
 .builder-layout { display: flex; flex: 1; overflow: hidden; }
 
-/* Left: Page tabs */
-.builder-left { width: 280px; flex-shrink: 0; background: var(--color-gray-50); border-right: 1px solid var(--color-gray-200); overflow-y: auto; padding: var(--space-md); }
-.builder-left-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md); }
-.builder-left-title { font-size: var(--text-sm); font-weight: 600; margin: 0; color: var(--color-text-primary); }
-
-/* Page tabs */
-.page-tabs { display: flex; flex-direction: column; gap: 2px; }
-.page-tab { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); transition: background var(--transition-fast); min-height: 44px; }
-.page-tab:hover { background: var(--color-gray-100); }
-.page-tab--active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: 600; }
-.page-tab-num { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 700; background: var(--color-gray-200); border-radius: 50%; flex-shrink: 0; }
+/* Top page tab bar */
+.canvas-page-tabs { display: flex; align-items: center; gap: 4px; margin-bottom: var(--space-lg); padding-bottom: var(--space-sm); border-bottom: 2px solid var(--color-gray-200); overflow-x: auto; max-width: 900px; margin-left: auto; margin-right: auto; }
+.page-tab { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--radius-md) var(--radius-md) 0 0; cursor: pointer; font-size: var(--text-sm); font-family: var(--font-body); font-weight: 500; background: none; border: none; color: var(--color-text-secondary); transition: all var(--transition-fast); white-space: nowrap; min-height: 40px; }
+.page-tab:hover { background: var(--color-gray-100); color: var(--color-text-primary); }
+.page-tab--active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: 700; box-shadow: inset 0 -2px 0 var(--color-primary); }
+.page-tab-num { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: var(--color-gray-200); border-radius: 50%; flex-shrink: 0; }
 .page-tab--active .page-tab-num { background: var(--color-primary); color: white; }
-.page-tab-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.page-tab-del { width: 20px; height: 20px; font-size: 14px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
-.page-tab:hover .page-tab-del { display: flex; align-items: center; justify-content: center; }
+.page-tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-tab-del { width: 22px; height: 22px; font-size: 14px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
+.page-tab:hover .page-tab-del { display: inline-flex; align-items: center; justify-content: center; }
 .page-tab-del:hover { background: #FEE2E2; color: #B91C1C; }
+.page-tab--add { font-weight: 600; color: var(--color-primary); border: 1px dashed var(--color-gray-300); border-radius: var(--radius-md); padding: 8px 14px; margin-left: 4px; box-shadow: none; }
+.page-tab--add:hover { border-color: var(--color-primary); background: var(--color-primary-bg); }
 
 /* Center: Canvas */
-.builder-center { flex: 1; overflow-y: auto; padding: var(--space-xl); background: #F8F9FB; }
-.canvas { max-width: 860px; margin: 0 auto; }
+.builder-center { flex: 1; overflow-y: auto; padding: var(--space-lg) var(--space-xl); background: #F8F9FB; }
+.canvas { max-width: 900px; margin: 0 auto; }
 
 /* Canvas page header */
 .canvas-page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2xl); gap: var(--space-md); }
@@ -963,11 +952,10 @@ async function deleteRule(ruleId) {
 .btn-secondary:hover { background: var(--color-gray-50); }
 
 @media (max-width: 1024px) {
-  .builder-left { width: 220px; }
   .builder-right { width: 260px; }
 }
 @media (max-width: 768px) {
   .builder-layout { flex-direction: column; }
-  .builder-left, .builder-right { width: 100%; max-height: 200px; }
+  .builder-right { width: 100%; max-height: 200px; }
 }
 </style>

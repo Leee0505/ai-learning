@@ -180,6 +180,14 @@ async function publishTemplate(id) {
           const max = getMax(q.options)
           if (!max || max < 2) errors.push(`"${q.title}" rating max must be at least 2`)
         }
+        if (q.type === 'TABLE') {
+          const cols = JSON.parse(q.options || '{}').columns || []
+          for (const col of cols) {
+            if (col.type === 'DROPDOWN' && (!col.options || col.options.length === 0)) {
+              errors.push(`Table "${q.title}" column "${col.label}" is DROPDOWN but has no options`)
+            }
+          }
+        }
       }
     }
   }

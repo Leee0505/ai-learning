@@ -9,6 +9,7 @@
       <h1 class="builder-title">{{ template?.title || 'Loading...' }}</h1>
       <span :class="['status-badge', 'status-' + (template?.status || '').toLowerCase()]">{{ template?.status }}</span>
       <div class="builder-topbar-spacer"></div>
+      <button v-if="template?.status === 'DRAFT'" class="btn-publish" @click="publishFromBuilder">Publish</button>
       <button class="btn-secondary" @click="saveAndReturn">Done</button>
     </div>
 
@@ -32,6 +33,9 @@
           <!-- Page title (editable) -->
           <div class="canvas-page-header">
             <input v-model="currentPageTitle" class="canvas-page-title-input" @blur="savePageTitle" @keyup.enter="($event.target.blur())" placeholder="Page title" />
+            <button class="inline-rules-btn" @click="openRuleFor('PAGE', currentPage.id)" :aria-label="'Page visibility rules'" :title="'Page visibility rules'">
+              {{ countRulesFor('PAGE', currentPage.id) || 'No' }} rule{{ countRulesFor('PAGE', currentPage.id) !== 1 ? 's' : '' }}
+            </button>
             <button class="canvas-add-section" @click="addSection(currentPage.id)">+ Add Section</button>
           </div>
 
@@ -42,6 +46,9 @@
                 {{ expandedNodes['s'+section.id] ? '▾' : '▸' }}
               </button>
               <input v-model="sectionTitles[section.id]" class="canvas-section-title-input" @blur="saveSectionTitle(section.id)" @keyup.enter="($event.target.blur())" placeholder="Section title" />
+              <button class="inline-rules-btn" @click.stop="openRuleFor('SECTION', section.id)" :aria-label="'Section visibility rules'" :title="'Section visibility rules'">
+                {{ countRulesFor('SECTION', section.id) || 'No' }} rule{{ countRulesFor('SECTION', section.id) !== 1 ? 's' : '' }}
+              </button>
               <button class="canvas-section-del" @click="deleteSection(section.id)" aria-label="Delete section">×</button>
             </div>
             <p v-if="section.description" class="canvas-section-desc">{{ section.description }}</p>
@@ -125,10 +132,59 @@
         <div v-else class="builder-hint">No pages yet. Add a page from the left panel.</div>
       </main>
 
-      <!-- Right: Properties Panel (only when question selected) -->
+      <!-- Right: Properties Panel -->
       <aside class="builder-right">
-        <div v-if="!selectedQuestion" class="builder-hint">
+        <div v-if="!selectedQuestion && !isShowingNonQTarget" class="builder-hint">
           <p>Click a question to edit its properties</p>
+        </div>
+        <div v-else-if="isShowingNonQTarget && !selectedQuestion" class="props-panel">
+          <h3 class="props-title">Properties — {{ ruleTarget.type === 'PAGE' ? 'Page' : 'Section' }}</h3>
+
+          <!-- Visibility Rules for Page/Section -->
+          <div class="props-section">
+            <h4 class="props-subtitle">Visibility Rules</h4>
+            <div v-if="!currentTargetRules.length" class="props-empty">No rules — {{ ruleTarget.type === 'PAGE' ? 'page' : 'section' }} is always visible</div>
+            <div v-for="rule in currentTargetRules" :key="'r'+rule.id" class="rule-row" :class="{ 'rule-row--broken': isRuleBroken(rule) }">
+              <span class="rule-text">
+                When {{ getQuestionTitle(rule.sourceQuestionId) }} {{ rule.op }} {{ getOptionLabel(rule.sourceQuestionId, rule.value) || rule.value || '' }}
+                <span v-if="isRuleBroken(rule)" class="rule-broken-badge" title="Source question options have changed — rule may not match">⚠</span>
+              </span>
+              <button class="rule-del" @click="deleteRule(rule.id)" aria-label="Delete rule">×</button>
+            </div>
+            <button v-if="!showRuleForm" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="openRuleForm">+ Add Rule</button>
+            <div v-if="showRuleForm" class="rule-form">
+              <div class="rule-step">
+                <label class="rule-step-label">1. Source question</label>
+                <select v-model="newRule.sourcePageId" class="input rule-cascade-select" @change="onCascadePage">
+                  <option :value="null" disabled>Select page...</option>
+                  <option v-for="p in availableSourcePagesForTarget" :key="'rp'+p.id" :value="p.id">{{ p.title }}</option>
+                </select>
+                <select v-if="newRule.sourcePageId" v-model="newRule.sourceSectionId" class="input rule-cascade-select" @change="onCascadeSection">
+                  <option :value="null" disabled>Select section...</option>
+                  <option v-for="s in availableSourceSectionsForTarget" :key="'rs'+s.id" :value="s.id">{{ s.title }}</option>
+                </select>
+                <select v-if="newRule.sourceSectionId" v-model="newRule.sourceQuestionId" class="input rule-cascade-select" @change="onSourceQuestionChange">
+                  <option :value="null" disabled>Select question...</option>
+                  <option v-for="q in availableSourceQuestionsForTarget" :key="'rq'+q.id" :value="q.id">{{ q.title }} ({{ q.type.replace('_',' ') }})</option>
+                </select>
+              </div>
+              <div class="rule-step">
+                <label class="rule-step-label">2. Condition</label>
+                <select v-model="newRule.op" class="input">
+                  <option v-for="op in availableOperators" :key="op.value" :value="op.value">{{ op.label }}</option>
+                </select>
+                <select v-if="sourceQuestionHasOptions" v-model="newRule.value" class="input" style="margin-top:6px">
+                  <option :value="null" disabled>Select value...</option>
+                  <option v-for="opt in sourceQuestionOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <input v-else-if="newRule.op !== 'answered' && newRule.op !== 'not_answered' && newRule.op !== 'is_empty' && newRule.op !== 'not_empty'" v-model="newRule.value" class="input" style="margin-top:6px" :placeholder="sourceQuestionType === 'RATING' || sourceQuestionType === 'NUMBER' ? 'Enter number' : 'Value'" />
+              </div>
+              <div class="rule-form-btns">
+                <button class="btn-secondary" style="flex:1;font-size:var(--text-xs)" @click="closeRuleForm">Cancel</button>
+                <button class="btn-primary" style="flex:2;font-size:var(--text-xs)" :disabled="!newRule.sourceQuestionId || !newRule.op" @click="addRule">Add Rule</button>
+              </div>
+            </div>
+          </div>
         </div>
         <div v-else class="props-panel">
           <h3 class="props-title">Properties — Q{{ getQuestionIndex(selectedQuestion) + 1 }}</h3>
@@ -193,15 +249,15 @@
                 <label class="rule-step-label">1. Source question</label>
                 <select v-model="newRule.sourcePageId" class="input rule-cascade-select" @change="onCascadePage">
                   <option :value="null" disabled>Select page...</option>
-                  <option v-for="p in availableSourcePages" :key="'rp'+p.id" :value="p.id">{{ p.title }}</option>
+                  <option v-for="p in availableSourcePagesForTarget" :key="'rp'+p.id" :value="p.id">{{ p.title }}</option>
                 </select>
                 <select v-if="newRule.sourcePageId" v-model="newRule.sourceSectionId" class="input rule-cascade-select" @change="onCascadeSection">
                   <option :value="null" disabled>Select section...</option>
-                  <option v-for="s in availableSourceSections" :key="'rs'+s.id" :value="s.id">{{ s.title }}</option>
+                  <option v-for="s in availableSourceSectionsForTarget" :key="'rs'+s.id" :value="s.id">{{ s.title }}</option>
                 </select>
                 <select v-if="newRule.sourceSectionId" v-model="newRule.sourceQuestionId" class="input rule-cascade-select" @change="onSourceQuestionChange">
                   <option :value="null" disabled>Select question...</option>
-                  <option v-for="q in availableSourceQuestions" :key="'rq'+q.id" :value="q.id">{{ q.title }} ({{ q.type.replace('_',' ') }})</option>
+                  <option v-for="q in availableSourceQuestionsForTarget" :key="'rq'+q.id" :value="q.id">{{ q.title }} ({{ q.type.replace('_',' ') }})</option>
                 </select>
               </div>
               <div class="rule-step">
@@ -253,6 +309,47 @@ const showRuleForm = ref(false)
 const showAddQ = ref(false)
 const showAddQSection = ref(null)
 
+// Rule target — can be QUESTION, SECTION, or PAGE
+const ruleTarget = reactive({ type: 'QUESTION', id: null })
+function openRuleFor(type, id) {
+  ruleTarget.type = type
+  ruleTarget.id = id
+  if (type !== 'QUESTION') selectedQuestion.value = null
+  showRuleForm.value = false
+}
+function countRulesFor(type, id) {
+  if (!template.value?.pages) return 0
+  let count = 0
+  for (const p of template.value.pages) {
+    if (type === 'PAGE' && p.id === id) count += (p.visibilityRules || []).length
+    for (const s of p.sections || []) {
+      if (type === 'SECTION' && s.id === id) count += (s.visibilityRules || []).length
+    }
+  }
+  return count
+}
+// Get rules for the current rule target (page/section/question)
+const currentTargetRules = computed(() => {
+  if (!template.value?.pages) return []
+  if (ruleTarget.type === 'PAGE') {
+    for (const p of template.value.pages) {
+      if (p.id === ruleTarget.id) return p.visibilityRules || []
+    }
+  }
+  if (ruleTarget.type === 'SECTION') {
+    for (const p of template.value.pages) {
+      for (const s of p.sections || []) {
+        if (s.id === ruleTarget.id) return s.visibilityRules || []
+      }
+    }
+  }
+  if (ruleTarget.type === 'QUESTION') {
+    const q = allQuestions.value.find(q => q.id === ruleTarget.id)
+    return q?.visibilityRules || []
+  }
+  return []
+})
+
 const QUICK_TYPES = [
   { value: 'TEXT', label: 'Text', abbr: 'T' },
   { value: 'TEXTAREA', label: 'Long Text', abbr: 'L' },
@@ -298,6 +395,41 @@ const allQuestions = computed(() => {
     }
   }
   return qs
+})
+
+// When a page or section is selected as rule target but no question is selected
+const isShowingNonQTarget = computed(() =>
+  (ruleTarget.type === 'PAGE' || ruleTarget.type === 'SECTION') && ruleTarget.id && !selectedQuestion.value
+)
+
+// All questions up to (and including) all questions in pages before the rule target page
+const questionsBeforeTarget = computed(() => {
+  if (!template.value?.pages) return []
+  if (ruleTarget.type === 'PAGE') {
+    // For PAGE rules: source must be from pages before this page
+    const result = []
+    for (const p of template.value.pages) {
+      if (p.id === ruleTarget.id) break
+      for (const s of p.sections || []) {
+        for (const q of s.questions || []) result.push(q)
+      }
+    }
+    return result
+  }
+  if (ruleTarget.type === 'SECTION') {
+    // For SECTION rules: source must be from sections before this section (same page or earlier pages)
+    const result = []
+    let found = false
+    for (const p of template.value.pages) {
+      for (const s of p.sections || []) {
+        if (s.id === ruleTarget.id) { found = true; break }
+        for (const q of s.questions || []) result.push(q)
+      }
+      if (found) break
+    }
+    return result
+  }
+  return allQuestions.value
 })
 
 // Questions that come BEFORE the selected question (eligible as rule sources)
@@ -346,6 +478,43 @@ const availableSourceQuestions = computed(() => {
           const idx = allQuestions.value.findIndex(aq => aq.id === q.id)
           return idx < curIdx
         })
+      }
+    }
+  }
+  return []
+})
+// Source selector computeds for non-question targets (PAGE/SECTION)
+const effectiveQuestionsBefore = computed(() => {
+  if (selectedQuestion.value) return questionsBeforeCurrent.value
+  return questionsBeforeTarget.value
+})
+const availableSourcePagesForTarget = computed(() => {
+  if (!template.value?.pages) return []
+  const pages = []
+  for (const p of template.value.pages) {
+    const hasBefore = p.sections?.some(s => s.questions?.some(q =>
+      effectiveQuestionsBefore.value.some(eq => eq.id === q.id)
+    ))
+    if (hasBefore) pages.push(p)
+  }
+  return pages
+})
+const availableSourceSectionsForTarget = computed(() => {
+  if (!newRule.sourcePageId || !template.value?.pages) return []
+  const page = template.value.pages.find(p => p.id === newRule.sourcePageId)
+  if (!page) return []
+  return (page.sections || []).filter(s => s.questions?.some(q =>
+    effectiveQuestionsBefore.value.some(eq => eq.id === q.id)
+  ))
+})
+const availableSourceQuestionsForTarget = computed(() => {
+  if (!newRule.sourceSectionId || !template.value?.pages) return []
+  for (const p of template.value.pages) {
+    for (const s of p.sections || []) {
+      if (s.id === newRule.sourceSectionId) {
+        return (s.questions || []).filter(q =>
+          effectiveQuestionsBefore.value.some(eq => eq.id === q.id)
+        )
       }
     }
   }
@@ -409,6 +578,8 @@ function toggleSection(key) { expandedNodes[key] = !expandedNodes[key] }
 function selectQuestion(q) {
   if (selectedQuestion.value?.id === q.id) return // already selected
   selectedQuestion.value = q
+  ruleTarget.type = 'QUESTION'
+  ruleTarget.id = q.id
   editForm.title = q.title
   editForm.type = q.type
   editForm.required = q.required
@@ -591,6 +762,70 @@ async function saveAndReturn() {
   }
   router.push('/admin/surveys')
 }
+async function publishFromBuilder() {
+  await savePendingEdits()
+  const errors = []
+  for (const page of template.value.pages || []) {
+    for (const section of page.sections || []) {
+      if (!section.questions || section.questions.length === 0) {
+        errors.push(`Section "${section.title}" in "${page.title}" has no questions`)
+        continue
+      }
+      for (const q of section.questions) {
+        if (q.type === 'SINGLE_CHOICE' || q.type === 'MULTI_CHOICE' || q.type === 'DROPDOWN') {
+          const opts = JSON.parse(q.options || '{}').options || []
+          if (opts.length === 0) errors.push(`"${q.title}" has no options configured`)
+        }
+        if (q.type === 'RATING') {
+          const max = JSON.parse(q.options || '{}').max
+          if (!max || max < 2) errors.push(`"${q.title}" rating max must be at least 2`)
+        }
+        if (q.type === 'TABLE') {
+          const cols = JSON.parse(q.options || '{}').columns || []
+          for (const col of cols) {
+            if (col.type === 'DROPDOWN' && (!col.options || col.options.length === 0)) {
+              errors.push(`Table "${q.title}" column "${col.label}" is DROPDOWN but has no options`)
+            }
+          }
+        }
+      }
+    }
+  }
+  if (errors.length > 0) {
+    ElMessage.warning('Cannot publish: ' + errors.slice(0, 3).join('; ') + (errors.length > 3 ? ` ...and ${errors.length - 3} more` : ''))
+    return
+  }
+  try {
+    await ElMessageBox.confirm('Publish this template? Once published, instances can be distributed.', 'Publish', { type: 'info' })
+  } catch { return }
+  const { data } = await updateTemplateApi(template.value.id, { status: 'PUBLISHED' })
+  if (data.code === 200) {
+    ElMessage.success('Published!')
+    template.value.status = 'PUBLISHED'
+  } else ElMessage.error(data.message)
+}
+
+async function savePendingEdits() {
+  if (currentPage.value) {
+    await updatePageApi(currentPage.value.id, { title: currentPage.value.title })
+  }
+  for (const s of currentPage.value?.sections || []) {
+    if (sectionTitles[s.id] && sectionTitles[s.id] !== s.title) {
+      await updateSectionApi(s.id, { title: sectionTitles[s.id] })
+    }
+    for (const q of s.questions || []) {
+      if (questionTitles[q.id] && questionTitles[q.id] !== q.title) {
+        await updateQuestionApi(q.id, { title: questionTitles[q.id] })
+      }
+      if (hasOptions(q.type) && optionsCache[q.id]) {
+        const items = optionsCache[q.id].filter(o => o.label.trim())
+        if (items.length > 0) {
+          await updateQuestionApi(q.id, { options: JSON.stringify({ options: items.map(o => ({ key: o.key, label: o.label.trim() })) }) })
+        }
+      }
+    }
+  }
+}
 function getRatingMax(optionsJson) {
   try { return JSON.parse(optionsJson || '{}').max || 5 }
   catch { return 5 }
@@ -736,9 +971,11 @@ function isRuleBroken(rule) {
 }
 
 async function addRule() {
-  if (!newRule.sourceQuestionId || !selectedQuestion.value) return
+  if (!newRule.sourceQuestionId) return
+  const targetId = ruleTarget.type === 'QUESTION' ? (selectedQuestion.value?.id) : ruleTarget.id
+  if (!targetId) return
   // Contradiction check: same logicGroup, same sourceQuestion, contradictory condition
-  const existing = selectedQuestion.value.visibilityRules || []
+  const existing = currentTargetRules.value || []
   for (const r of existing) {
     if (r.sourceQuestionId === newRule.sourceQuestionId && r.logicGroup === (newRule.logicGroup || 0)) {
       const contradicts =
@@ -756,7 +993,7 @@ async function addRule() {
     }
   }
   const { data } = await addRuleApi(template.value.id, {
-    targetType: 'QUESTION', targetId: selectedQuestion.value.id,
+    targetType: ruleTarget.type, targetId: targetId,
     sourceQuestionId: newRule.sourceQuestionId, op: newRule.op,
     value: newRule.value || '', logicGroup: 0
   })
@@ -764,14 +1001,20 @@ async function addRule() {
     newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = ''
     showRuleForm.value = false
     await store.fetchTemplate(template.value.id)
-    const updated = allQuestions.value.find(q => q.id === selectedQuestion.value.id)
-    if (updated) selectQuestion(updated)
+    if (ruleTarget.type === 'QUESTION') {
+      const updated = allQuestions.value.find(q => q.id === selectedQuestion.value?.id)
+      if (updated) selectQuestion(updated)
+    }
   }
 }
 async function deleteRule(ruleId) {
-  await deleteRuleApi(ruleId); await store.fetchTemplate(template.value.id)
-  const updated = allQuestions.value.find(q => q.id === selectedQuestion.value?.id)
-  if (updated) selectQuestion(updated)
+  await deleteRuleApi(ruleId)
+  showRuleForm.value = false
+  await store.fetchTemplate(template.value.id)
+  if (ruleTarget.type === 'QUESTION') {
+    const updated = allQuestions.value.find(q => q.id === selectedQuestion.value?.id)
+    if (updated) selectQuestion(updated)
+  }
 }
 </script>
 
@@ -822,6 +1065,8 @@ async function deleteRule(ruleId) {
 .canvas-section-title-input:hover { border-color: var(--color-gray-200); }
 .canvas-section-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
 .canvas-section-desc { font-size: var(--text-sm); color: var(--color-text-muted); margin: 0 0 var(--space-sm); }
+.inline-rules-btn { padding: 4px 10px; font-size: 10px; font-weight: 500; font-family: var(--font-body); color: var(--color-primary); background: var(--color-primary-bg); border: 1px solid var(--color-primary-light); border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; min-height: 28px; transition: background var(--transition-fast); }
+.inline-rules-btn:hover { background: var(--color-primary); color: var(--color-white); }
 .canvas-section-del { width: 32px; height: 32px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
 .canvas-section:hover .canvas-section-del { display: flex; align-items: center; justify-content: center; }
 .canvas-section-del:hover { background: #FEE2E2; color: #B91C1C; }
@@ -946,6 +1191,8 @@ async function deleteRule(ruleId) {
 .canvas-table th, .canvas-table td { border: 1px solid var(--color-gray-200); padding: 4px 8px; text-align: left; }
 .canvas-table th { background: var(--color-gray-50); font-weight: 600; color: var(--color-text-secondary); }
 .canvas-table td { color: var(--color-text-muted); }
+.btn-publish { padding: 10px 20px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: #059669; border: none; border-radius: var(--radius-md); cursor: pointer; min-height: 44px; transition: opacity var(--transition-fast); }
+.btn-publish:hover { opacity: 0.9; }
 .btn-primary { padding: 10px 20px; font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: var(--color-primary); border: none; border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); min-height: 44px; }
 .btn-primary:hover:not(:disabled) { opacity: 0.9; }
 .btn-secondary { padding: 10px 20px; font-weight: 500; font-family: var(--font-body); color: var(--color-text-secondary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); min-height: 44px; }

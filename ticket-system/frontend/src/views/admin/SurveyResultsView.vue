@@ -169,7 +169,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.view-page { max-width: 860px; margin: 0 auto; padding: var(--space-xl) var(--space-lg); min-height: 100vh; }
+.view-page { max-width: 960px; margin: 0 auto; padding: var(--space-xl) var(--space-lg); min-height: 100vh; }
 .view-topbar { display: flex; align-items: center; gap: var(--space-md); margin-bottom: var(--space-xl); }
 .btn-back { display: flex; align-items: center; gap: 4px; padding: 8px 16px; font-size: var(--text-sm); font-family: var(--font-body); color: var(--color-text-secondary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition-fast); }
 .btn-back svg { width: 16px; height: 16px; }

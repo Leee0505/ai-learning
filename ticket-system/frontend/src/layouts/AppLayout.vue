@@ -39,6 +39,7 @@
                   <router-link to="/admin/users" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/users') }" @click="adminMenuOpen = false">Users</router-link>
                   <router-link to="/admin/config" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/config') }" @click="adminMenuOpen = false">Config</router-link>
                   <router-link to="/admin/monitor" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/monitor') }" @click="adminMenuOpen = false">Monitor</router-link>
+                  <router-link to="/admin/surveys" class="admin-menu-item" :class="{ 'admin-menu-item--active': $route.path.startsWith('/admin/surveys') }" @click="adminMenuOpen = false">Surveys</router-link>
                 </div>
               </transition>
             </div>

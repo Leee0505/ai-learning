@@ -85,6 +85,24 @@ const routes = [
         name: 'AdminMonitor',
         component: () => import('@/views/admin/MonitorView.vue'),
         meta: { requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'admin/surveys',
+        name: 'AdminSurveys',
+        component: () => import('@/views/admin/SurveyListView.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'admin/surveys/:id',
+        name: 'AdminSurveyView',
+        component: () => import('@/views/admin/SurveyBuilderView.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'admin/surveys/:id/builder',
+        name: 'AdminSurveyBuilder',
+        component: () => import('@/views/admin/SurveyBuilderView.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }
       }
     ]
   }

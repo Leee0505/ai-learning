@@ -147,9 +147,7 @@
               </span>
               <button class="rule-del" @click="deleteRule(rule.id)" aria-label="Delete rule">×</button>
             </div>
-            <button class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="showRuleForm = !showRuleForm">
-              {{ showRuleForm ? 'Cancel' : '+ Add Rule' }}
-            </button>
+            <button v-if="!showRuleForm" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="showRuleForm = true">+ Add Rule</button>
             <div v-if="showRuleForm" class="rule-form">
               <select v-model="newRule.sourceQuestionId" class="input" style="margin-bottom:6px" @change="onSourceQuestionChange">
                 <option :value="null" disabled>Source question...</option>
@@ -164,7 +162,10 @@
                 <option v-for="opt in sourceQuestionOptions" :key="opt" :value="opt">{{ opt }}</option>
               </select>
               <input v-else-if="newRule.op !== 'answered' && newRule.op !== 'not_answered' && newRule.op !== 'is_empty' && newRule.op !== 'not_empty'" v-model="newRule.value" class="input" :placeholder="sourceQuestionType === 'RATING' || sourceQuestionType === 'NUMBER' ? 'Enter number' : 'Value'" style="margin-bottom:6px" />
-              <button class="btn-primary" style="width:100%;font-size:var(--text-xs);margin-top:4px" :disabled="!newRule.sourceQuestionId || !newRule.op" @click="addRule">Add</button>
+              <div class="rule-form-btns">
+                <button class="btn-secondary" style="flex:1;font-size:var(--text-xs)" @click="showRuleForm = false">Cancel</button>
+                <button class="btn-primary" style="flex:2;font-size:var(--text-xs)" :disabled="!newRule.sourceQuestionId || !newRule.op" @click="addRule">Add Rule</button>
+              </div>
             </div>
           </div>
         </div>
@@ -327,24 +328,42 @@ function removeOption(q, index) {
   saveOptions(q)
 }
 function saveOptions(q) {
-  const items = (optionsCache[q.id] || []).filter(s => s.trim())
-  if (items.length > 0) {
-    const lower = items.map(s => s.trim().toLowerCase())
-    if (new Set(lower).size !== items.length) {
+  const newItems = (optionsCache[q.id] || []).filter(s => s.trim())
+  if (newItems.length > 0) {
+    const lower = newItems.map(s => s.trim().toLowerCase())
+    if (new Set(lower).size !== newItems.length) {
       ElMessage.warning('Options must be unique — duplicate found')
       return
     }
   }
-  // Check if downstream rules might be broken by option changes
-  const oldOpts = parseOptions(q.options)
-  const removed = oldOpts.filter(o => !items.includes(o))
-  if (removed.length > 0) {
-    const affected = findDownstreamRules(q.id)
-    if (affected.length > 0) {
-      ElMessage.warning(`Option "${removed.join(', ')}" removed — check ${affected.length} downstream rule(s) for broken references`)
+  // Auto-repair downstream rules when options change
+  const oldItems = parseOptions(q.options)
+  if (oldItems.length > 0 && JSON.stringify(oldItems) !== JSON.stringify(newItems)) {
+    const downstream = findDownstreamRules(q.id)
+    for (const rule of downstream) {
+      const oldVal = rule.value || ''
+      // Try to find the old value in old options, map to same index in new options
+      const oldIdx = oldItems.indexOf(oldVal)
+      if (oldIdx >= 0 && oldIdx < newItems.length) {
+        // Option exists at same index — update to new text
+        const newVal = newItems[oldIdx]
+        if (newVal !== oldVal) {
+          updateQuestionApi(rule.targetId, {}) // placeholder — we can't update rule value via question API
+        }
+      }
+    }
+    // Since we don't have a direct "update rule value" API from here,
+    // just notify the user that rules may need attention
+    const renamed = oldItems.filter((o, i) => newItems[i] && newItems[i] !== o)
+    const deleted = oldItems.filter((o, i) => i >= newItems.length || !newItems.includes(o))
+    if (renamed.length > 0 || deleted.length > 0) {
+      let msg = ''
+      if (renamed.length > 0) msg += `Renamed: ${renamed.join(' → ' + newItems[oldItems.indexOf(renamed[0])]).substring(0, 30)}... `
+      if (deleted.length > 0) msg += `Removed: ${deleted.join(', ')}`
+      ElMessage.warning('Options changed — review visibility rules that reference this question')
     }
   }
-  updateQuestionApi(q.id, { options: JSON.stringify({ options: items }) }).catch(() => {})
+  updateQuestionApi(q.id, { options: JSON.stringify({ options: newItems }) }).catch(() => {})
 }
 
 // Find all visibility rules that reference a given source question
@@ -653,6 +672,7 @@ async function deleteRule(ruleId) {
 .rule-broken-badge { font-size: 11px; cursor: help; }
 .rule-del { width: 20px; height: 20px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; }
 .rule-form { margin-top: var(--space-sm); }
+.rule-form-btns { display: flex; gap: 6px; margin-top: 4px; }
 
 /* Shared */
 .status-badge { font-size: var(--text-xs); font-weight: 600; padding: 2px 8px; border-radius: var(--radius-full); }

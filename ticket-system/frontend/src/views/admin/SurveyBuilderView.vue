@@ -157,11 +157,20 @@
             </div>
             <button v-if="!showRuleForm" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="openRuleForm">+ Add Rule</button>
             <div v-if="showRuleForm" class="rule-form">
-              <select v-model="newRule.sourceQuestionId" class="input" style="margin-bottom:6px" @change="onSourceQuestionChange">
-                <option :value="null" disabled>Source question...</option>
-                <option v-for="q in questionsBeforeCurrent" :key="'sq'+q.id" :value="q.id">{{ getQuestionPath(q) }}</option>
-                <option v-if="questionsBeforeCurrent.length === 0" disabled>No earlier questions available</option>
+              <label class="rule-step-label">1. Source question</label>
+              <select v-model="newRule.sourcePageId" class="input" style="margin-bottom:4px" @change="onCascadePage">
+                <option :value="null" disabled>Select page...</option>
+                <option v-for="p in availableSourcePages" :key="'rp'+p.id" :value="p.id">{{ p.title }}</option>
               </select>
+              <select v-if="newRule.sourcePageId" v-model="newRule.sourceSectionId" class="input" style="margin-bottom:4px" @change="onCascadeSection">
+                <option :value="null" disabled>Select section...</option>
+                <option v-for="s in availableSourceSections" :key="'rs'+s.id" :value="s.id">{{ s.title }}</option>
+              </select>
+              <select v-if="newRule.sourceSectionId" v-model="newRule.sourceQuestionId" class="input" style="margin-bottom:6px" @change="onSourceQuestionChange">
+                <option :value="null" disabled>Select question...</option>
+                <option v-for="q in availableSourceQuestions" :key="'rq'+q.id" :value="q.id">{{ q.title }} ({{ q.type.replace('_',' ') }})</option>
+              </select>
+              <label class="rule-step-label">2. Condition</label>
               <select v-model="newRule.op" class="input" style="margin-bottom:6px">
                 <option v-for="op in availableOperators" :key="op.value" :value="op.value">{{ op.label }}</option>
               </select>
@@ -237,7 +246,7 @@ const QUESTION_TYPES = [
 ]
 
 const editForm = reactive({ title: '', type: '', required: false })
-const newRule = reactive({ sourceQuestionId: null, op: 'eq', value: '' })
+const newRule = reactive({ sourcePageId: null, sourceSectionId: null, sourceQuestionId: null, op: 'eq', value: '' })
 
 const allQuestions = computed(() => {
   const qs = []
@@ -264,6 +273,48 @@ const questionsBeforeCurrent = computed(() => {
   return before
 })
 
+// Cascading source selector: pages with questions before current
+const availableSourcePages = computed(() => {
+  if (!selectedQuestion.value || !template.value?.pages) return []
+  const pages = []
+  for (const p of template.value.pages) {
+    const hasBefore = p.sections?.some(s => s.questions?.some(q => {
+      const idx = allQuestions.value.findIndex(aq => aq.id === q.id)
+      const curIdx = allQuestions.value.findIndex(aq => aq.id === selectedQuestion.value.id)
+      return idx < curIdx
+    }))
+    if (hasBefore) pages.push(p)
+  }
+  return pages
+})
+const availableSourceSections = computed(() => {
+  if (!newRule.sourcePageId || !template.value?.pages) return []
+  const page = template.value.pages.find(p => p.id === newRule.sourcePageId)
+  if (!page) return []
+  const curIdx = allQuestions.value.findIndex(aq => aq.id === selectedQuestion.value?.id)
+  return (page.sections || []).filter(s => s.questions?.some(q => {
+    const idx = allQuestions.value.findIndex(aq => aq.id === q.id)
+    return idx < curIdx
+  }))
+})
+const availableSourceQuestions = computed(() => {
+  if (!newRule.sourceSectionId || !template.value?.pages) return []
+  const curIdx = allQuestions.value.findIndex(aq => aq.id === selectedQuestion.value?.id)
+  for (const p of template.value.pages) {
+    for (const s of p.sections || []) {
+      if (s.id === newRule.sourceSectionId) {
+        return (s.questions || []).filter(q => {
+          const idx = allQuestions.value.findIndex(aq => aq.id === q.id)
+          return idx < curIdx
+        })
+      }
+    }
+  }
+  return []
+})
+function onCascadePage() { newRule.sourceSectionId = null; newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = '' }
+function onCascadeSection() { newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = '' }
+
 // Operators filtered by source question type
 const availableOperators = computed(() => {
   const t = sourceQuestionType.value
@@ -286,11 +337,11 @@ const sourceQuestionOptions = computed(() => {
   return opts.map(o => ({ label: o.label, value: o.key })) // use key as value
 })
 function openRuleForm() {
-  newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = ''
+  newRule.sourcePageId = null; newRule.sourceSectionId = null; newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = ''
   showRuleForm.value = true
 }
 function closeRuleForm() {
-  newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = ''
+  newRule.sourcePageId = null; newRule.sourceSectionId = null; newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = ''
   showRuleForm.value = false
 }
 function onSourceQuestionChange() { newRule.op = 'eq'; newRule.value = '' }
@@ -317,6 +368,7 @@ function switchPage(idx) { currentPageIndex.value = idx; selectedQuestion.value 
 function toggleSection(key) { expandedNodes[key] = !expandedNodes[key] }
 
 function selectQuestion(q) {
+  if (selectedQuestion.value?.id === q.id) return // already selected
   selectedQuestion.value = q
   editForm.title = q.title
   editForm.type = q.type
@@ -738,6 +790,7 @@ async function deleteRule(ruleId) {
 .rule-broken-badge { font-size: 11px; cursor: help; }
 .rule-del { width: 24px; height: 24px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; }
 .rule-form { margin-top: var(--space-sm); }
+.rule-step-label { display: block; font-size: 10px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
 .rule-form-btns { display: flex; gap: 6px; margin-top: 4px; }
 
 /* Shared */

@@ -21,7 +21,7 @@
             <span class="preview-tab-qs">{{ countPageQuestions(page) }}</span>
           </button>
         </div>
-        <main class="preview-content"
+        <main class="preview-content">
           <div v-if="currentPage" class="preview-page">
             <h2 class="preview-page-title">{{ currentPage.title }}</h2>
             <div v-for="section in currentPage.sections" :key="'ps'+section.id" class="preview-section">

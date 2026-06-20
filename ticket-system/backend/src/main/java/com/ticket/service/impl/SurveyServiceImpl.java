@@ -20,6 +20,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.Map;
 
 @Service
 public class SurveyServiceImpl implements SurveyService {
@@ -231,6 +232,21 @@ public class SurveyServiceImpl implements SurveyService {
         if (request.getDescription() != null) q.setDescription(request.getDescription());
         if (request.getOptions() != null) q.setOptions(request.getOptions());
         if (request.getRequired() != null) q.setRequired(request.getRequired());
+        q.setLastModifiedBy(adminId);
+        q.setLastModifiedDate(System.currentTimeMillis());
+        questionMapper.updateById(q);
+    }
+
+    @Override
+    @Transactional
+    public void updateQuestionFields(Long questionId, Map<String, Object> fields, Long adminId) {
+        SurveyQuestion q = questionMapper.selectById(questionId);
+        if (q == null) throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND, "question not found");
+        if (fields.containsKey("type")) q.setType((String) fields.get("type"));
+        if (fields.containsKey("title")) q.setTitle((String) fields.get("title"));
+        if (fields.containsKey("description")) q.setDescription((String) fields.get("description"));
+        if (fields.containsKey("options")) q.setOptions((String) fields.get("options"));
+        if (fields.containsKey("required")) q.setRequired(fields.get("required") instanceof Boolean b && b ? 1 : (Integer) fields.get("required"));
         q.setLastModifiedBy(adminId);
         q.setLastModifiedDate(System.currentTimeMillis());
         questionMapper.updateById(q);

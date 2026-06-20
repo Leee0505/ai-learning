@@ -139,11 +139,11 @@ public class SurveyController {
     }
 
     @PutMapping("/questions/{questionId}")
-    @Operation(summary = "Update a question")
+    @Operation(summary = "Update a question (partial update)")
     public ApiResult<Void> updateQuestion(@PathVariable Long questionId,
-                                           @Valid @RequestBody AddQuestionRequest request,
+                                           @RequestBody Map<String, Object> body,
                                            @AuthenticationPrincipal UserDetailsImpl user) {
-        surveyService.updateQuestion(questionId, request, user.getUserId());
+        surveyService.updateQuestionFields(questionId, body, user.getUserId());
         return ApiResult.success();
     }
 

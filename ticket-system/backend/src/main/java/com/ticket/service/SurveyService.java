@@ -29,6 +29,7 @@ public interface SurveyService {
     // Builder — questions
     SurveyTemplateResponse.QuestionResponse addQuestion(Long sectionId, AddQuestionRequest request, Long adminId);
     void updateQuestion(Long questionId, AddQuestionRequest request, Long adminId);
+    void updateQuestionFields(Long questionId, java.util.Map<String, Object> fields, Long adminId);
     void deleteQuestion(Long questionId);
     void reorderQuestions(Long sectionId, ReorderRequest request);
 

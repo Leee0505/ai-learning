@@ -105,6 +105,12 @@ const routes = [
         meta: { requiresAuth: true, requiresAdmin: true }
       },
       {
+        path: 'admin/surveys/:id/results',
+        name: 'AdminSurveyResults',
+        component: () => import('@/views/admin/SurveyResultsView.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }
+      },
+      {
         path: 'surveys',
         name: 'MySurveys',
         component: () => import('@/views/SurveyFillView.vue'),

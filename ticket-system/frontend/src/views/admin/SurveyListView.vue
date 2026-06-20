@@ -155,7 +155,7 @@ async function handleCreate() {
 }
 
 function editTemplate(id) { router.push(`/admin/surveys/${id}/builder`) }
-function viewTemplate(id) { router.push(`/admin/surveys/${id}`) }
+function viewTemplate(id) { router.push(`/admin/surveys/${id}/results`) }
 
 async function publishTemplate(id) {
   try {

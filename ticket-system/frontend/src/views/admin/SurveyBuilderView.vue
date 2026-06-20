@@ -140,8 +140,11 @@
           <div class="props-section">
             <h4 class="props-subtitle">Visibility Rules</h4>
             <div v-if="!selectedQuestion.visibilityRules?.length" class="props-empty">No rules — question is always visible</div>
-            <div v-for="rule in selectedQuestion.visibilityRules" :key="'r'+rule.id" class="rule-row">
-              <span class="rule-text">When {{ getQuestionTitle(rule.sourceQuestionId) }} {{ rule.op }} {{ rule.value || '' }}</span>
+            <div v-for="rule in selectedQuestion.visibilityRules" :key="'r'+rule.id" class="rule-row" :class="{ 'rule-row--broken': isRuleBroken(rule) }">
+              <span class="rule-text">
+                When {{ getQuestionTitle(rule.sourceQuestionId) }} {{ rule.op }} {{ rule.value || '' }}
+                <span v-if="isRuleBroken(rule)" class="rule-broken-badge" title="Source question options have changed — rule may not match">⚠</span>
+              </span>
               <button class="rule-del" @click="deleteRule(rule.id)" aria-label="Delete rule">×</button>
             </div>
             <button class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="showRuleForm = !showRuleForm">
@@ -332,7 +335,29 @@ function saveOptions(q) {
       return
     }
   }
+  // Check if downstream rules might be broken by option changes
+  const oldOpts = parseOptions(q.options)
+  const removed = oldOpts.filter(o => !items.includes(o))
+  if (removed.length > 0) {
+    const affected = findDownstreamRules(q.id)
+    if (affected.length > 0) {
+      ElMessage.warning(`Option "${removed.join(', ')}" removed — check ${affected.length} downstream rule(s) for broken references`)
+    }
+  }
   updateQuestionApi(q.id, { options: JSON.stringify({ options: items }) }).catch(() => {})
+}
+
+// Find all visibility rules that reference a given source question
+function findDownstreamRules(sourceQid) {
+  const rules = []
+  for (const q of allQuestions.value) {
+    if (q.visibilityRules) {
+      for (const r of q.visibilityRules) {
+        if (r.sourceQuestionId === sourceQid) rules.push(r)
+      }
+    }
+  }
+  return rules
 }
 async function saveAndReturn() {
   // Save page title
@@ -453,8 +478,38 @@ async function deleteQuestion(qid) {
 
 // ── Visibility Rule Actions ──
 
+// Check if a rule value still exists in the source question's current options (for choice types)
+function isRuleBroken(rule) {
+  if (rule.op === 'answered' || rule.op === 'not_answered' || rule.op === 'is_empty' || rule.op === 'not_empty') return false
+  const srcQ = allQuestions.value.find(q => q.id === rule.sourceQuestionId)
+  if (!srcQ || !hasOptions(srcQ.type)) return false
+  const opts = parseOptions(srcQ.options)
+  if (opts.length === 0) return false
+  // For 'in', check each value; for others, check the single value
+  const vals = rule.op === 'in' || rule.op === 'not_in' ? (rule.value || '').split(',') : [rule.value]
+  return vals.some(v => !opts.includes(v))
+}
+
 async function addRule() {
   if (!newRule.sourceQuestionId || !selectedQuestion.value) return
+  // Contradiction check: same logicGroup, same sourceQuestion, contradictory condition
+  const existing = selectedQuestion.value.visibilityRules || []
+  for (const r of existing) {
+    if (r.sourceQuestionId === newRule.sourceQuestionId && r.logicGroup === (newRule.logicGroup || 0)) {
+      const contradicts =
+        (r.op === 'eq' && newRule.op === 'neq' && r.value === newRule.value) ||
+        (r.op === 'neq' && newRule.op === 'eq' && r.value === newRule.value) ||
+        (r.op === 'eq' && newRule.op === 'eq' && r.value !== newRule.value) ||
+        (r.op === 'in' && newRule.op === 'not_in' && r.value === newRule.value) ||
+        (r.op === 'not_in' && newRule.op === 'in' && r.value === newRule.value) ||
+        (r.op === 'answered' && newRule.op === 'not_answered') ||
+        (r.op === 'not_answered' && newRule.op === 'answered')
+      if (contradicts) {
+        ElMessage.warning('This rule contradicts an existing rule in the same group — would always be false')
+        return
+      }
+    }
+  }
   const { data } = await addRuleApi(template.value.id, {
     targetType: 'QUESTION', targetId: selectedQuestion.value.id,
     sourceQuestionId: newRule.sourceQuestionId, op: newRule.op,
@@ -593,7 +648,9 @@ async function deleteRule(ruleId) {
 .props-empty { font-size: var(--text-xs); color: var(--color-text-muted); padding: var(--space-sm) 0; }
 
 .rule-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); margin-bottom: 4px; font-size: var(--text-xs); }
-.rule-text { flex: 1; color: var(--color-text-secondary); }
+.rule-row--broken { border-color: #FCD34D; background: #FFFBEB; }
+.rule-text { flex: 1; color: var(--color-text-secondary); display: flex; align-items: center; gap: 4px; }
+.rule-broken-badge { font-size: 11px; cursor: help; }
 .rule-del { width: 20px; height: 20px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; }
 .rule-form { margin-top: var(--space-sm); }
 

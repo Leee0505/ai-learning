@@ -108,7 +108,15 @@
                   {{ q.visibilityRules.length }} rule{{ q.visibilityRules.length > 1 ? 's' : '' }}
                 </div>
               </div>
-              <button class="canvas-add-q" @click="addQuestion(section.id)">+ Add Question</button>
+              <div class="canvas-add-q-wrap">
+                <button v-if="!showAddQ || showAddQSection !== section.id" class="canvas-add-q" @click="showAddQ = true; showAddQSection = section.id">+ Add Question</button>
+                <div v-else class="canvas-add-q-types">
+                  <button v-for="qt in QUICK_TYPES" :key="qt.value" class="canvas-add-q-type" @click="addQuestion(section.id, qt.value); showAddQ = false">
+                    <span class="canvas-add-q-icon">{{ qt.icon }}</span>{{ qt.label }}
+                  </button>
+                  <button class="canvas-add-q-type canvas-add-q-cancel" @click="showAddQ = false">Cancel</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -196,6 +204,18 @@ const currentPageTitle = computed({
 
 const selectedQuestion = ref(null)
 const showRuleForm = ref(false)
+const showAddQ = ref(false)
+const showAddQSection = ref(null)
+
+const QUICK_TYPES = [
+  { value: 'TEXT', label: 'Text', icon: 'Aa' },
+  { value: 'SINGLE_CHOICE', label: 'Choice', icon: '◉' },
+  { value: 'MULTI_CHOICE', label: 'Multi', icon: '☑' },
+  { value: 'TEXTAREA', label: 'Long text', icon: '¶' },
+  { value: 'DATE', label: 'Date', icon: '📅' },
+  { value: 'RATING', label: 'Rating', icon: '★' },
+  { value: 'DROPDOWN', label: 'Dropdown', icon: '▼' },
+]
 
 // Reactive maps for inline editing
 const sectionTitles = reactive({})
@@ -496,8 +516,8 @@ async function saveQuestionTitle(qid) {
     await store.fetchTemplate(template.value.id)
   }
 }
-async function addQuestion(sectionId) {
-  const { data } = await addQuestionApi(sectionId, { type: 'TEXT', title: 'New Question', required: 0 })
+async function addQuestion(sectionId, type = 'TEXT') {
+  const { data } = await addQuestionApi(sectionId, { type, title: type === 'SINGLE_CHOICE' ? 'Choose one' : type === 'MULTI_CHOICE' ? 'Select all that apply' : type === 'RATING' ? 'Rate from 1-5' : 'New Question', required: 0 })
   if (data.code === 200) { ElMessage.success('Question added'); await store.fetchTemplate(template.value.id) }
 }
 async function saveQuestionProperties() {
@@ -633,16 +653,17 @@ async function deleteRule(ruleId) {
 .canvas-question {
   background: var(--color-white);
   border: 1px solid var(--color-gray-200);
-  border-left: 3px solid var(--color-gray-200);
-  border-radius: var(--radius-md);
-  padding: var(--space-lg);
-  margin-bottom: var(--space-lg);
+  border-left: 4px solid var(--color-gray-300);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin-bottom: var(--space-xl);
   cursor: pointer;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
   position: relative;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
-.canvas-question:hover { border-color: var(--color-primary-light); box-shadow: var(--shadow-sm); }
-.canvas-question--selected { border-color: var(--color-primary); border-left-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(124,58,237,0.15); background: #FAFAFE; }
+.canvas-question:hover { border-color: var(--color-primary-light); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.canvas-question--selected { border-color: var(--color-primary); border-left-color: var(--color-primary); box-shadow: 0 0 0 4px rgba(124,58,237,0.12), 0 4px 12px rgba(0,0,0,0.06); background: #FAFAFE; }
 .canvas-q-number { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--color-primary); background: var(--color-primary-bg); border-radius: 50%; flex-shrink: 0; margin-right: 2px; }
 .canvas-q-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .canvas-q-title-input { flex: 1; font-size: var(--text-sm); font-weight: 500; border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
@@ -667,6 +688,14 @@ async function deleteRule(ruleId) {
 .canvas-q-rules { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--color-gray-200); font-size: 10px; color: var(--color-primary); display: flex; align-items: center; gap: 4px; }
 .canvas-add-q { width: 100%; padding: 12px; font-size: var(--text-sm); color: var(--color-primary); background: none; border: 1px dashed var(--color-gray-300); border-radius: var(--radius-md); cursor: pointer; margin-top: var(--space-xs); min-height: 44px; }
 .canvas-add-q:hover { border-color: var(--color-primary); background: var(--color-primary-bg); }
+
+.canvas-add-q-types { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-xs); }
+.canvas-add-q-type { display: flex; align-items: center; gap: 4px; padding: 8px 12px; font-size: var(--text-xs); font-weight: 500; font-family: var(--font-body); color: var(--color-text-primary); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; min-height: 36px; transition: all var(--transition-fast); }
+.canvas-add-q-type:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-bg); }
+.canvas-add-q-icon { font-size: 13px; }
+.canvas-add-q-cancel { color: var(--color-text-muted); border-style: dashed; }
+.canvas-add-q-cancel:hover { color: var(--color-text-secondary); border-color: var(--color-gray-400); background: var(--color-gray-50); }
+.canvas-add-q-wrap { margin-top: var(--space-xs); }
 
 /* Inline editable options (for choice/dropdown types) */
 .canvas-options { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }

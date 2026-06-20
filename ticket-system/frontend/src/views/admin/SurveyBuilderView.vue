@@ -66,8 +66,12 @@
                          @focus="selectQuestion(q)" placeholder="Question" />
                   <span v-if="q.required" class="canvas-q-required">*</span>
                   <span :class="['canvas-q-type-badge', 'qtype-' + q.type.toLowerCase()]">{{ q.type.replace('_',' ') }}</span>
-                  <button v-if="qi > 0" class="canvas-q-arrow" @click.stop="moveQuestion(section, qi, -1)" :aria-label="'Move question up'" title="Move up">↑</button>
-                  <button v-if="qi < section.questions.length - 1" class="canvas-q-arrow" @click.stop="moveQuestion(section, qi, 1)" :aria-label="'Move question down'" title="Move down">↓</button>
+                  <button v-if="qi > 0" class="canvas-q-arrow" @click.stop="moveQuestion(section, qi, -1)" aria-label="Move up">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18,15 12,9 6,15"/></svg>
+                  </button>
+                  <button v-if="qi < section.questions.length - 1" class="canvas-q-arrow" @click.stop="moveQuestion(section, qi, 1)" aria-label="Move down">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6,9 12,15 18,9"/></svg>
+                  </button>
                   <button class="canvas-q-del" @click.stop="deleteQuestion(q.id)" aria-label="Delete question">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
@@ -865,8 +869,9 @@ async function deleteRule(ruleId) {
 .qtype-cascader { background: #FCE7F3; color: #9D174D; }
 .qtype-rating { background: #FFF7ED; color: #C2410C; }
 .qtype-table { background: #E0F2FE; color: #0369A1; }
-.canvas-q-arrow { width: 28px; height: 28px; padding: 0; background: var(--color-gray-50); border: 1px solid var(--color-gray-200); color: var(--color-text-muted); cursor: pointer; border-radius: 3px; font-size: 13px; line-height: 1; display: none; }
-.canvas-q-arrow:hover { background: var(--color-white); color: var(--color-text-primary); border-color: var(--color-gray-300); }
+.canvas-q-arrow { width: 28px; height: 28px; padding: 0; background: var(--color-white); border: 1px solid var(--color-gray-200); color: var(--color-text-secondary); cursor: pointer; border-radius: var(--radius-sm); display: none; transition: all var(--transition-fast); }
+.canvas-q-arrow svg { width: 14px; height: 14px; }
+.canvas-q-arrow:hover { background: var(--color-primary-bg); color: var(--color-primary); border-color: var(--color-primary); }
 .canvas-question:hover .canvas-q-arrow { display: inline-flex; align-items: center; justify-content: center; }
 .canvas-q-del { width: 32px; height: 32px; min-width: 32px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
 .canvas-q-del svg { width: 14px; height: 14px; }

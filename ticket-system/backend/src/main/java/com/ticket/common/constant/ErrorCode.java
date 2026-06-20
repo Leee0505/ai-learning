@@ -32,6 +32,15 @@ public enum ErrorCode {
     USER_ALREADY_DISABLED(40019, "user account is disabled"),
     ROLE_INVALID(40020, "invalid role specified"),
 
+    // 4003x Survey Errors
+    TEMPLATE_NOT_FOUND(40030, "survey template not found"),
+    TEMPLATE_ALREADY_PUBLISHED(40031, "published templates cannot be deleted"),
+    TEMPLATE_VERSION_CONFLICT(40032, "only one published version allowed per template chain"),
+    INSTANCE_NOT_FOUND(40033, "survey instance not found"),
+    INSTANCE_ALREADY_SUBMITTED(40034, "survey instance already submitted"),
+    SURVEY_PAGE_INCOMPLETE(40035, "please complete all required questions on this page"),
+    SURVEY_CYCLE_DETECTED(40036, "visibility rules contain a cycle — please adjust"),
+
     // 401xx Auth Errors
     INVALID_CREDENTIALS(40100, "invalid credentials"),
     TOKEN_EXPIRED(40101, "token expired"),

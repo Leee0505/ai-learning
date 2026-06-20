@@ -89,4 +89,35 @@ public final class BusinessConstants {
     public static final int DEFAULT_PAGE = 1;
     public static final int DEFAULT_SIZE = 20;
     public static final int MAX_SIZE = 100;
+
+    // === Survey status ===
+    public static final String SURVEY_STATUS_DRAFT = "DRAFT";
+    public static final String SURVEY_STATUS_PUBLISHED = "PUBLISHED";
+    public static final String SURVEY_STATUS_ARCHIVED = "ARCHIVED";
+
+    // === Survey instance status ===
+    public static final String INSTANCE_STATUS_READY = "READY_TO_START";
+    public static final String INSTANCE_STATUS_IN_PROGRESS = "IN_PROGRESS";
+    public static final String INSTANCE_STATUS_SUBMITTED = "SUBMITTED";
+    public static final String INSTANCE_STATUS_COMPLETED = "COMPLETED";
+
+    // === Survey trigger types ===
+    public static final String SURVEY_TRIGGER_TICKET = "TICKET";
+    public static final String SURVEY_TRIGGER_MANUAL = "MANUAL";
+
+    // === Survey visibility target types ===
+    public static final String SURVEY_TARGET_PAGE = "PAGE";
+    public static final String SURVEY_TARGET_SECTION = "SECTION";
+    public static final String SURVEY_TARGET_QUESTION = "QUESTION";
+
+    // === Survey question types ===
+    public static final String QTYPE_SINGLE_CHOICE = "SINGLE_CHOICE";
+    public static final String QTYPE_MULTI_CHOICE = "MULTI_CHOICE";
+    public static final String QTYPE_TEXT = "TEXT";
+    public static final String QTYPE_TEXTAREA = "TEXTAREA";
+    public static final String QTYPE_DATE = "DATE";
+    public static final String QTYPE_DROPDOWN = "DROPDOWN";
+    public static final String QTYPE_CASCADER = "CASCADER";
+    public static final String QTYPE_RATING = "RATING";
+    public static final String QTYPE_TABLE = "TABLE";
 }

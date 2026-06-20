@@ -31,4 +31,14 @@ public interface SurveyService {
     // Builder — visibility rules
     SurveyTemplateResponse.VisibilityRuleResponse addVisibilityRule(Long templateId, AddVisibilityRuleRequest request, Long adminId);
     void deleteVisibilityRule(Long ruleId);
+
+    // Instance management
+    SurveyInstanceResponse createInstance(CreateSurveyInstanceRequest request, Long adminId);
+    List<SurveyInstanceResponse> listUserInstances(Long userId);
+    List<SurveyInstanceResponse> listTemplateInstances(Long templateId);
+
+    // Fill flow
+    SurveyFillResponse getFillData(Long instanceId, Long userId);
+    void saveAnswer(Long instanceId, SaveAnswerRequest request, Long userId);
+    SurveyInstanceResponse submitSurvey(Long instanceId, SubmitSurveyRequest request, Long userId);
 }

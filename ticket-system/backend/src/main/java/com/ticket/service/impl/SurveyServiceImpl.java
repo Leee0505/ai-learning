@@ -9,6 +9,7 @@ import com.ticket.dto.response.*;
 import com.ticket.entity.*;
 import com.ticket.mapper.*;
 import com.ticket.service.SurveyService;
+import com.ticket.service.SurveyVisibilityEngine;
 import com.ticket.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,15 +30,25 @@ public class SurveyServiceImpl implements SurveyService {
     private final SurveySectionMapper sectionMapper;
     private final SurveyQuestionMapper questionMapper;
     private final SurveyVisibilityRuleMapper ruleMapper;
+    private final SurveyInstanceMapper instanceMapper;
+    private final SurveyInstancePageMapper instancePageMapper;
+    private final SurveyAnswerMapper answerMapper;
+    private final SurveyVisibilityEngine visibilityEngine;
 
     public SurveyServiceImpl(SurveyTemplateMapper templateMapper, SurveyPageMapper pageMapper,
                              SurveySectionMapper sectionMapper, SurveyQuestionMapper questionMapper,
-                             SurveyVisibilityRuleMapper ruleMapper) {
+                             SurveyVisibilityRuleMapper ruleMapper, SurveyInstanceMapper instanceMapper,
+                             SurveyInstancePageMapper instancePageMapper, SurveyAnswerMapper answerMapper,
+                             SurveyVisibilityEngine visibilityEngine) {
         this.templateMapper = templateMapper;
         this.pageMapper = pageMapper;
         this.sectionMapper = sectionMapper;
         this.questionMapper = questionMapper;
         this.ruleMapper = ruleMapper;
+        this.instanceMapper = instanceMapper;
+        this.instancePageMapper = instancePageMapper;
+        this.answerMapper = answerMapper;
+        this.visibilityEngine = visibilityEngine;
     }
 
     // ── Template CRUD ──
@@ -248,7 +259,249 @@ public class SurveyServiceImpl implements SurveyService {
         ruleMapper.deleteById(ruleId);
     }
 
+    // ── Instance Management ──
+
+    @Override
+    @Transactional
+    public SurveyInstanceResponse createInstance(CreateSurveyInstanceRequest request, Long adminId) {
+        SurveyTemplate template = findTemplateOrFail(request.getTemplateId());
+        if (!BusinessConstants.SURVEY_STATUS_PUBLISHED.equals(template.getStatus())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "only published templates can be distributed");
+        }
+
+        SurveyInstance instance = new SurveyInstance();
+        instance.setTenantId(SecurityUtils.getCurrentTenantId());
+        instance.setTemplateId(template.getId());
+        instance.setTitle(template.getTitle());
+        instance.setStatus(BusinessConstants.INSTANCE_STATUS_READY);
+        instance.setAssignedTo(request.getAssignedTo());
+        instance.setTriggerType(request.getTriggerType() != null ? request.getTriggerType() : BusinessConstants.SURVEY_TRIGGER_MANUAL);
+        instance.setTicketId(request.getTicketId());
+        instance.setCreatedBy(adminId);
+        instance.setCreatedDate(System.currentTimeMillis());
+        instanceMapper.insert(instance);
+
+        // Create instance pages for all template pages
+        List<SurveyPage> pages = pageMapper.selectList(new LambdaQueryWrapper<SurveyPage>()
+                .eq(SurveyPage::getTemplateId, template.getId()));
+        for (SurveyPage page : pages) {
+            SurveyInstancePage ip = new SurveyInstancePage();
+            ip.setInstanceId(instance.getId());
+            ip.setPageId(page.getId());
+            ip.setStatus(BusinessConstants.INSTANCE_STATUS_READY);
+            instancePageMapper.insert(ip);
+        }
+
+        log.info("Survey instance created: id={} templateId={} assignedTo={}", instance.getId(), template.getId(), request.getAssignedTo());
+        return toInstanceResponse(instance);
+    }
+
+    @Override
+    public List<SurveyInstanceResponse> listUserInstances(Long userId) {
+        return instanceMapper.selectList(new LambdaQueryWrapper<SurveyInstance>()
+                .eq(SurveyInstance::getAssignedTo, userId)
+                .orderByDesc(SurveyInstance::getCreatedDate))
+                .stream().map(this::toInstanceResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<SurveyInstanceResponse> listTemplateInstances(Long templateId) {
+        return instanceMapper.selectList(new LambdaQueryWrapper<SurveyInstance>()
+                .eq(SurveyInstance::getTemplateId, templateId)
+                .orderByDesc(SurveyInstance::getCreatedDate))
+                .stream().map(this::toInstanceResponse).collect(Collectors.toList());
+    }
+
+    // ── Fill Flow ──
+
+    @Override
+    public SurveyFillResponse getFillData(Long instanceId, Long userId) {
+        SurveyInstance instance = findInstanceOrFail(instanceId);
+        // Verify ownership
+        if (!instance.getAssignedTo().equals(userId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+
+        // Transition READY → IN_PROGRESS on first access
+        if (BusinessConstants.INSTANCE_STATUS_READY.equals(instance.getStatus())) {
+            instance.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+            instanceMapper.updateById(instance);
+        }
+
+        SurveyTemplate template = findTemplateOrFail(instance.getTemplateId());
+        SurveyTemplateResponse templateResponse = toTemplateResponse(template);
+
+        // Load existing answers
+        Map<Long, String> existingAnswers = new HashMap<>();
+        List<SurveyAnswer> answers = answerMapper.selectList(new LambdaQueryWrapper<SurveyAnswer>()
+                .eq(SurveyAnswer::getInstanceId, instanceId));
+        for (SurveyAnswer a : answers) {
+            existingAnswers.put(a.getQuestionId(), a.getValue());
+        }
+
+        // Evaluate visibility
+        Map<Long, Object> answerObjects = new HashMap<>(existingAnswers);
+        Set<String> hidden = visibilityEngine.evaluateHidden(templateResponse, answerObjects);
+
+        SurveyFillResponse response = new SurveyFillResponse();
+        response.setInstanceId(instanceId);
+        response.setInstanceStatus(instance.getStatus());
+        response.setTitle(instance.getTitle());
+        response.setPages(templateResponse.getPages());
+        response.setHiddenTargets(hidden);
+        response.setExistingAnswers(existingAnswers);
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public void saveAnswer(Long instanceId, SaveAnswerRequest request, Long userId) {
+        SurveyInstance instance = findInstanceOrFail(instanceId);
+        if (!instance.getAssignedTo().equals(userId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        if (BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(instance.getStatus())
+                || BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(instance.getStatus())) {
+            throw new BusinessException(ErrorCode.INSTANCE_ALREADY_SUBMITTED);
+        }
+
+        // Upsert answer
+        SurveyAnswer existing = answerMapper.selectOne(new LambdaQueryWrapper<SurveyAnswer>()
+                .eq(SurveyAnswer::getInstanceId, instanceId)
+                .eq(SurveyAnswer::getQuestionId, request.getQuestionId()));
+        if (existing != null) {
+            existing.setValue(request.getValue());
+            answerMapper.updateById(existing);
+        } else {
+            SurveyAnswer answer = new SurveyAnswer();
+            answer.setInstanceId(instanceId);
+            answer.setQuestionId(request.getQuestionId());
+            answer.setValue(request.getValue());
+            answerMapper.insert(answer);
+        }
+
+        // Update instance page status: find the page containing this question
+        SurveyQuestion question = questionMapper.selectById(request.getQuestionId());
+        if (question != null) {
+            SurveySection section = sectionMapper.selectById(question.getSectionId());
+            if (section != null) {
+                SurveyPage page = pageMapper.selectById(section.getPageId());
+                if (page != null) {
+                    SurveyInstancePage ip = instancePageMapper.selectOne(new LambdaQueryWrapper<SurveyInstancePage>()
+                            .eq(SurveyInstancePage::getInstanceId, instanceId)
+                            .eq(SurveyInstancePage::getPageId, page.getId()));
+                    if (ip != null && !BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(ip.getStatus())) {
+                        ip.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+                        instancePageMapper.updateById(ip);
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public SurveyInstanceResponse submitSurvey(Long instanceId, SubmitSurveyRequest request, Long userId) {
+        SurveyInstance instance = findInstanceOrFail(instanceId);
+        if (!instance.getAssignedTo().equals(userId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        if (BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(instance.getStatus())
+                || BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(instance.getStatus())) {
+            throw new BusinessException(ErrorCode.INSTANCE_ALREADY_SUBMITTED);
+        }
+
+        // Save any final answers from the submit request
+        if (request.getAnswers() != null) {
+            for (SaveAnswerRequest ans : request.getAnswers()) {
+                saveAnswer(instanceId, ans, userId);
+            }
+        }
+
+        // Validate all required questions across all pages
+        SurveyTemplate template = findTemplateOrFail(instance.getTemplateId());
+        SurveyTemplateResponse templateResponse = toTemplateResponse(template);
+
+        // Load existing answers
+        Map<Long, String> existingAnswers = new HashMap<>();
+        List<SurveyAnswer> answers = answerMapper.selectList(new LambdaQueryWrapper<SurveyAnswer>()
+                .eq(SurveyAnswer::getInstanceId, instanceId));
+        for (SurveyAnswer a : answers) {
+            existingAnswers.put(a.getQuestionId(), a.getValue());
+        }
+
+        // Check required questions are answered
+        Map<Long, Object> answerObjects = new HashMap<>(existingAnswers);
+        Set<String> hidden = visibilityEngine.evaluateHidden(templateResponse, answerObjects);
+
+        for (SurveyTemplateResponse.PageResponse page : templateResponse.getPages()) {
+            if (hidden.contains("PAGE:" + page.getId())) continue;
+            for (SurveyTemplateResponse.SectionResponse section : page.getSections()) {
+                if (hidden.contains("SECTION:" + section.getId())) continue;
+                for (SurveyTemplateResponse.QuestionResponse q : section.getQuestions()) {
+                    if (hidden.contains("QUESTION:" + q.getId())) continue;
+                    if (Boolean.TRUE.equals(q.getRequired())) {
+                        String val = existingAnswers.get(q.getId());
+                        if (val == null || val.isEmpty() || "null".equals(val)) {
+                            throw new BusinessException(ErrorCode.SURVEY_PAGE_INCOMPLETE,
+                                    "Question \"" + q.getTitle() + "\" is required");
+                        }
+                    }
+                }
+            }
+        }
+
+        // Mark all instance pages as complete
+        List<SurveyInstancePage> ipList = instancePageMapper.selectList(new LambdaQueryWrapper<SurveyInstancePage>()
+                .eq(SurveyInstancePage::getInstanceId, instanceId));
+        for (SurveyInstancePage ip : ipList) {
+            ip.setStatus(BusinessConstants.INSTANCE_STATUS_SUBMITTED);
+            instancePageMapper.updateById(ip);
+        }
+
+        instance.setStatus(BusinessConstants.INSTANCE_STATUS_SUBMITTED);
+        instanceMapper.updateById(instance);
+
+        log.info("Survey submitted: instanceId={} userId={}", instanceId, userId);
+        return toInstanceResponse(instance);
+    }
+
     // ── Private Helpers ──
+
+    private SurveyInstance findInstanceOrFail(Long id) {
+        SurveyInstance instance = instanceMapper.selectById(id);
+        if (instance == null) throw new BusinessException(ErrorCode.INSTANCE_NOT_FOUND);
+        return instance;
+    }
+
+    private SurveyInstanceResponse toInstanceResponse(SurveyInstance instance) {
+        SurveyInstanceResponse r = new SurveyInstanceResponse();
+        r.setId(instance.getId());
+        r.setTenantId(instance.getTenantId());
+        r.setTitle(instance.getTitle());
+        r.setStatus(instance.getStatus());
+        r.setAssignedTo(instance.getAssignedTo());
+        r.setTriggerType(instance.getTriggerType());
+        r.setTicketId(instance.getTicketId());
+        r.setCreatedDate(instance.getCreatedDate());
+
+        // Lookup template info
+        SurveyTemplate template = templateMapper.selectById(instance.getTemplateId());
+        if (template != null) {
+            r.setTemplateTitle(template.getTitle());
+            Long pageCount = pageMapper.selectCount(new LambdaQueryWrapper<SurveyPage>()
+                    .eq(SurveyPage::getTemplateId, template.getId()));
+            r.setTotalPages(pageCount.intValue());
+        }
+
+        // Count completed pages
+        Long completedCount = instancePageMapper.selectCount(new LambdaQueryWrapper<SurveyInstancePage>()
+                .eq(SurveyInstancePage::getInstanceId, instance.getId())
+                .eq(SurveyInstancePage::getStatus, BusinessConstants.INSTANCE_STATUS_SUBMITTED));
+        r.setCompletedPages(completedCount.intValue());
+
+        return r;
+    }
 
     private SurveyTemplate findTemplateOrFail(Long id) {
         SurveyTemplate t = templateMapper.selectById(id);

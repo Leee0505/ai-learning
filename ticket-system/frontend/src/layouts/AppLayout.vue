@@ -20,6 +20,7 @@
             <router-link to="/tickets" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/tickets') }">Tickets</router-link>
             <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/templates" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/templates') }">Templates</router-link>
             <router-link v-if="authStore.isAgent || authStore.isAdmin" to="/knowledge" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/knowledge') }">Knowledge</router-link>
+            <router-link to="/surveys" class="app-nav-link" :class="{ 'app-nav-link--active': $route.path.startsWith('/surveys') }">Surveys</router-link>
             <!-- Admin dropdown -->
             <div v-if="authStore.isAdmin" class="admin-dropdown" ref="adminDropdownRef">
               <button

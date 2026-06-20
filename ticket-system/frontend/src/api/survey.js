@@ -12,6 +12,8 @@ export function addPageApi(templateId, data) { return request.post(`/admin/surve
 export function deletePageApi(pageId) { return request.delete(`/admin/surveys/pages/${pageId}`) }
 export function addSectionApi(pageId, data) { return request.post(`/admin/surveys/pages/${pageId}/sections`, data) }
 export function deleteSectionApi(sectionId) { return request.delete(`/admin/surveys/sections/${sectionId}`) }
+export function updatePageApi(pageId, data) { return request.put(`/admin/surveys/pages/${pageId}`, data) }
+export function updateSectionApi(sectionId, data) { return request.put(`/admin/surveys/sections/${sectionId}`, data) }
 export function addQuestionApi(sectionId, data) { return request.post(`/admin/surveys/sections/${sectionId}/questions`, data) }
 export function updateQuestionApi(questionId, data) { return request.put(`/admin/surveys/questions/${questionId}`, data) }
 export function deleteQuestionApi(questionId) { return request.delete(`/admin/surveys/questions/${questionId}`) }

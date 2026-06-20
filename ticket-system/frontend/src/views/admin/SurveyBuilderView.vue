@@ -65,7 +65,7 @@
                          @blur="saveQuestionTitle(q.id)" @keyup.enter="($event.target.blur())"
                          @click.stop placeholder="Question" />
                   <span v-if="q.required" class="canvas-q-required">*</span>
-                  <span class="canvas-q-type-badge">{{ q.type.replace('_',' ') }}</span>
+                  <span :class="['canvas-q-type-badge', 'qtype-' + q.type.toLowerCase()]">{{ q.type.replace('_',' ') }}</span>
                   <button class="canvas-q-del" @click.stop="deleteQuestion(q.id)" aria-label="Delete question">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
@@ -173,7 +173,7 @@ import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSurveyStore } from '@/stores/survey'
-import { updateTemplateApi, addPageApi, deletePageApi, addSectionApi, deleteSectionApi, addQuestionApi, updateQuestionApi, deleteQuestionApi, addRuleApi, deleteRuleApi } from '@/api/survey'
+import { updateTemplateApi, addPageApi, deletePageApi, updatePageApi, addSectionApi, deleteSectionApi, updateSectionApi, addQuestionApi, updateQuestionApi, deleteQuestionApi, addRuleApi, deleteRuleApi } from '@/api/survey'
 
 const store = useSurveyStore()
 const route = useRoute()
@@ -295,11 +295,26 @@ async function saveOptions(q) {
   }
   await updateQuestionApi(q.id, { options: JSON.stringify({ options: items }) })
 }
-function saveAndReturn() {
-  // Blur active element to trigger any pending on-blur title/option saves
+async function saveAndReturn() {
+  // Save current page title
+  if (currentPage.value) {
+    await updatePageApi(currentPage.value.id, { title: currentPage.value.title })
+  }
+  // Save all section titles
+  for (const s of currentPage.value?.sections || []) {
+    if (sectionTitles[s.id] && sectionTitles[s.id] !== s.title) {
+      await updateSectionApi(s.id, { title: sectionTitles[s.id] })
+    }
+  }
+  // Save all question titles
+  for (const q of allQuestions.value) {
+    if (questionTitles[q.id] && questionTitles[q.id] !== q.title) {
+      await updateQuestionApi(q.id, { title: questionTitles[q.id] })
+    }
+  }
+  // Blur active element
   if (document.activeElement) document.activeElement.blur()
-  // Small delay for async save calls to fire, then navigate
-  setTimeout(() => router.push('/admin/surveys'), 200)
+  router.push('/admin/surveys')
 }
 function getRatingMax(optionsJson) {
   try { return JSON.parse(optionsJson || '{}').max || 5 }
@@ -323,7 +338,8 @@ function getQuestionTitle(qid) {
 
 async function savePageTitle() {
   if (!currentPage.value) return
-  await updateTemplateApi(template.value.id, { title: template.value.title })
+  const newTitle = currentPage.value.title
+  await updatePageApi(currentPage.value.id, { title: newTitle })
 }
 
 async function addPage() {
@@ -347,7 +363,9 @@ async function deletePage(pageId) {
 // ── Section Actions ──
 
 async function saveSectionTitle(sectionId) {
-  // Section title edit — would need a dedicated endpoint
+  const newTitle = sectionTitles[sectionId]
+  if (!newTitle) return
+  await updateSectionApi(sectionId, { title: newTitle })
 }
 async function addSection(pageId) {
   const { data } = await addSectionApi(pageId, { title: 'New Section' })
@@ -364,6 +382,7 @@ async function saveQuestionTitle(qid) {
   const q = allQuestions.value.find(q => q.id === qid)
   if (q && questionTitles[qid] !== q.title) {
     await updateQuestionApi(qid, { title: questionTitles[qid] })
+    await store.fetchTemplate(template.value.id)
   }
 }
 async function addQuestion(sectionId) {
@@ -488,6 +507,15 @@ async function deleteRule(ruleId) {
 .canvas-q-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
 .canvas-q-required { color: var(--color-danger); font-weight: 700; font-size: var(--text-sm); }
 .canvas-q-type-badge { font-size: 10px; font-weight: 600; color: var(--color-text-muted); background: var(--color-gray-100); padding: 2px 6px; border-radius: var(--radius-full); text-transform: uppercase; white-space: nowrap; }
+.qtype-single_choice { background: #DBEAFE; color: #1D4ED8; }
+.qtype-multi_choice { background: #D1FAE5; color: #047857; }
+.qtype-text { background: var(--color-gray-100); color: var(--color-text-secondary); }
+.qtype-textarea { background: var(--color-gray-100); color: var(--color-text-secondary); }
+.qtype-date { background: #FEF3C7; color: #92400E; }
+.qtype-dropdown { background: #EDE9FE; color: #6D28D9; }
+.qtype-cascader { background: #FCE7F3; color: #9D174D; }
+.qtype-rating { background: #FFF7ED; color: #C2410C; }
+.qtype-table { background: #E0F2FE; color: #0369A1; }
 .canvas-q-del { width: 28px; height: 28px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
 .canvas-q-del svg { width: 14px; height: 14px; }
 .canvas-question:hover .canvas-q-del { display: flex; align-items: center; justify-content: center; }

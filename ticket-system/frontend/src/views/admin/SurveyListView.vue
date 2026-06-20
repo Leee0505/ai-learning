@@ -116,7 +116,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSurveyStore } from '@/stores/survey'
-import { updateTemplateApi } from '@/api/survey'
+import { getTemplateApi, updateTemplateApi } from '@/api/survey'
 import { formatDate } from '@/utils/date'
 
 const store = useSurveyStore()
@@ -161,10 +161,38 @@ async function publishTemplate(id) {
   try {
     await ElMessageBox.confirm('Publish this template? Once published, instances can be distributed.', 'Publish Template', { confirmButtonText: 'Publish', type: 'info' })
   } catch { return }
+  // Validate before publishing
+  const { data: tpl } = await getTemplateApi(id)
+  if (tpl.code !== 200) { ElMessage.error('Failed to load template'); return }
+  const errors = []
+  for (const page of tpl.data.pages || []) {
+    for (const section of page.sections || []) {
+      if (!section.questions || section.questions.length === 0) {
+        errors.push(`Section "${section.title}" in "${page.title}" has no questions`)
+        continue
+      }
+      for (const q of section.questions) {
+        if (q.type === 'SINGLE_CHOICE' || q.type === 'MULTI_CHOICE' || q.type === 'DROPDOWN') {
+          const opts = parseOpts(q.options)
+          if (opts.length === 0) errors.push(`"${q.title}" has no options configured`)
+        }
+        if (q.type === 'RATING') {
+          const max = getMax(q.options)
+          if (!max || max < 2) errors.push(`"${q.title}" rating max must be at least 2`)
+        }
+      }
+    }
+  }
+  if (errors.length > 0) {
+    ElMessage.warning('Cannot publish: ' + errors.slice(0, 3).join('; ') + (errors.length > 3 ? ` ...and ${errors.length - 3} more` : ''))
+    return
+  }
   const { data } = await updateTemplateApi(id, { status: 'PUBLISHED' })
   if (data.code === 200) { ElMessage.success('Published'); store.fetchTemplates() }
   else ElMessage.error(data.message)
 }
+function parseOpts(json) { try { return JSON.parse(json || '{}').options || [] } catch { return [] } }
+function getMax(json) { try { return JSON.parse(json || '{}').max } catch { return null } }
 
 async function archiveTemplate(id) {
   try {

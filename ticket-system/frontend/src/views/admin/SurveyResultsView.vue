@@ -12,6 +12,38 @@
     <div v-if="!results" class="loading">Loading...</div>
 
     <div v-else class="results-body">
+      <!-- Template structure -->
+      <section v-if="template?.pages" class="template-structure">
+        <h2 class="section-heading">Template Structure</h2>
+        <div v-for="page in template.pages" :key="'p'+page.id" class="structure-page">
+          <h3 class="structure-page-title">📄 {{ page.title }}</h3>
+          <div v-for="section in page.sections" :key="'s'+section.id" class="structure-section">
+            <h4 class="structure-section-title">{{ section.title }}</h4>
+            <div v-for="q in section.questions" :key="'q'+q.id" class="structure-q">
+              <div class="structure-q-header">
+                <span class="structure-q-title">{{ q.title }}</span>
+                <span :class="['canvas-q-type-badge', 'qtype-' + q.type.toLowerCase()]">{{ q.type.replace('_',' ') }}</span>
+                <span v-if="q.required" class="structure-required">Required</span>
+              </div>
+              <div v-if="hasOpts(q.type) && q.options" class="structure-q-opts">
+                Options: {{ formatOpts(q.options) }}
+              </div>
+              <div v-if="q.type === 'RATING' && q.options" class="structure-q-opts">
+                Scale: 1 – {{ getRatingMax(q.options) }}
+              </div>
+              <div v-if="q.type === 'TABLE' && q.options" class="structure-q-opts">
+                {{ getTableCols(q.options) }} columns, {{ getTableRows(q.options) }} rows
+              </div>
+              <div v-if="q.visibilityRules?.length" class="structure-q-rules">
+                Visibility: {{ q.visibilityRules.length }} rule(s)
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Results (if any instances exist) -->
+      <h2 v-if="results" class="section-heading">Results</h2>
       <div v-for="q in questionsWithLabels" :key="q.questionId" class="result-card">
         <h3 class="result-q-title">{{ q.title }} <span class="result-q-type">{{ q.type.replace('_',' ') }}</span></h3>
 
@@ -89,6 +121,12 @@ const questionsWithLabels = computed(() => {
   })
 })
 
+function hasOpts(t) { return ['SINGLE_CHOICE','MULTI_CHOICE','DROPDOWN','CASCADER'].includes(t) }
+function formatOpts(json) { try { const o = JSON.parse(json || '{}'); const raw = o.options || []; return raw.map(r => typeof r === 'object' ? r.label : r).join(', ') } catch { return '' } }
+function getRatingMax(json) { try { return JSON.parse(json || '{}').max || 5 } catch { return 5 } }
+function getTableCols(json) { try { return (JSON.parse(json || '{}').columns || []).length } catch { return 0 } }
+function getTableRows(json) { try { return JSON.parse(json || '{}').rows || 3 } catch { return 3 } }
+
 function barWidth(count, counts) {
   const max = Math.max(...Object.values(counts), 1)
   return Math.round((count / max) * 100)
@@ -129,6 +167,29 @@ onMounted(async () => {
 .result-texts { display: flex; flex-direction: column; gap: 6px; }
 .result-text-item { padding: 8px 12px; font-size: var(--text-sm); background: var(--color-gray-50); border-radius: var(--radius-sm); color: var(--color-text-primary); }
 .muted { font-size: var(--text-sm); color: var(--color-text-muted); }
+
+/* Template structure */
+.section-heading { font-size: var(--text-lg); font-weight: 600; margin: var(--space-xl) 0 var(--space-md); padding-bottom: var(--space-sm); border-bottom: 2px solid var(--color-gray-200); }
+.structure-page { margin-bottom: var(--space-lg); }
+.structure-page-title { font-size: var(--text-base); font-weight: 600; margin: 0 0 var(--space-sm); }
+.structure-section { margin-left: var(--space-lg); margin-bottom: var(--space-md); }
+.structure-section-title { font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); margin: 0 0 var(--space-sm); text-transform: uppercase; letter-spacing: 0.5px; }
+.structure-q { padding: 8px 12px; margin-bottom: 4px; background: var(--color-white); border: 1px solid var(--color-gray-100); border-radius: var(--radius-sm); }
+.structure-q-header { display: flex; align-items: center; gap: 8px; }
+.structure-q-title { font-size: var(--text-sm); font-weight: 500; }
+.structure-q-opts { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 4px; }
+.structure-q-rules { font-size: var(--text-xs); color: var(--color-primary); margin-top: 2px; }
+.structure-required { font-size: 10px; font-weight: 600; color: var(--color-danger); background: #FEE2E2; padding: 1px 6px; border-radius: var(--radius-full); }
+.canvas-q-type-badge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: var(--radius-full); text-transform: uppercase; }
+.qtype-single_choice { background: #DBEAFE; color: #1D4ED8; }
+.qtype-multi_choice { background: #D1FAE5; color: #047857; }
+.qtype-text { background: var(--color-gray-100); color: var(--color-text-secondary); }
+.qtype-textarea { background: var(--color-gray-100); color: var(--color-text-secondary); }
+.qtype-date { background: #FEF3C7; color: #92400E; }
+.qtype-dropdown { background: #EDE9FE; color: #6D28D9; }
+.qtype-cascader { background: #FCE7F3; color: #9D174D; }
+.qtype-rating { background: #FFF7ED; color: #C2410C; }
+.qtype-table { background: #E0F2FE; color: #0369A1; }
 
 @media (max-width: 768px) {
   .result-bar-label { width: 60px; font-size: var(--text-xs); }

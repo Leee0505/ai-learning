@@ -166,6 +166,16 @@ public class SurveyServiceImpl implements SurveyService {
         page.setCreatedBy(adminId);
         page.setCreatedDate(System.currentTimeMillis());
         pageMapper.insert(page);
+
+        // Auto-create default first section
+        SurveySection section = new SurveySection();
+        section.setPageId(page.getId());
+        section.setTitle("Section 1");
+        section.setDisplayOrder(1);
+        section.setCreatedBy(adminId);
+        section.setCreatedDate(System.currentTimeMillis());
+        sectionMapper.insert(section);
+
         return toPageResponse(page);
     }
 
@@ -310,7 +320,7 @@ public class SurveyServiceImpl implements SurveyService {
         rule.setSourceQuestionId(request.getSourceQuestionId());
         rule.setOp(request.getOp());
         rule.setValue(request.getValue());
-        rule.setLogicGroup(request.getLogicGroup() != null ? String.valueOf(request.getLogicGroup()) : "0");
+        rule.setRuleType(request.getRuleType() != null ? request.getRuleType() : "AND");
         rule.setDisplayOrder(1);
         rule.setCreatedBy(adminId);
         rule.setCreatedDate(System.currentTimeMillis());
@@ -712,7 +722,7 @@ public class SurveyServiceImpl implements SurveyService {
                 new LambdaQueryWrapper<SurveyVisibilityRule>()
                         .eq(SurveyVisibilityRule::getTargetType, targetType)
                         .eq(SurveyVisibilityRule::getTargetId, targetId)
-                        .orderByAsc(SurveyVisibilityRule::getLogicGroup, SurveyVisibilityRule::getDisplayOrder));
+                        .orderByAsc(SurveyVisibilityRule::getRuleType, SurveyVisibilityRule::getDisplayOrder));
         return rules.stream().map(this::toRuleResponse).collect(Collectors.toList());
     }
 
@@ -722,11 +732,7 @@ public class SurveyServiceImpl implements SurveyService {
         vr.setSourceQuestionId(rl.getSourceQuestionId());
         vr.setOp(rl.getOp());
         vr.setValue(rl.getValue());
-        try {
-            vr.setLogicGroup(rl.getLogicGroup() != null ? Integer.parseInt(rl.getLogicGroup()) : 0);
-        } catch (NumberFormatException e) {
-            vr.setLogicGroup(0);
-        }
+        vr.setRuleType(rl.getRuleType() != null ? rl.getRuleType() : "AND");
         return vr;
     }
 }

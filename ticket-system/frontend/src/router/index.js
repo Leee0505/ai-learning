@@ -93,6 +93,12 @@ const routes = [
         meta: { requiresAuth: true, requiresAdmin: true }
       },
       {
+        path: 'admin/surveys/:id/distribute',
+        name: 'AdminSurveyDistribute',
+        component: () => import('@/views/admin/SurveyDistributeView.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }
+      },
+      {
         path: 'admin/surveys/:id',
         name: 'AdminSurveyView',
         component: () => import('@/views/admin/SurveyBuilderView.vue'),

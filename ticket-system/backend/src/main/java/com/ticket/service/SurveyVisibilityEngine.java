@@ -35,30 +35,43 @@ public class SurveyVisibilityEngine {
     }
 
     /**
-     * Check if a group of rules is satisfied.
-     * Same logicGroup → AND, different groups → OR.
+     * Evaluate rules with flat AND/OR logic.
+     * - All AND rules must be satisfied.
+     * - At least one OR rule (if any) must be satisfied.
+     * - With both: all AND rules satisfied AND at least one OR rule satisfied.
      */
     private boolean evaluateRules(List<SurveyTemplateResponse.VisibilityRuleResponse> rules,
                                    Map<Long, Object> answers) {
         if (rules == null || rules.isEmpty()) return true;
 
-        Map<Integer, List<SurveyTemplateResponse.VisibilityRuleResponse>> grouped = new HashMap<>();
+        List<SurveyTemplateResponse.VisibilityRuleResponse> andRules = new ArrayList<>();
+        List<SurveyTemplateResponse.VisibilityRuleResponse> orRules = new ArrayList<>();
         for (var r : rules) {
-            grouped.computeIfAbsent(r.getLogicGroup(), k -> new ArrayList<>()).add(r);
+            if ("OR".equalsIgnoreCase(r.getRuleType())) {
+                orRules.add(r);
+            } else {
+                andRules.add(r);
+            }
         }
 
-        // At least one group must be fully satisfied (OR across groups)
-        for (List<SurveyTemplateResponse.VisibilityRuleResponse> group : grouped.values()) {
-            boolean groupSatisfied = true;
-            for (var r : group) {
-                if (!evaluateSingleRule(r, answers)) {
-                    groupSatisfied = false;
+        // All AND rules must pass
+        for (var r : andRules) {
+            if (!evaluateSingleRule(r, answers)) return false;
+        }
+
+        // If OR rules exist, at least one must pass
+        if (!orRules.isEmpty()) {
+            boolean anyOrSatisfied = false;
+            for (var r : orRules) {
+                if (evaluateSingleRule(r, answers)) {
+                    anyOrSatisfied = true;
                     break;
                 }
             }
-            if (groupSatisfied) return true;
+            return anyOrSatisfied;
         }
-        return false;
+
+        return true;
     }
 
     private boolean evaluateSingleRule(SurveyTemplateResponse.VisibilityRuleResponse rule,

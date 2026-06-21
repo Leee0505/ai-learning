@@ -15,7 +15,7 @@ public class SurveyVisibilityRule {
     private Long sourceQuestionId;
     private String op;
     private String value;
-    private String logicGroup;
+    private String ruleType;
     private Integer displayOrder;
 
     @TableField(fill = FieldFill.INSERT)

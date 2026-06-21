@@ -15,5 +15,5 @@ public class AddVisibilityRuleRequest {
     @NotBlank
     private String op;
     private String value;
-    private Integer logicGroup = 0;
+    private String ruleType = "AND";
 }

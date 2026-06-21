@@ -24,39 +24,49 @@
                   class="page-tab" :class="{ 'page-tab--active': currentPageIndex === pi }"
                   @click="switchPage(pi)">
             <span class="page-tab-num">{{ pi + 1 }}</span>
-            <span class="page-tab-label">{{ page.title }}</span>
+            <span v-if="editingTab !== 'p'+page.id" class="page-tab-label" @dblclick.stop="editingTab = 'p'+page.id">{{ page.title }}</span>
+            <input v-else :value="page.title" class="page-tab-title-input"
+                   @click.stop @blur="updatePageTitle(page, $event.target.value); editingTab = null"
+                   @keyup.enter="($event.target.blur())" @vue:mounted="$el.focus()" placeholder="Page" />
             <button v-if="template.pages.length > 1" class="page-tab-del" @click.stop="deletePage(page.id)" aria-label="Delete page">×</button>
           </button>
           <button class="page-tab page-tab--add" @click="addPage" aria-label="Add page">+ Add Page</button>
         </div>
         <div v-if="currentPage" class="canvas">
-          <!-- Page title (editable) -->
-          <div class="canvas-page-header">
-            <input v-model="currentPageTitle" class="canvas-page-title-input" @blur="savePageTitle" @keyup.enter="($event.target.blur())" placeholder="Page title" />
-            <button class="inline-rules-btn" :class="{ 'inline-rules-btn--empty': !canAddRuleForTarget && countRulesFor('PAGE', currentPage.id) === 0 }" @click="canAddRuleForTarget && openRuleFor('PAGE', currentPage.id)" :aria-label="'Page visibility rules'" :title="canAddRuleForTarget ? 'Page visibility rules' : 'Add questions to previous pages first'">
-              {{ countRulesFor('PAGE', currentPage.id) || 'No' }} rule{{ countRulesFor('PAGE', currentPage.id) !== 1 ? 's' : '' }}
+          <!-- Section tabs -->
+          <div v-if="currentPage.sections?.length" class="canvas-section-tabs">
+            <button v-for="(section, si) in currentPage.sections" :key="'st'+section.id"
+                    class="section-tab" :class="{ 'section-tab--active': currentSectionIndex === si }"
+                    @click="currentSectionIndex = si">
+              <span class="section-tab-num">{{ si + 1 }}</span>
+              <span v-if="editingTab !== 's'+section.id" class="section-tab-label" @dblclick.stop="editingTab = 's'+section.id">{{ section.title }}</span>
+              <input v-else v-model="sectionTitles[section.id]" class="section-tab-title-input"
+                     @click.stop @blur="saveSectionTitle(section.id); editingTab = null"
+                     @keyup.enter="($event.target.blur())" @vue:mounted="$el.focus()" placeholder="Section" />
+              <span class="section-tab-qs">{{ section.questions?.length || 0 }} Q</span>
+              <button v-if="currentPage.sections.length > 1" class="section-tab-del" @click.stop="deleteSection(section.id)" aria-label="Delete section">×</button>
             </button>
-            <button class="canvas-add-section" @click="addSection(currentPage.id)">+ Add Section</button>
+            <button class="section-tab section-tab--add" @click="addSection(currentPage.id)" aria-label="Add section">+ Add Section</button>
+            <span class="canvas-tab-actions">
+              <button class="inline-rules-btn" :class="{ 'inline-rules-btn--empty': countRulesFor('PAGE', currentPage.id) === 0 }" @click="openRuleFor('PAGE', currentPage.id)" :aria-label="'Page visibility rules'" :title="'Page visibility rules'">
+                {{ countRulesFor('PAGE', currentPage.id) || 'No' }} page rule{{ countRulesFor('PAGE', currentPage.id) !== 1 ? 's' : '' }}
+              </button>
+            </span>
           </div>
 
-          <!-- Sections and Questions -->
-          <div v-for="section in currentPage.sections" :key="'cs'+section.id" class="canvas-section">
-            <div class="canvas-section-header">
-              <button class="canvas-section-toggle" @click="toggleSection('s'+section.id)" :aria-label="expandedNodes['s'+section.id] ? 'Collapse' : 'Expand'">
-                {{ expandedNodes['s'+section.id] ? '▾' : '▸' }}
+          <!-- Current Section Content -->
+          <div v-if="currentSection" class="canvas">
+            <div class="canvas-section-actions">
+              <button class="inline-rules-btn" :class="{ 'inline-rules-btn--empty': countRulesFor('SECTION', currentSection.id) === 0 }" @click.stop="openRuleFor('SECTION', currentSection.id)" :aria-label="'Section visibility rules'" :title="'Section visibility rules'">
+                {{ countRulesFor('SECTION', currentSection.id) || 'No' }} section rule{{ countRulesFor('SECTION', currentSection.id) !== 1 ? 's' : '' }}
               </button>
-              <input v-model="sectionTitles[section.id]" class="canvas-section-title-input" @blur="saveSectionTitle(section.id)" @keyup.enter="($event.target.blur())" placeholder="Section title" />
-              <button class="inline-rules-btn" :class="{ 'inline-rules-btn--empty': !canAddRuleForTarget && countRulesFor('SECTION', section.id) === 0 }" @click.stop="canAddRuleForTarget && openRuleFor('SECTION', section.id)" :aria-label="'Section visibility rules'" :title="canAddRuleForTarget ? 'Section visibility rules' : 'Add questions to previous sections first'">
-                {{ countRulesFor('SECTION', section.id) || 'No' }} rule{{ countRulesFor('SECTION', section.id) !== 1 ? 's' : '' }}
-              </button>
-              <button class="canvas-section-del" @click="deleteSection(section.id)" aria-label="Delete section">×</button>
             </div>
-            <p v-if="section.description" class="canvas-section-desc">{{ section.description }}</p>
+            <p v-if="currentSection.description" class="canvas-section-desc">{{ currentSection.description }}</p>
 
             <!-- Editable questions -->
-            <div v-if="expandedNodes['s'+section.id]" class="canvas-questions">
-              <div v-for="(q, qi) in section.questions" :key="'cq'+q.id"
-                   class="canvas-question" :class="{ 'canvas-question--selected': selectedQuestion?.id === q.id }"
+            <div class="canvas-questions">
+              <div v-for="(q, qi) in currentSection.questions" :key="'cq'+q.id"
+                   class="canvas-question" :class="{ 'canvas-question--selected': selectedQuestion?.id === q.id, 'canvas-question--error': getQuestionErrors(q).length > 0 }"
                    @click="selectQuestion(q)">
                 <div class="canvas-q-row">
                   <span class="canvas-q-number">{{ qi + 1 }}</span>
@@ -65,10 +75,10 @@
                          @focus="selectQuestion(q)" placeholder="Question" />
                   <span v-if="q.required" class="canvas-q-required">*</span>
                   <span :class="['canvas-q-type-badge', 'qtype-' + q.type.toLowerCase()]">{{ q.type.replace('_',' ') }}</span>
-                  <button v-if="qi > 0" class="canvas-q-arrow" @click.stop="moveQuestion(section, qi, -1)" aria-label="Move up">
+                  <button v-if="qi > 0" class="canvas-q-arrow" @click.stop="moveQuestion(currentSection, qi, -1)" aria-label="Move up">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18,15 12,9 6,15"/></svg>
                   </button>
-                  <button v-if="qi < section.questions.length - 1" class="canvas-q-arrow" @click.stop="moveQuestion(section, qi, 1)" aria-label="Move down">
+                  <button v-if="qi < currentSection.questions.length - 1" class="canvas-q-arrow" @click.stop="moveQuestion(currentSection, qi, 1)" aria-label="Move down">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6,9 12,15 18,9"/></svg>
                   </button>
                   <button class="canvas-q-del" @click.stop="deleteQuestion(q.id)" aria-label="Delete question">
@@ -116,11 +126,13 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   {{ q.visibilityRules.length }} rule{{ q.visibilityRules.length > 1 ? 's' : '' }}
                 </div>
+                <!-- Validation errors -->
+                <div v-if="getQuestionErrors(q).length" class="canvas-q-errors">{{ getQuestionErrors(q).join('; ') }}</div>
               </div>
               <div class="canvas-add-q-wrap">
-                <button v-if="!showAddQ || showAddQSection !== section.id" class="canvas-add-q" @click="showAddQ = true; showAddQSection = section.id">+ Add Question</button>
+                <button v-if="!showAddQ || showAddQSection !== currentSection.id" class="canvas-add-q" @click="showAddQ = true; showAddQSection = currentSection.id">+ Add Question</button>
                 <div v-else class="canvas-add-q-types">
-                  <button v-for="qt in QUICK_TYPES" :key="qt.value" class="canvas-add-q-type" @click="addQuestion(section.id, qt.value); showAddQ = false">
+                  <button v-for="qt in QUICK_TYPES" :key="qt.value" class="canvas-add-q-type" @click="addQuestion(currentSection.id, qt.value); showAddQ = false">
                     <span class="canvas-add-q-abbr">{{ qt.abbr }}</span>{{ qt.label }}
                   </button>
                   <button class="canvas-add-q-type canvas-add-q-cancel" @click="showAddQ = false">Cancel</button>
@@ -130,6 +142,10 @@
           </div>
         </div>
         <div v-else class="builder-hint">No pages yet. Add a page from the left panel.</div>
+        <div v-if="currentPage" class="canvas-scroll-btns">
+          <button class="scroll-btn" @click="scrollCanvas('top')" aria-label="Scroll to top">↑ Top</button>
+          <button class="scroll-btn" @click="scrollCanvas('bottom')" aria-label="Scroll to bottom">↓ Bottom</button>
+        </div>
       </main>
 
       <!-- Right: Properties Panel -->
@@ -144,13 +160,16 @@
           <div class="props-section">
             <h4 class="props-subtitle">Visibility Rules</h4>
             <div v-if="!currentTargetRules.length" class="props-empty">No rules — {{ ruleTarget.type === 'PAGE' ? 'page' : 'section' }} is always visible</div>
-            <div v-for="rule in currentTargetRules" :key="'r'+rule.id" class="rule-row" :class="{ 'rule-row--broken': isRuleBroken(rule) }">
-              <span class="rule-text">
-                When {{ getQuestionTitle(rule.sourceQuestionId) }} {{ rule.op }} {{ getOptionLabel(rule.sourceQuestionId, rule.value) || rule.value || '' }}
-                <span v-if="isRuleBroken(rule)" class="rule-broken-badge" title="Source question options have changed — rule may not match">⚠</span>
-              </span>
-              <button class="rule-del" @click="deleteRule(rule.id)" aria-label="Delete rule">×</button>
-            </div>
+            <template v-for="(grp, gi) in groupedCurrentTargetRules" :key="'g'+grp.group">
+              <div class="rule-group-label">{{ gi === 0 ? 'AND — all must match' : 'OR — any can match' }}</div>
+              <div v-for="rule in grp.rules" :key="'r'+rule.id" class="rule-row" :class="{ 'rule-row--broken': isRuleBroken(rule) }" @click="editRule(rule)">
+                <span class="rule-text">
+                  When {{ getQuestionTitle(rule.sourceQuestionId) }} {{ rule.op }} {{ getOptionLabel(rule.sourceQuestionId, rule.value) || rule.value || '' }}
+                  <span v-if="isRuleBroken(rule)" class="rule-broken-badge" title="Source question options have changed — rule may not match">⚠</span>
+                </span>
+                <button class="rule-del" @click.stop="deleteRule(rule.id)" aria-label="Delete rule">×</button>
+              </div>
+            </template>
             <button v-if="!showRuleForm && canAddRuleForTarget" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="openRuleForm">+ Add Rule</button>
             <div v-if="showRuleForm" class="rule-form">
               <div class="rule-step">
@@ -180,9 +199,16 @@
                 </select>
                 <input v-else-if="newRule.op !== 'answered' && newRule.op !== 'not_answered' && newRule.op !== 'is_empty' && newRule.op !== 'not_empty'" v-model="newRule.value" class="input" style="margin-top:6px" :placeholder="sourceQuestionType === 'RATING' || sourceQuestionType === 'NUMBER' ? 'Enter number' : 'Value'" />
               </div>
+              <div class="rule-step">
+                <label class="rule-step-label">3. Rule Type</label>
+                <div class="rule-logic-row">
+                  <button type="button" class="rule-logic-btn" :class="{ 'rule-logic-btn--active': newRule.ruleType === 'AND' }" @click="newRule.ruleType = 'AND'">AND — all must match</button>
+                  <button type="button" class="rule-logic-btn" :class="{ 'rule-logic-btn--active': newRule.ruleType === 'OR' }" @click="newRule.ruleType = 'OR'">OR — any can match</button>
+                </div>
+              </div>
               <div class="rule-form-btns">
                 <button class="btn-secondary" style="flex:1;font-size:var(--text-xs)" @click="closeRuleForm">Cancel</button>
-                <button class="btn-primary" style="flex:2;font-size:var(--text-xs)" :disabled="!newRule.sourceQuestionId || !newRule.op" @click="addRule">Add Rule</button>
+                <button class="btn-primary" style="flex:2;font-size:var(--text-xs)" :disabled="!newRule.sourceQuestionId || !newRule.op" @click="addRule">{{ editingRuleId ? 'Update Rule' : 'Add Rule' }}</button>
               </div>
             </div>
           </div>
@@ -236,14 +262,17 @@
           <!-- Visibility Rules -->
           <div class="props-section">
             <h4 class="props-subtitle">Visibility Rules</h4>
-            <div v-if="!selectedQuestion.visibilityRules?.length" class="props-empty">No rules — question is always visible</div>
-            <div v-for="rule in selectedQuestion.visibilityRules" :key="'r'+rule.id" class="rule-row" :class="{ 'rule-row--broken': isRuleBroken(rule) }">
-              <span class="rule-text">
-                When {{ getQuestionTitle(rule.sourceQuestionId) }} {{ rule.op }} {{ getOptionLabel(rule.sourceQuestionId, rule.value) || rule.value || '' }}
-                <span v-if="isRuleBroken(rule)" class="rule-broken-badge" title="Source question options have changed — rule may not match">⚠</span>
-              </span>
-              <button class="rule-del" @click="deleteRule(rule.id)" aria-label="Delete rule">×</button>
-            </div>
+            <div v-if="!currentTargetRules.length" class="props-empty">No rules — question is always visible</div>
+            <template v-for="(grp, gi) in groupedCurrentTargetRules" :key="'g'+grp.group">
+              <div class="rule-group-label">{{ gi === 0 ? 'AND — all must match' : 'OR — any can match' }}</div>
+              <div v-for="rule in grp.rules" :key="'r'+rule.id" class="rule-row" :class="{ 'rule-row--broken': isRuleBroken(rule) }" @click="editRule(rule)">
+                <span class="rule-text">
+                  When {{ getQuestionTitle(rule.sourceQuestionId) }} {{ rule.op }} {{ getOptionLabel(rule.sourceQuestionId, rule.value) || rule.value || '' }}
+                  <span v-if="isRuleBroken(rule)" class="rule-broken-badge" title="Source question options have changed — rule may not match">⚠</span>
+                </span>
+                <button class="rule-del" @click.stop="deleteRule(rule.id)" aria-label="Delete rule">×</button>
+              </div>
+            </template>
             <button v-if="!showRuleForm && canAddRuleForTarget" class="btn-secondary" style="width:100%;font-size:var(--text-xs);margin-top:8px" @click="openRuleForm">+ Add Rule</button>
             <div v-if="showRuleForm" class="rule-form">
               <div class="rule-step">
@@ -273,9 +302,16 @@
                 </select>
                 <input v-else-if="newRule.op !== 'answered' && newRule.op !== 'not_answered' && newRule.op !== 'is_empty' && newRule.op !== 'not_empty'" v-model="newRule.value" class="input" style="margin-top:6px" :placeholder="sourceQuestionType === 'RATING' || sourceQuestionType === 'NUMBER' ? 'Enter number' : 'Value'" />
               </div>
+              <div class="rule-step">
+                <label class="rule-step-label">3. Rule Type</label>
+                <div class="rule-logic-row">
+                  <button type="button" class="rule-logic-btn" :class="{ 'rule-logic-btn--active': newRule.ruleType === 'AND' }" @click="newRule.ruleType = 'AND'">AND — all must match</button>
+                  <button type="button" class="rule-logic-btn" :class="{ 'rule-logic-btn--active': newRule.ruleType === 'OR' }" @click="newRule.ruleType = 'OR'">OR — any can match</button>
+                </div>
+              </div>
               <div class="rule-form-btns">
                 <button class="btn-secondary" style="flex:1;font-size:var(--text-xs)" @click="closeRuleForm">Cancel</button>
-                <button class="btn-primary" style="flex:2;font-size:var(--text-xs)" :disabled="!newRule.sourceQuestionId || !newRule.op" @click="addRule">Add Rule</button>
+                <button class="btn-primary" style="flex:2;font-size:var(--text-xs)" :disabled="!newRule.sourceQuestionId || !newRule.op" @click="addRule">{{ editingRuleId ? 'Update Rule' : 'Add Rule' }}</button>
               </div>
             </div>
           </div>
@@ -296,18 +332,24 @@ import { updateTemplateApi, addPageApi, deletePageApi, updatePageApi, addSection
 const store = useSurveyStore()
 const route = useRoute()
 const router = useRouter()
+const canvasCenter = ref(null)
+
+function scrollCanvas(to) {
+  const el = document.querySelector('.builder-center')
+  if (!el) return
+  el.scrollTo({ top: to === 'top' ? 0 : el.scrollHeight, behavior: 'smooth' })
+}
 
 const template = computed(() => store.currentTemplate)
 
 const currentPageIndex = ref(0)
+const currentSectionIndex = ref(0)
 const currentPage = computed(() => template.value?.pages?.[currentPageIndex.value] || null)
-const currentPageTitle = computed({
-  get: () => currentPage.value?.title || '',
-  set: (val) => { if (currentPage.value) currentPage.value.title = val }
-})
-
+const currentSection = computed(() => currentPage.value?.sections?.[currentSectionIndex.value] || null)
 const selectedQuestion = ref(null)
 const showRuleForm = ref(false)
+const editingRuleId = ref(null) // non-null when editing an existing rule
+const editingTab = ref(null) // 'p'+pageId or 's'+sectionId when editing tab title
 const showAddQ = ref(false)
 const showAddQSection = ref(null)
 
@@ -321,15 +363,9 @@ function openRuleFor(type, id) {
 }
 const canAddRuleForTarget = computed(() => {
   if (!template.value?.pages) return false
-  // A rule is possible if any earlier question exists
-  return allQuestions.value.some(q => {
-    if (!selectedQuestion.value && !ruleTarget.id) return false
-    const targetId = ruleTarget.type === 'QUESTION' ? selectedQuestion.value?.id : ruleTarget.id
-    if (!targetId) return false
-    const qIdx = allQuestions.value.findIndex(aq => aq.id === q.id)
-    const tIdx = allQuestions.value.findIndex(aq => aq.id === targetId)
-    return qIdx >= 0 && qIdx < tIdx
-  })
+  // Determine the effective "earlier questions" set based on target type
+  const earlierQuestions = effectiveQuestionsBefore.value
+  return earlierQuestions.length > 0
 })
 
 function countRulesFor(type, id) {
@@ -364,6 +400,17 @@ const currentTargetRules = computed(() => {
   }
   return []
 })
+// Group rules by ruleType for AND/OR display
+const groupedCurrentTargetRules = computed(() => {
+  const rules = currentTargetRules.value || []
+  const groups = []
+  // AND rules first, then OR rules
+  const andRules = rules.filter(r => (r.ruleType || 'AND') === 'AND')
+  const orRules = rules.filter(r => r.ruleType === 'OR')
+  if (andRules.length > 0) groups.push({ group: 'AND', rules: andRules })
+  if (orRules.length > 0) groups.push({ group: 'OR', rules: orRules })
+  return groups
+})
 
 const QUICK_TYPES = [
   { value: 'TEXT', label: 'Text', abbr: 'T' },
@@ -397,7 +444,7 @@ const QUESTION_TYPES = [
 const editForm = reactive({ title: '', type: '', required: false })
 const tableColumns = reactive([{ label: 'Item', type: 'TEXT', key: 'col_1' }])
 const tableRows = ref(3)
-const newRule = reactive({ sourcePageId: null, sourceSectionId: null, sourceQuestionId: null, op: 'eq', value: '' })
+const newRule = reactive({ sourcePageId: null, sourceSectionId: null, sourceQuestionId: null, op: 'eq', value: '', ruleType: 'AND' })
 
 const allQuestions = computed(() => {
   const qs = []
@@ -560,11 +607,41 @@ const sourceQuestionOptions = computed(() => {
   return opts.map(o => ({ label: o.label, value: o.key })) // use key as value
 })
 function openRuleForm() {
+  editingRuleId.value = null
   newRule.sourcePageId = null; newRule.sourceSectionId = null; newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = ''
+  newRule.ruleType = 'AND'
+  showRuleForm.value = true
+}
+function editRule(rule) {
+  // If already editing this rule, close the form (toggle behavior)
+  if (editingRuleId.value === rule.id && showRuleForm.value) {
+    closeRuleForm()
+    return
+  }
+  editingRuleId.value = rule.id
+  // Populate form with existing rule values
+  // Find source question's page and section for cascade selects
+  newRule.sourceQuestionId = rule.sourceQuestionId
+  newRule.op = rule.op
+  newRule.value = rule.value || ''
+  newRule.ruleType = rule.ruleType || 'AND'
+  // Resolve page and section from the source question
+  newRule.sourcePageId = null; newRule.sourceSectionId = null
+  for (const p of template.value.pages || []) {
+    for (const s of p.sections || []) {
+      for (const q of s.questions || []) {
+        if (q.id === rule.sourceQuestionId) {
+          newRule.sourceSectionId = s.id
+          newRule.sourcePageId = p.id
+        }
+      }
+    }
+  }
   showRuleForm.value = true
 }
 function closeRuleForm() {
-  newRule.sourcePageId = null; newRule.sourceSectionId = null; newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = ''
+  editingRuleId.value = null
+  newRule.sourcePageId = null; newRule.sourceSectionId = null; newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = ''; newRule.ruleType = 'AND'
   showRuleForm.value = false
 }
 function onSourceQuestionChange() { newRule.op = 'eq'; newRule.value = '' }
@@ -587,7 +664,15 @@ onMounted(async () => {
   await store.fetchTemplate(id)
 })
 
-function switchPage(idx) { currentPageIndex.value = idx; selectedQuestion.value = null }
+function switchPage(idx) {
+  currentPageIndex.value = idx
+  currentSectionIndex.value = 0
+  selectedQuestion.value = null
+  // Reset rule target so previous page's rules don't persist in the right panel
+  ruleTarget.type = 'QUESTION'
+  ruleTarget.id = null
+  showRuleForm.value = false
+}
 function toggleSection(key) { expandedNodes[key] = !expandedNodes[key] }
 
 function selectQuestion(q) {
@@ -815,7 +900,11 @@ async function publishFromBuilder() {
     }
   }
   if (errors.length > 0) {
-    ElMessage.warning('Cannot publish: ' + errors.slice(0, 3).join('; ') + (errors.length > 3 ? ` ...and ${errors.length - 3} more` : ''))
+    await ElMessageBox.alert(
+      errors.map((e, i) => `${i + 1}. ${e}`).join('<br/>'),
+      `Cannot Publish — ${errors.length} issue${errors.length > 1 ? 's' : ''}`,
+      { confirmButtonText: 'OK', type: 'warning', dangerouslyUseHTMLString: true }
+    )
     return
   }
   try {
@@ -824,7 +913,7 @@ async function publishFromBuilder() {
   const { data } = await updateTemplateApi(template.value.id, { status: 'PUBLISHED' })
   if (data.code === 200) {
     ElMessage.success('Published!')
-    template.value.status = 'PUBLISHED'
+    router.push(`/admin/surveys/${template.value.id}/results`)
   } else ElMessage.error(data.message)
 }
 
@@ -870,6 +959,26 @@ function parseTableRows(optionsJson) {
   catch { return 3 }
 }
 function hasOptions(type) { return ['SINGLE_CHOICE','MULTI_CHOICE','DROPDOWN','CASCADER'].includes(type) }
+function getQuestionErrors(q) {
+  const errs = []
+  if (q.type === 'SINGLE_CHOICE' || q.type === 'MULTI_CHOICE' || q.type === 'DROPDOWN') {
+    const opts = JSON.parse(q.options || '{}').options || []
+    if (opts.length === 0) errs.push('No options')
+  }
+  if (q.type === 'RATING') {
+    const max = JSON.parse(q.options || '{}').max
+    if (!max || max < 2) errs.push('Need ≥2 stars')
+  }
+  if (q.type === 'TABLE') {
+    const cols = JSON.parse(q.options || '{}').columns || []
+    for (const col of cols) {
+      if (col.type === 'DROPDOWN' && (!col.options || col.options.length === 0)) {
+        errs.push('Col missing options'); break
+      }
+    }
+  }
+  return errs
+}
 function getQuestionTitle(qid) {
   const q = allQuestions.value.find(q => q.id === qid)
   return q ? q.title : 'Q#' + qid
@@ -887,10 +996,10 @@ function getQuestionPath(q) {
 
 // ── Page Actions ──
 
-async function savePageTitle() {
-  if (!currentPage.value) return
-  const newTitle = currentPage.value.title
-  await updatePageApi(currentPage.value.id, { title: newTitle })
+async function updatePageTitle(page, title) {
+  if (!title || title === page.title) return
+  page.title = title
+  await updatePageApi(page.id, { title })
 }
 
 async function addPage() {
@@ -937,7 +1046,22 @@ async function saveQuestionTitle(qid) {
   }
 }
 async function addQuestion(sectionId, type = 'TEXT') {
-  const { data } = await addQuestionApi(sectionId, { type, title: type === 'SINGLE_CHOICE' ? 'Choose one' : type === 'MULTI_CHOICE' ? 'Select all that apply' : type === 'RATING' ? 'Rate from 1-5' : 'New Question', required: 0 })
+  let title = 'New Question'
+  let options = undefined
+  if (type === 'SINGLE_CHOICE') {
+    title = 'Choose one'
+    options = JSON.stringify({ options: [{ key: 'opt_1', label: 'Option 1' }, { key: 'opt_2', label: 'Option 2' }, { key: 'opt_3', label: 'Option 3' }] })
+  } else if (type === 'MULTI_CHOICE') {
+    title = 'Select all that apply'
+    options = JSON.stringify({ options: [{ key: 'opt_1', label: 'Option 1' }, { key: 'opt_2', label: 'Option 2' }, { key: 'opt_3', label: 'Option 3' }] })
+  } else if (type === 'DROPDOWN') {
+    title = 'Choose from list'
+    options = JSON.stringify({ options: [{ key: 'opt_1', label: 'Option 1' }, { key: 'opt_2', label: 'Option 2' }, { key: 'opt_3', label: 'Option 3' }] })
+  } else if (type === 'RATING') {
+    title = 'Rate from 1-5'
+    options = JSON.stringify({ max: 5, value: 3 })
+  }
+  const { data } = await addQuestionApi(sectionId, { type, title, required: 0, options })
   if (data.code === 200) { ElMessage.success('Question added'); await store.fetchTemplate(template.value.id) }
 }
 async function saveQuestionProperties() {
@@ -997,10 +1121,11 @@ async function addRule() {
   if (!newRule.sourceQuestionId) return
   const targetId = ruleTarget.type === 'QUESTION' ? (selectedQuestion.value?.id) : ruleTarget.id
   if (!targetId) return
-  // Contradiction check: same logicGroup, same sourceQuestion, contradictory condition
-  const existing = currentTargetRules.value || []
+  // Contradiction check: same ruleType (AND), same sourceQuestion, contradictory condition
+  // Skip the rule being edited when checking contradictions
+  const existing = (currentTargetRules.value || []).filter(r => r.id !== editingRuleId.value)
   for (const r of existing) {
-    if (r.sourceQuestionId === newRule.sourceQuestionId && r.logicGroup === (newRule.logicGroup || 0)) {
+    if (r.sourceQuestionId === newRule.sourceQuestionId && r.ruleType === newRule.ruleType) {
       const contradicts =
         (r.op === 'eq' && newRule.op === 'neq' && r.value === newRule.value) ||
         (r.op === 'neq' && newRule.op === 'eq' && r.value === newRule.value) ||
@@ -1010,17 +1135,22 @@ async function addRule() {
         (r.op === 'answered' && newRule.op === 'not_answered') ||
         (r.op === 'not_answered' && newRule.op === 'answered')
       if (contradicts) {
-        ElMessage.warning('This rule contradicts an existing rule in the same group — would always be false')
+        ElMessage.warning('This rule contradicts an existing AND rule — would always be false')
         return
       }
     }
   }
+  // If editing, delete the old rule first
+  if (editingRuleId.value) {
+    await deleteRuleApi(editingRuleId.value)
+  }
   const { data } = await addRuleApi(template.value.id, {
     targetType: ruleTarget.type, targetId: targetId,
     sourceQuestionId: newRule.sourceQuestionId, op: newRule.op,
-    value: newRule.value || '', logicGroup: 0
+    value: newRule.value || '', ruleType: newRule.ruleType
   })
   if (data.code === 200) {
+    editingRuleId.value = null
     newRule.sourceQuestionId = null; newRule.op = 'eq'; newRule.value = ''
     showRuleForm.value = false
     await store.fetchTemplate(template.value.id)
@@ -1050,11 +1180,14 @@ async function deleteRule(ruleId) {
 .builder-topbar-spacer { flex: 1; }
 .builder-loading { padding: var(--space-2xl); text-align: center; color: var(--color-text-muted); }
 .builder-hint { padding: var(--space-2xl); text-align: center; color: var(--color-text-muted); font-size: var(--text-sm); }
+.canvas-scroll-btns { position: sticky; bottom: 16px; display: flex; gap: 4px; justify-content: flex-end; padding: 0 var(--space-sm); pointer-events: none; }
+.scroll-btn { pointer-events: auto; padding: 6px 12px; font-size: 10px; font-weight: 500; font-family: var(--font-body); color: var(--color-text-muted); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); cursor: pointer; box-shadow: var(--shadow-sm); transition: all var(--transition-fast); }
+.scroll-btn:hover { color: var(--color-primary); border-color: var(--color-primary); }
 
 .builder-layout { display: flex; flex: 1; overflow: hidden; }
 
 /* Top page tab bar */
-.canvas-page-tabs { display: flex; align-items: center; gap: 4px; margin-bottom: var(--space-lg); padding-bottom: var(--space-sm); border-bottom: 2px solid var(--color-gray-200); overflow-x: auto; max-width: 900px; margin-left: auto; margin-right: auto; }
+.canvas-page-tabs { display: flex; align-items: center; gap: 4px; margin-bottom: var(--space-sm); padding-bottom: var(--space-sm); border-bottom: 2px solid var(--color-gray-200); overflow-x: auto; max-width: 900px; margin-left: auto; margin-right: auto; }
 .page-tab { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--radius-md) var(--radius-md) 0 0; cursor: pointer; font-size: var(--text-sm); font-family: var(--font-body); font-weight: 500; background: none; border: none; color: var(--color-text-secondary); transition: all var(--transition-fast); white-space: nowrap; min-height: 40px; }
 .page-tab:hover { background: var(--color-gray-100); color: var(--color-text-primary); }
 .page-tab--active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: 700; box-shadow: inset 0 -2px 0 var(--color-primary); }
@@ -1068,25 +1201,45 @@ async function deleteRule(ruleId) {
 .page-tab--add:hover { border-color: var(--color-primary); background: var(--color-primary-bg); }
 
 /* Center: Canvas */
-.builder-center { flex: 1; overflow-y: auto; padding: var(--space-lg) var(--space-xl); background: #F8F9FB; }
+.builder-center { flex: 1; overflow-y: auto; padding: var(--space-lg) var(--space-xl); background: #F8F9FB; position: relative; }
+
+/* Section tabs — horizontal like page tabs */
+.canvas-section-tabs { display: flex; align-items: center; gap: 4px; margin-bottom: var(--space-sm); padding-bottom: var(--space-sm); border-bottom: 1px solid var(--color-gray-200); overflow-x: auto; max-width: 900px; margin-left: auto; margin-right: auto; }
+.section-tab { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--radius-md) var(--radius-md) 0 0; cursor: pointer; font-size: var(--text-xs); font-family: var(--font-body); font-weight: 500; background: none; border: none; color: var(--color-text-secondary); transition: all var(--transition-fast); white-space: nowrap; min-height: 36px; }
+.section-tab:hover { background: var(--color-gray-50); color: var(--color-text-primary); }
+.section-tab--active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: 700; box-shadow: inset 0 -2px 0 var(--color-primary); }
+.section-tab-num { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; background: var(--color-gray-200); border-radius: 50%; flex-shrink: 0; }
+.section-tab--active .section-tab-num { background: var(--color-primary); color: white; }
+.section-tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.section-tab-qs { font-size: 9px; color: var(--color-text-muted); }
+.section-tab--active .section-tab-qs { color: var(--color-primary); opacity: 0.7; }
+.section-tab-del { width: 20px; height: 20px; font-size: 12px; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; display: none; }
+.section-tab:hover .section-tab-del { display: inline-flex; align-items: center; justify-content: center; }
+.section-tab-del:hover { background: #FEE2E2; color: #B91C1C; }
+.section-tab--add { font-weight: 600; color: var(--color-primary); border: 1px dashed var(--color-gray-200); border-radius: var(--radius-md); padding: 6px 12px; margin-left: 4px; box-shadow: none; }
+.section-tab--add:hover { border-color: var(--color-primary); background: var(--color-primary-bg); }
 .canvas { max-width: 900px; margin: 0 auto; }
 
-/* Canvas page header */
-.canvas-page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2xl); gap: var(--space-md); }
-.canvas-page-title-input { flex: 1; font-size: var(--text-2xl); font-weight: 700; font-family: var(--font-heading); border: 1px solid transparent; background: transparent; padding: 8px 12px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
-.canvas-page-title-input:hover { border-color: var(--color-gray-200); }
-.canvas-page-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
+/* Page tab title */
+.page-tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+/* Page tab inline title editing (double-click) */
+.page-tab-title-input { width: 80px; font-size: var(--text-sm); font-weight: 500; font-family: var(--font-body); border: 1px solid var(--color-primary); background: var(--color-white); padding: 2px 4px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
+.page-tab-title-input:focus { width: 140px; }
+.page-tab--active .page-tab-title-input { font-weight: 700; }
+
+/* Section tab title */
+.section-tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+/* Section tab inline title editing (double-click) */
+.section-tab-title-input { width: 70px; font-size: var(--text-xs); font-weight: 500; font-family: var(--font-body); border: 1px solid var(--color-primary); background: var(--color-white); padding: 1px 3px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
+.section-tab-title-input:focus { width: 120px; }
+.section-tab--active .section-tab-title-input { font-weight: 700; }
+
+/* Actions in tab bar */
+.canvas-tab-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.canvas-section-actions { display: flex; align-items: center; gap: 8px; margin-bottom: var(--space-md); }
 .canvas-add-section { padding: 10px 20px; font-size: var(--text-sm); font-weight: 500; color: var(--color-primary); background: var(--color-primary-bg); border: 1px dashed var(--color-primary); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; min-height: 44px; }
 .canvas-add-section:hover { background: var(--color-primary); color: white; }
 
-/* Section */
-.canvas-section { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-lg); margin-bottom: var(--space-lg); }
-.canvas-section-header { display: flex; align-items: center; gap: 8px; margin-bottom: var(--space-sm); }
-.canvas-section-toggle { width: 32px; height: 32px; font-size: 14px; background: none; border: none; cursor: pointer; color: var(--color-text-muted); border-radius: var(--radius-sm); }
-.canvas-section-toggle:hover { background: var(--color-gray-100); }
-.canvas-section-title-input { flex: 1; font-size: var(--text-base); font-weight: 600; font-family: var(--font-heading); border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; min-height: 32px; }
-.canvas-section-title-input:hover { border-color: var(--color-gray-200); }
-.canvas-section-title-input:focus { border-color: var(--color-primary); background: var(--color-white); }
 .canvas-section-desc { font-size: var(--text-sm); color: var(--color-text-muted); margin: 0 0 var(--space-sm); }
 .inline-rules-btn { padding: 10px 20px; font-size: var(--text-sm); font-weight: 500; font-family: var(--font-body); color: var(--color-primary); background: var(--color-primary-bg); border: 1px dashed var(--color-primary); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; min-height: 44px; transition: all var(--transition-fast); }
 .inline-rules-btn:hover { background: var(--color-primary); color: var(--color-white); }
@@ -1112,6 +1265,9 @@ async function deleteRule(ruleId) {
 }
 .canvas-question:hover { border-color: var(--color-primary-light); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
 .canvas-question--selected { border-color: var(--color-primary); border-left-color: var(--color-primary); box-shadow: 0 0 0 4px rgba(124,58,237,0.12), 0 4px 12px rgba(0,0,0,0.06); background: #FAFAFE; }
+.canvas-question--error { border-left-color: #DC2626; }
+.canvas-question--error .canvas-q-title-input { color: #DC2626; }
+.canvas-q-errors { margin-top: 6px; font-size: 10px; color: #DC2626; font-weight: 500; }
 .canvas-q-number { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--color-primary); background: var(--color-primary-bg); border-radius: 50%; flex-shrink: 0; margin-right: 2px; }
 .canvas-q-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .canvas-q-title-input { flex: 1; font-size: var(--text-sm); font-weight: 500; border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: var(--radius-sm); color: var(--color-text-primary); outline: none; }
@@ -1173,15 +1329,22 @@ async function deleteRule(ruleId) {
 .props-section { margin-top: var(--space-sm); }
 .props-empty { font-size: var(--text-xs); color: var(--color-text-muted); padding: var(--space-sm) 0; }
 
-.rule-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); margin-bottom: 4px; font-size: var(--text-xs); min-height: 36px; }
+.rule-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); margin-bottom: 4px; font-size: var(--text-xs); min-height: 36px; cursor: pointer; transition: border-color var(--transition-fast), background var(--transition-fast); }
+.rule-row:hover { border-color: var(--color-primary-light); background: var(--color-primary-bg); }
 .rule-row--broken { border-color: #FCD34D; background: #FFFBEB; }
 .rule-text { flex: 1; color: var(--color-text-secondary); display: flex; align-items: center; gap: 4px; }
 .rule-broken-badge { font-size: 11px; cursor: help; }
 .rule-del { width: 24px; height: 24px; padding: 0; background: none; border: none; color: var(--color-text-muted); cursor: pointer; border-radius: 3px; }
+.rule-group-label { font-size: 10px; font-weight: 700; padding: 3px 0 4px; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.3px; }
 .rule-form { margin-top: var(--space-sm); display: flex; flex-direction: column; gap: var(--space-md); }
 .rule-step { background: var(--color-gray-50); border-radius: var(--radius-md); padding: var(--space-sm); }
 .rule-step-label { display: block; font-size: 10px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
 .rule-cascade-select { margin-top: 4px; }
+.rule-logic-row { display: flex; gap: 4px; }
+.rule-logic-btn { flex: 1; padding: 8px 12px; font-size: var(--text-xs); font-weight: 600; font-family: var(--font-body); color: var(--color-text-muted); background: var(--color-white); border: 2px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition-fast); min-height: 36px; }
+.rule-logic-btn:hover { border-color: var(--color-primary-light); color: var(--color-primary); }
+.rule-logic-btn--active { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-bg); }
+.rule-logic-hint { font-size: 10px; color: var(--color-text-muted); margin-top: 4px; font-style: italic; }
 .rule-empty-hint { font-size: var(--text-xs); color: var(--color-text-muted); padding: 8px 0; font-style: italic; }
 .rule-step .input:not(:first-child) { margin-top: 4px; }
 .rule-form-btns { display: flex; gap: 6px; margin-top: 2px; }

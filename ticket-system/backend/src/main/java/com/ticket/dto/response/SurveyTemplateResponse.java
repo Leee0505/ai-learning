@@ -54,6 +54,6 @@ public class SurveyTemplateResponse {
         private Long sourceQuestionId;
         private String op;
         private String value;
-        private Integer logicGroup;
+        private String ruleType;
     }
 }

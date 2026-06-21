@@ -12,4 +12,16 @@ public class SurveyInstancePage {
     private Long instanceId;
     private Long pageId;
     private String status;
+
+    @TableField(fill = FieldFill.INSERT)
+    private Long createdBy;
+
+    @TableField(fill = FieldFill.INSERT)
+    private Long createdDate;
+
+    @TableField(fill = FieldFill.UPDATE)
+    private Long lastModifiedBy;
+
+    @TableField(fill = FieldFill.UPDATE)
+    private Long lastModifiedDate;
 }

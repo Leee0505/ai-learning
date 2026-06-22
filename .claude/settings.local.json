@@ -45,7 +45,10 @@
       "Bash(find /c \"mvn\" \"E:\\\\WorkSpace-IDEA\\\\ai-learning\" -name \"mvnw*\")",
       "Bash(cmd.exe /c \"where mvn\")",
       "Bash(cmd.exe /c \"mvn --version\")",
-      "Bash(\"/c/Users/19202/AppData/Roaming/JetBrains/IntelliJIdea2026.1/plugins/maven/lib/maven3/bin/mvn\" test *)"
+      "Bash(\"/c/Users/19202/AppData/Roaming/JetBrains/IntelliJIdea2026.1/plugins/maven/lib/maven3/bin/mvn\" test *)",
+      "Bash(ls mvnw*)",
+      "Bash(ls *.bat)",
+      "Bash(which gradle *)"
     ]
   }
 }

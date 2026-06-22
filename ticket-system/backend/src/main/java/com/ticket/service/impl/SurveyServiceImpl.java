@@ -1,6 +1,7 @@
 package com.ticket.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ticket.common.constant.BusinessConstants;
 import com.ticket.common.constant.ErrorCode;
@@ -36,12 +37,14 @@ public class SurveyServiceImpl implements SurveyService {
     private final SurveyInstancePageMapper instancePageMapper;
     private final SurveyAnswerMapper answerMapper;
     private final SurveyVisibilityEngine visibilityEngine;
+    private final UserMapper userMapper;
 
     public SurveyServiceImpl(SurveyTemplateMapper templateMapper, SurveyPageMapper pageMapper,
                              SurveySectionMapper sectionMapper, SurveyQuestionMapper questionMapper,
                              SurveyVisibilityRuleMapper ruleMapper, SurveyInstanceMapper instanceMapper,
                              SurveyInstancePageMapper instancePageMapper, SurveyAnswerMapper answerMapper,
-                             SurveyVisibilityEngine visibilityEngine) {
+                             SurveyVisibilityEngine visibilityEngine,
+                             UserMapper userMapper) {
         this.templateMapper = templateMapper;
         this.pageMapper = pageMapper;
         this.sectionMapper = sectionMapper;
@@ -51,6 +54,7 @@ public class SurveyServiceImpl implements SurveyService {
         this.instancePageMapper = instancePageMapper;
         this.answerMapper = answerMapper;
         this.visibilityEngine = visibilityEngine;
+        this.userMapper = userMapper;
     }
 
     // ── Template CRUD ──
@@ -364,6 +368,7 @@ public class SurveyServiceImpl implements SurveyService {
             ip.setInstanceId(instance.getId());
             ip.setPageId(page.getId());
             ip.setStatus(BusinessConstants.INSTANCE_STATUS_READY);
+            ip.setAssignedTo(request.getAssignedTo()); // inherit from instance
             instancePageMapper.insert(ip);
         }
 
@@ -387,13 +392,52 @@ public class SurveyServiceImpl implements SurveyService {
                 .stream().map(this::toInstanceResponse).collect(Collectors.toList());
     }
 
+    // ── Reassign ──
+
+    @Override
+    @Transactional
+    public SurveyInstanceResponse reassignInstance(Long instanceId, ReassignRequest request, Long adminId) {
+        SurveyInstance instance = findInstanceOrFail(instanceId);
+        instance.setAssignedTo(request.getUserId());
+        instanceMapper.updateById(instance);
+        return toInstanceResponse(instance);
+    }
+
+    @Override
+    @Transactional
+    public void reassignPage(Long instanceId, Long pageId, ReassignRequest request, Long adminId) {
+        SurveyInstancePage ip = instancePageMapper.selectOne(new LambdaQueryWrapper<SurveyInstancePage>()
+                .eq(SurveyInstancePage::getInstanceId, instanceId)
+                .eq(SurveyInstancePage::getPageId, pageId));
+        if (ip == null) {
+            throw new BusinessException(ErrorCode.SURVEY_PAGE_NOT_FOUND);
+        }
+        ip.setAssignedTo(request.getUserId());
+        instancePageMapper.updateById(ip);
+    }
+
+    @Override
+    public PageResponse<UserResponse> listUsersForReassign(UserListRequest request) {
+        int size = request.getSize() != null ? request.getSize() : 200;
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        // Only enabled users
+        wrapper.eq(User::getStatus, 1);
+        // Tenant isolation
+        if (request.getTenantId() != null) {
+            wrapper.eq(User::getTenantId, request.getTenantId());
+        }
+        wrapper.orderByAsc(User::getRole).orderByAsc(User::getUsername);
+        IPage<User> result = userMapper.selectPage(Page.of(1, size), wrapper);
+        return PageResponse.of(result, result.getRecords().stream().map(UserResponse::from).toList());
+    }
+
     // ── Fill Flow ──
 
     @Override
     public SurveyFillResponse getFillData(Long instanceId, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
         // Verify ownership
-        if (!instance.getAssignedTo().equals(userId)) {
+        if (instance.getAssignedTo() == null || !instance.getAssignedTo().equals(userId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
 
@@ -422,9 +466,33 @@ public class SurveyServiceImpl implements SurveyService {
         response.setInstanceId(instanceId);
         response.setInstanceStatus(instance.getStatus());
         response.setTitle(instance.getTitle());
+        // Set current user's username
+        User currentUser = userMapper.selectById(userId);
+        response.setCurrentUsername(currentUser != null ? currentUser.getUsername() : null);
         response.setPages(templateResponse.getPages());
         response.setHiddenTargets(hidden);
         response.setExistingAnswers(existingAnswers);
+        // Populate assignee name
+        if (instance.getAssignedTo() != null) {
+            User assignedUser = userMapper.selectById(instance.getAssignedTo());
+            response.setAssignedToName(assignedUser != null ? assignedUser.getUsername() : null);
+        }
+        // Populate per-page statuses + assignees
+        Map<Long, String> pageStatuses = new HashMap<>();
+        Map<Long, String> pageAssignees = new HashMap<>();
+        List<SurveyInstancePage> ipList = instancePageMapper.selectList(new LambdaQueryWrapper<SurveyInstancePage>()
+                .eq(SurveyInstancePage::getInstanceId, instanceId));
+        for (SurveyInstancePage ip : ipList) {
+            pageStatuses.put(ip.getPageId(), ip.getStatus());
+            if (ip.getAssignedTo() != null) {
+                User pageAssignee = userMapper.selectById(ip.getAssignedTo());
+                if (pageAssignee != null) {
+                    pageAssignees.put(ip.getPageId(), pageAssignee.getUsername());
+                }
+            }
+        }
+        response.setPageStatuses(pageStatuses);
+        response.setPageAssignees(pageAssignees);
         return response;
     }
 
@@ -432,7 +500,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public void saveAnswer(Long instanceId, SaveAnswerRequest request, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
-        if (!instance.getAssignedTo().equals(userId)) {
+        if (instance.getAssignedTo() == null || !instance.getAssignedTo().equals(userId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
         if (BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(instance.getStatus())
@@ -455,22 +523,26 @@ public class SurveyServiceImpl implements SurveyService {
             answerMapper.insert(answer);
         }
 
-        // Update instance page status: find the page containing this question
-        SurveyQuestion question = questionMapper.selectById(request.getQuestionId());
-        if (question != null) {
-            SurveySection section = sectionMapper.selectById(question.getSectionId());
-            if (section != null) {
-                SurveyPage page = pageMapper.selectById(section.getPageId());
-                if (page != null) {
-                    SurveyInstancePage ip = instancePageMapper.selectOne(new LambdaQueryWrapper<SurveyInstancePage>()
-                            .eq(SurveyInstancePage::getInstanceId, instanceId)
-                            .eq(SurveyInstancePage::getPageId, page.getId()));
-                    if (ip != null && !BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(ip.getStatus())) {
-                        ip.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
-                        instancePageMapper.updateById(ip);
+        // Update instance page status (non-critical — wrap in try to avoid failing the save)
+        try {
+            SurveyQuestion question = questionMapper.selectById(request.getQuestionId());
+            if (question != null) {
+                SurveySection section = sectionMapper.selectById(question.getSectionId());
+                if (section != null) {
+                    SurveyPage page = pageMapper.selectById(section.getPageId());
+                    if (page != null) {
+                        SurveyInstancePage ip = instancePageMapper.selectOne(new LambdaQueryWrapper<SurveyInstancePage>()
+                                .eq(SurveyInstancePage::getInstanceId, instanceId)
+                                .eq(SurveyInstancePage::getPageId, page.getId()));
+                        if (ip != null && !BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(ip.getStatus())) {
+                            ip.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+                            instancePageMapper.updateById(ip);
+                        }
                     }
                 }
             }
+        } catch (Exception e) {
+            log.warn("Failed to update instance page status: {} (answer saved successfully)", e.getMessage());
         }
     }
 
@@ -478,7 +550,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public SurveyInstanceResponse submitSurvey(Long instanceId, SubmitSurveyRequest request, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
-        if (!instance.getAssignedTo().equals(userId)) {
+        if (instance.getAssignedTo() == null || !instance.getAssignedTo().equals(userId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
         if (BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(instance.getStatus())
@@ -615,6 +687,10 @@ public class SurveyServiceImpl implements SurveyService {
         r.setTitle(instance.getTitle());
         r.setStatus(instance.getStatus());
         r.setAssignedTo(instance.getAssignedTo());
+        if (instance.getAssignedTo() != null) {
+            User assignedUser = userMapper.selectById(instance.getAssignedTo());
+            r.setAssignedToName(assignedUser != null ? assignedUser.getUsername() : null);
+        }
         r.setTriggerType(instance.getTriggerType());
         r.setTicketId(instance.getTicketId());
         r.setCreatedDate(instance.getCreatedDate());

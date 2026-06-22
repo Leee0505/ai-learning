@@ -50,13 +50,15 @@ public class AdminController {
             @Parameter(description = "Filter by role")
             @RequestParam(required = false) String role,
             @Parameter(description = "Filter by status: 1 = enabled, 0 = disabled")
-            @RequestParam(required = false) Integer status) {
+            @RequestParam(required = false) Integer status,
+            @AuthenticationPrincipal UserDetailsImpl user) {
         UserListRequest request = new UserListRequest();
         request.setPage(page);
         request.setSize(size);
         request.setKeyword(keyword);
         request.setRole(role);
         request.setStatus(status);
+        request.setTenantId(user != null ? user.getTenantId() : null);
         return ApiResult.success(adminService.listUsers(request));
     }
 

@@ -20,6 +20,9 @@ public class UserListRequest {
     @Schema(description = "Filter by status: 1 = enabled, 0 = disabled", example = "1")
     private Integer status;
 
+    @Schema(description = "Filter by tenant ID")
+    private Long tenantId;
+
     public Integer getPage() { return page; }
     public void setPage(Integer page) { this.page = page; }
     public Integer getSize() { return size; }
@@ -30,4 +33,6 @@ public class UserListRequest {
     public void setRole(String role) { this.role = role; }
     public Integer getStatus() { return status; }
     public void setStatus(Integer status) { this.status = status; }
+    public Long getTenantId() { return tenantId; }
+    public void setTenantId(Long tenantId) { this.tenantId = tenantId; }
 }

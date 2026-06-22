@@ -9,6 +9,7 @@ public class SurveyInstanceResponse {
     private String title;
     private String status;
     private Long assignedTo;
+    private String assignedToName;
     private String triggerType;
     private Long ticketId;
     private String templateTitle;

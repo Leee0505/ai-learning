@@ -99,6 +99,11 @@ public class AdminServiceImpl implements AdminService {
             wrapper.eq(User::getStatus, request.getStatus());
         }
 
+        // Tenant isolation
+        if (request.getTenantId() != null) {
+            wrapper.eq(User::getTenantId, request.getTenantId());
+        }
+
         // Order by created date descending (newest first)
         wrapper.orderByDesc(User::getCreatedDate);
 

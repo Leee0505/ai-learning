@@ -42,6 +42,11 @@ public interface SurveyService {
     List<SurveyInstanceResponse> listUserInstances(Long userId);
     List<SurveyInstanceResponse> listTemplateInstances(Long templateId);
 
+    // Reassign
+    SurveyInstanceResponse reassignInstance(Long instanceId, ReassignRequest request, Long adminId);
+    void reassignPage(Long instanceId, Long pageId, ReassignRequest request, Long adminId);
+    PageResponse<UserResponse> listUsersForReassign(UserListRequest request);
+
     // Fill flow
     SurveyFillResponse getFillData(Long instanceId, Long userId);
     void saveAnswer(Long instanceId, SaveAnswerRequest request, Long userId);

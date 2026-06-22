@@ -56,4 +56,34 @@ public class SurveyFillController {
                                                      @AuthenticationPrincipal UserDetailsImpl user) {
         return ApiResult.success(surveyService.submitSurvey(id, request, user.getUserId()));
     }
+
+    @PutMapping("/instances/{id}/reassign")
+    @Operation(summary = "Reassign a survey instance to a different user")
+    public ApiResult<SurveyInstanceResponse> reassignInstance(@PathVariable Long id,
+                                                               @Valid @RequestBody ReassignRequest request,
+                                                               @AuthenticationPrincipal UserDetailsImpl user) {
+        return ApiResult.success(surveyService.reassignInstance(id, request, user.getUserId()));
+    }
+
+    @PutMapping("/instances/{id}/pages/{pageId}/reassign")
+    @Operation(summary = "Reassign a survey instance page to a different user")
+    public ApiResult<Void> reassignPage(@PathVariable Long id,
+                                         @PathVariable Long pageId,
+                                         @Valid @RequestBody ReassignRequest request,
+                                         @AuthenticationPrincipal UserDetailsImpl user) {
+        surveyService.reassignPage(id, pageId, request, user.getUserId());
+        return ApiResult.success();
+    }
+
+    @GetMapping("/users")
+    @Operation(summary = "List users available for reassign (same tenant)")
+    public ApiResult<PageResponse<UserResponse>> listUsersForReassign(
+            @RequestParam(required = false) Integer size,
+            @AuthenticationPrincipal UserDetailsImpl user) {
+        UserListRequest req = new UserListRequest();
+        req.setSize(size != null ? size : 200);
+        req.setPage(1);
+        req.setTenantId(user != null ? user.getTenantId() : null);
+        return ApiResult.success(surveyService.listUsersForReassign(req));
+    }
 }

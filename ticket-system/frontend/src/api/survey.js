@@ -29,3 +29,10 @@ export function getMyInstancesApi() { return request.get('/surveys/instances') }
 export function getFillDataApi(instanceId) { return request.get(`/surveys/instances/${instanceId}/fill`) }
 export function saveAnswerApi(instanceId, data) { return request.put(`/surveys/instances/${instanceId}/answers`, data) }
 export function submitSurveyApi(instanceId, data) { return request.post(`/surveys/instances/${instanceId}/submit`, data) }
+
+// Reassign
+export function reassignInstanceApi(instanceId, data) { return request.put(`/surveys/instances/${instanceId}/reassign`, data) }
+export function reassignPageApi(instanceId, pageId, data) { return request.put(`/surveys/instances/${instanceId}/pages/${pageId}/reassign`, data) }
+
+// Users for reassign
+export function listUsersApi(params) { return request.get('/surveys/users', { params }) }

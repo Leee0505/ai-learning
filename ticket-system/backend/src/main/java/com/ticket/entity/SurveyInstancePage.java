@@ -12,6 +12,7 @@ public class SurveyInstancePage {
     private Long instanceId;
     private Long pageId;
     private String status;
+    private Long assignedTo;
 
     @TableField(fill = FieldFill.INSERT)
     private Long createdBy;

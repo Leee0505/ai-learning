@@ -194,6 +194,26 @@ public class SurveyController {
         return ApiResult.success();
     }
 
+    // ── Reassign ──
+
+    @PutMapping("/instances/{id}/reassign")
+    @Operation(summary = "Reassign a survey instance to a different user")
+    public ApiResult<SurveyInstanceResponse> reassignInstance(@PathVariable Long id,
+                                                               @Valid @RequestBody ReassignRequest request,
+                                                               @AuthenticationPrincipal UserDetailsImpl user) {
+        return ApiResult.success(surveyService.reassignInstance(id, request, user.getUserId()));
+    }
+
+    @PutMapping("/instances/{id}/pages/{pageId}/reassign")
+    @Operation(summary = "Reassign a survey instance page to a different user")
+    public ApiResult<Void> reassignPage(@PathVariable Long id,
+                                         @PathVariable Long pageId,
+                                         @Valid @RequestBody ReassignRequest request,
+                                         @AuthenticationPrincipal UserDetailsImpl user) {
+        surveyService.reassignPage(id, pageId, request, user.getUserId());
+        return ApiResult.success();
+    }
+
     // ── Results ──
 
     @GetMapping("/{id}/results")

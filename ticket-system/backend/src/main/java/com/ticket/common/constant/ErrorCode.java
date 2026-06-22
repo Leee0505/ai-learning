@@ -40,6 +40,7 @@ public enum ErrorCode {
     INSTANCE_ALREADY_SUBMITTED(40034, "survey instance already submitted"),
     SURVEY_PAGE_INCOMPLETE(40035, "please complete all required questions on this page"),
     SURVEY_CYCLE_DETECTED(40036, "visibility rules contain a cycle — please adjust"),
+    SURVEY_PAGE_NOT_FOUND(40037, "survey instance page not found"),
 
     // 401xx Auth Errors
     INVALID_CREDENTIALS(40100, "invalid credentials"),

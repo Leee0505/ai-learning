@@ -1,20 +1,33 @@
 <template>
   <div class="fill-page">
-    <!-- Loading -->
-    <div v-if="loading" class="fill-loading">Loading survey...</div>
+    <!-- Loading skeleton -->
+    <div v-if="loading" class="fill-loading">
+      <div class="skeleton-list">
+        <div v-for="i in 3" :key="i" class="skeleton-card">
+          <div class="skeleton-line skeleton-line--med"></div>
+          <div class="skeleton-line skeleton-line--long"></div>
+        </div>
+      </div>
+    </div>
 
     <!-- Instance list (when no instance selected) -->
     <div v-else-if="!currentInstance" class="fill-instances">
       <h1 class="fill-instances-title">My Surveys</h1>
       <div v-if="instances.length === 0" class="empty-state">
-        <p>No pending surveys</p>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="empty-icon" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <p class="empty-title">No pending surveys</p>
+        <p class="empty-desc">You don't have any surveys assigned yet. Check back later or contact your admin.</p>
       </div>
       <div v-else class="instance-list">
         <div v-for="inst in instances" :key="inst.id" class="instance-card" @click="openSurvey(inst.id)">
           <h3>{{ inst.title }}</h3>
           <div class="instance-meta">
-            <span :class="['status-badge', 'status-' + inst.status.toLowerCase()]">{{ inst.status.replace(/_/g, ' ') }}</span>
+            <span :class="['status-badge', 'status-' + (inst.status || '').toLowerCase()]">{{ (inst.status || '').replace(/_/g, ' ') }}</span>
             <span>{{ inst.completedPages }}/{{ inst.totalPages }} pages</span>
+            <span v-if="inst.assignedToName" class="instance-assignee" :title="'Assigned to'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              {{ inst.assignedToName }}
+            </span>
             <span v-if="inst.templateTitle" class="instance-template">{{ inst.templateTitle }}</span>
           </div>
         </div>
@@ -23,71 +36,135 @@
 
     <!-- Fill view -->
     <div v-else class="fill-layout">
-      <!-- Top bar -->
+      <!-- Top bar — back only -->
       <div class="fill-topbar">
         <button class="fill-back" @click="currentInstance = null" aria-label="Back to list">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15,18 9,12 15,6"/></svg>
+          My Surveys
         </button>
-        <h2 class="fill-title">{{ currentInstance.title }}</h2>
-        <span class="fill-page-indicator">Page {{ currentPageIdx + 1 }}/{{ fillData?.pages?.length || 0 }}</span>
       </div>
 
       <div v-if="!fillData" class="fill-empty">Loading survey data...</div>
       <div v-else-if="!fillData.pages?.length" class="fill-empty">No pages found in this survey.</div>
       <div v-else class="fill-body">
-        <!-- Page tabs -->
-        <div class="fill-page-tabs">
-          <button v-for="(page, pi) in fillData.pages" :key="'fp'+page.id"
-                  class="fill-tab" :class="{ 'fill-tab--active': currentPageIdx === pi, 'fill-tab--hidden': isHidden(page) }"
-                  @click="switchPage(pi)" :disabled="isHidden(page)">
-            <span class="fill-tab-num">{{ pi + 1 }}</span>
-            {{ page.title }}
-          </button>
+        <!-- Survey Head card -->
+        <div class="survey-head">
+          <h2 class="survey-head-title">{{ currentInstance.title }}</h2>
+          <div class="survey-head-cols">
+            <!-- Left: survey-level info -->
+            <div class="survey-head-col">
+              <div class="survey-head-item">
+                <span class="survey-head-label">Survey</span>
+                <span :class="['status-badge', 'status-' + (fillData?.instanceStatus || '').toLowerCase()]">{{ (fillData?.instanceStatus || '').replace(/_/g, ' ') }}</span>
+              </div>
+              <div class="survey-head-item">
+                <span class="survey-head-label">Assigned to</span>
+                <span class="survey-head-value" v-if="fillData?.assignedToName">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  {{ fillData.assignedToName }}
+                </span>
+                <span class="survey-head-na" v-else>&mdash;</span>
+                <button v-if="fillData?.currentUsername && fillData.assignedToName === fillData.currentUsername" class="reassign-btn" @click.stop="openReassign('instance')" title="Reassign instance">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                </button>
+              </div>
+            </div>
+            <!-- Right: page-level info -->
+            <div class="survey-head-col" v-if="visiblePages.length">
+              <div class="survey-head-item">
+                <span class="survey-head-label">Page</span>
+                <span class="survey-head-value">{{ visiblePageNumber }} of {{ visiblePages.length }}</span>
+              </div>
+              <div class="survey-head-item" v-if="currentPage">
+                <span class="survey-head-label">Page status</span>
+                <span class="survey-head-page-status" :class="'survey-head-page-status--' + pageStatusClass(currentPage.id)">
+                  {{ pageStatusLabel(currentPage.id) }}
+                </span>
+              </div>
+              <div class="survey-head-item" v-if="currentPage">
+                <span class="survey-head-label">Page assigned to</span>
+                <span class="survey-head-value" v-if="pageAssignee(currentPage.id)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  {{ pageAssignee(currentPage.id) }}
+                </span>
+                <span class="survey-head-na" v-else>&mdash;</span>
+                <button v-if="fillData?.currentUsername && pageAssignee(currentPage.id) === fillData.currentUsername" class="reassign-btn" @click.stop="openReassign('page', currentPage.id)" title="Reassign page">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="survey-head-progress" v-if="visiblePages.length">
+            <div class="survey-head-progress-bar">
+              <div class="survey-head-progress-fill" :style="{ width: (visiblePageNumber / visiblePages.length * 100) + '%' }"></div>
+            </div>
+          </div>
         </div>
 
-        <!-- Section tabs -->
-        <div v-if="currentPage?.sections?.length" class="fill-section-tabs">
-          <button v-for="(section, si) in currentPage.sections" :key="'fs'+section.id"
-                  class="fill-section-tab" :class="{ 'fill-section-tab--active': currentSectionIdx === si }"
-                  @click="currentSectionIdx = si">
-            <span class="fill-section-tab-num">{{ si + 1 }}</span>
-            {{ section.title }}
-          </button>
-        </div>
+        <!-- Content card — wraps tabs + questions for consistent alignment -->
+        <div class="fill-content-card">
+          <!-- Page tabs (clean — status shown as colored ring on number) -->
+          <div class="fill-page-tabs">
+            <button v-for="(page, pi) in fillData.pages" :key="'fp'+page.id"
+                    v-show="!isHidden(page)"
+                    class="fill-tab" :class="{ 'fill-tab--active': currentPageIdx === pi }"
+                    @click="switchPage(pi)"
+                    :title="page.title + ' — ' + pageStatusLabel(page.id)">
+              <span class="fill-tab-num" :class="'fill-tab-num--' + pageStatusClass(page.id)">{{ pi + 1 }}</span>
+              {{ page.title }}
+            </button>
+          </div>
 
-        <!-- Questions -->
-        <main class="fill-content">
-          <div v-if="!currentSection" class="fill-empty">No sections on this page.</div>
-          <div v-else>
-            <div v-for="q in visibleQuestions(currentSection)" :key="q.id" class="fill-question">
-              <label :for="'q'+q.id" class="fill-q-label">
-                {{ q.title }}
-                <span v-if="q.required" class="fill-q-required">*</span>
-              </label>
+          <!-- Section tabs -->
+          <div v-if="currentPage?.sections?.length" class="fill-section-tabs">
+            <button v-for="(section, si) in currentPage.sections" :key="'fs'+section.id"
+                    class="fill-section-tab" :class="{ 'fill-section-tab--active': currentSectionIdx === si }"
+                    @click="currentSectionIdx = si">
+              <span class="fill-section-tab-num">{{ si + 1 }}</span>
+              {{ section.title }}
+            </button>
+          </div>
 
-              <!-- TEXT -->
+          <!-- Questions -->
+          <main class="fill-content">
+            <div v-if="!currentSection" class="fill-empty">No sections on this page.</div>
+            <div v-else>
+              <Transition name="fade" mode="out-in">
+                <div :key="currentSection.id">
+                  <div v-for="q in visibleQuestions(currentSection)" :key="q.id" class="fill-question">
+                <label :for="'q'+q.id" class="fill-q-label">
+                  {{ q.title }}
+                  <span v-if="q.required" class="fill-q-required">*</span>
+                </label>
+
+              <!-- TEXT (debounced save on input, flush on blur) -->
               <input v-if="q.type === 'TEXT'" :id="'q'+q.id" type="text" class="input"
-                     :value="answers[q.id] || ''" @input="setAnswer(q.id, $event.target.value)" />
+                     :value="answers[q.id] || ''"
+                     @input="setAnswer(q.id, $event.target.value)"
+                     @blur="flushPendingSaves()" />
 
-              <!-- TEXTAREA -->
+              <!-- TEXTAREA (debounced save on input, flush on blur) -->
               <textarea v-else-if="q.type === 'TEXTAREA'" :id="'q'+q.id" class="input textarea" rows="3"
-                        :value="answers[q.id] || ''" @input="setAnswer(q.id, $event.target.value)"></textarea>
+                        :value="answers[q.id] || ''"
+                        @input="setAnswer(q.id, $event.target.value)"
+                        @blur="flushPendingSaves()"></textarea>
 
-              <!-- DATE -->
+              <!-- DATE (debounced save on input, flush on blur) -->
               <input v-else-if="q.type === 'DATE'" :id="'q'+q.id" type="text" class="input"
                      :value="answers[q.id] || ''" placeholder="YYYY-MM-DD"
-                     @input="setAnswer(q.id, $event.target.value)" />
+                     @input="setAnswer(q.id, $event.target.value)"
+                     @blur="flushPendingSaves()" />
 
-              <!-- SINGLE_CHOICE / DROPDOWN -->
+              <!-- SINGLE_CHOICE / DROPDOWN (click to select, click again to clear) -->
               <div v-else-if="q.type === 'SINGLE_CHOICE' || q.type === 'DROPDOWN'" class="fill-options">
-                <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="fill-opt">
-                  <input type="radio" :name="'q'+q.id" :value="opt.key"
-                         :checked="answers[q.id] === opt.key" @change="setAnswer(q.id, opt.key)" />
+                <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="fill-opt"
+                       @click.prevent="handleSingleChoice(q.id, opt.key)">
+                  <span class="opt-dot" :class="{ 'opt-dot--checked': answers[q.id] === opt.key }"></span>
                   {{ opt.label }}
                 </label>
               </div>
 
-              <!-- MULTI_CHOICE -->
+              <!-- MULTI_CHOICE (save immediately) -->
               <div v-else-if="q.type === 'MULTI_CHOICE'" class="fill-options">
                 <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="fill-opt">
                   <input type="checkbox" :value="opt.key"
@@ -96,11 +173,11 @@
                 </label>
               </div>
 
-              <!-- RATING -->
+              <!-- RATING (click star to rate, click same star again to clear) -->
               <div v-else-if="q.type === 'RATING'" class="fill-rating">
                 <button v-for="i in getRatingMax(q.options)" :key="i" class="fill-rating-btn"
                         :class="{ 'fill-rating-btn--active': Number(answers[q.id] || 0) >= i }"
-                        @click="setAnswer(q.id, String(i))" :aria-label="'Rate ' + i">
+                        @click="handleRating(q.id, i)" :aria-label="'Rate ' + i">
                   <svg viewBox="0 0 24 24" :fill="Number(answers[q.id] || 0) >= i ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.5" width="28" height="28"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
                 </button>
               </div>
@@ -108,6 +185,8 @@
               <!-- CASCADER / TABLE -->
               <div v-else class="input muted">{{ q.type.replace('_',' ') }} — not yet supported</div>
             </div>
+          </div>
+          </Transition>
           </div>
 
           <!-- Navigation -->
@@ -119,15 +198,35 @@
             </button>
           </div>
         </main>
-      </div>
+        </div><!-- .fill-content-card -->
+      </div><!-- .fill-body -->
+    </div><!-- .fill-layout -->
+
+  </div><!-- .fill-page -->
+
+  <!-- Reassign dialog -->
+  <el-dialog v-model="reassignPopover.show"
+             :title="'Reassign ' + (reassignPopover.type === 'instance' ? 'Survey' : 'Page')"
+             width="380px" :close-on-click-modal="true" destroy-on-close>
+    <div v-if="reassignUsers.loading" style="text-align:center;padding:32px;color:#94A3B8">Loading users...</div>
+    <div v-else-if="!reassignUsers.list.length" style="text-align:center;padding:32px;color:#94A3B8">No users available</div>
+    <div v-else class="reassign-user-list">
+      <template v-for="(group, gk) in groupedReassignUsers" :key="gk">
+        <div class="reassign-user-group-label">{{ group.label }}</div>
+        <button v-for="u in group.users" :key="u.id" class="reassign-user-item"
+                @click="doReassign(u.id)">
+          <span class="reassign-user-name">{{ u.username }}</span>
+          <span class="reassign-user-role">{{ formatRoleName(u.role) }}</span>
+        </button>
+      </template>
     </div>
-  </div>
+  </el-dialog>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi } from '@/api/survey'
+import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, reassignInstanceApi, reassignPageApi, listUsersApi } from '@/api/survey'
 
 const loading = ref(true)
 const submitting = ref(false)
@@ -138,12 +237,116 @@ const currentPageIdx = ref(0)
 const currentSectionIdx = ref(0)
 const answers = reactive({})
 
+// Reassign
+const reassignPopover = reactive({ show: false, type: 'instance', pageId: null })
+const reassignUsers = reactive({ list: [], loading: false })
+
+async function openReassign(type, pageId = null) {
+  reassignPopover.type = type
+  reassignPopover.pageId = pageId
+  reassignPopover.show = true
+  // Load users while popover shows loading state
+  reassignUsers.loading = true
+  reassignUsers.list = []
+  try {
+    const { data } = await listUsersApi({ size: 200 })
+    if (data.code === 200) {
+      reassignUsers.list = data.data?.records || data.data || []
+    }
+    if (reassignUsers.list.length === 0) {
+      reassignPopover.show = false
+      ElMessage.warning('No users available to reassign.')
+    }
+  } catch (e) {
+    reassignPopover.show = false
+    ElMessage.error('Failed to load users.')
+  } finally {
+    reassignUsers.loading = false
+  }
+}
+
+const ROLE_ORDER = { ROLE_ADMIN: 0, ROLE_AGENT: 1, ROLE_USER: 2 }
+const ROLE_LABELS = { ROLE_ADMIN: 'Administrators', ROLE_AGENT: 'Agents', ROLE_USER: 'Users' }
+
+const groupedReassignUsers = computed(() => {
+  // Determine current assignee name to exclude
+  const currentName = reassignPopover.type === 'instance'
+    ? fillData.value?.assignedToName
+    : pageAssignee(reassignPopover.pageId)
+  const groups = {}
+  for (const u of reassignUsers.list) {
+    if (u.username === currentName) continue // skip current assignee
+    const role = u.role || 'ROLE_USER'
+    if (!groups[role]) groups[role] = { label: ROLE_LABELS[role] || role, users: [] }
+    groups[role].users.push(u)
+  }
+  return Object.entries(groups)
+    .sort(([a], [b]) => (ROLE_ORDER[a] ?? 9) - (ROLE_ORDER[b] ?? 9))
+    .map(([role, g]) => ({ role, ...g }))
+})
+
+function formatRoleName(role) {
+  return (role || '').replace('ROLE_', '').replace('_', ' ')
+}
+
+async function doReassign(userId) {
+  try {
+    if (reassignPopover.type === 'instance') {
+      const res = await reassignInstanceApi(currentInstance.value.id, { userId })
+      if (res.data.code !== 200) {
+        ElMessage.error(res.data.message || 'Reassign failed')
+        return
+      }
+    } else {
+      const res = await reassignPageApi(currentInstance.value.id, reassignPopover.pageId, { userId })
+      if (res.data.code !== 200) {
+        ElMessage.error(res.data.message || 'Reassign failed')
+        return
+      }
+    }
+    reassignPopover.show = false
+    await refreshFillData()
+    ElMessage.success('Reassigned successfully')
+  } catch (e) {
+    const msg = e.response?.data?.message || e.response?.statusText || e.message || 'Unknown error'
+    ElMessage.error('Reassign failed: ' + msg)
+    console.error('[Fill] Reassign error:', e)
+  }
+}
+
 const currentPage = computed(() => fillData.value?.pages?.[currentPageIdx.value])
 const currentSection = computed(() => currentPage.value?.sections?.[currentSectionIdx.value])
+const visiblePages = computed(() => {
+  const ht = fillData.value?.hiddenTargets || []
+  return (fillData.value?.pages || []).filter(p => !ht.includes('PAGE:' + p.id))
+})
+const visiblePageNumber = computed(() => {
+  const ht = fillData.value?.hiddenTargets || []
+  const pages = fillData.value?.pages || []
+  let count = 0
+  for (let i = 0; i <= currentPageIdx.value; i++) {
+    if (!ht.includes('PAGE:' + pages[i]?.id)) count++
+  }
+  return count
+})
 
 function isHidden(page) {
   if (!fillData.value?.hiddenTargets || !page) return false
   return fillData.value.hiddenTargets.includes('PAGE:' + page.id)
+}
+
+function pageStatusClass(pageId) {
+  const s = (fillData.value?.pageStatuses || {})[pageId] || 'READY_TO_START'
+  return s.toLowerCase()
+}
+
+function pageStatusLabel(pageId) {
+  const s = (fillData.value?.pageStatuses || {})[pageId] || 'READY_TO_START'
+  return s.replace(/_/g, ' ')
+}
+
+function pageAssignee(pageId) {
+  return (fillData.value?.pageAssignees || {})[pageId] || null
 }
 
 function visibleQuestions(section) {
@@ -175,52 +378,123 @@ function toggleMulti(qid, opt) {
   const idx = vals.indexOf(opt)
   if (idx >= 0) vals.splice(idx, 1)
   else vals.push(opt)
-  setAnswer(qid, vals.join(','))
+  setAnswer(qid, vals.join(','), { immediate: true })
 }
 
-function setAnswer(qid, value) {
+/** Single-choice / Dropdown: click to select, click again to clear */
+function handleSingleChoice(qid, key) {
+  if (answers[qid] === key) {
+    // Already selected → clear
+    setAnswer(qid, '', { immediate: true })
+  } else {
+    setAnswer(qid, key, { immediate: true })
+  }
+}
+
+/** Rating: click star to rate, click same star again to clear */
+function handleRating(qid, star) {
+  const current = Number(answers[qid] || 0)
+  if (current === star) {
+    // Clicking the same star → clear
+    setAnswer(qid, '', { immediate: true })
+  } else {
+    setAnswer(qid, String(star), { immediate: true })
+  }
+}
+
+/** Save answer: debounced for text inputs, immediate for selections */
+function setAnswer(qid, value, opts = {}) {
   answers[qid] = value
-  // Auto-save after 500ms debounce
-  if (setAnswer._timers) clearTimeout(setAnswer._timers[qid])
-  if (!setAnswer._timers) setAnswer._timers = {}
-  setAnswer._timers[qid] = setTimeout(async () => {
-    if (!currentInstance.value) return
+  const immediate = opts.immediate || false
+
+  if (!setAnswer._pending) setAnswer._pending = {}
+
+  if (immediate) {
+    // Cancel any pending debounced save for this question
+    if (setAnswer._pending[qid]?.timer) clearTimeout(setAnswer._pending[qid].timer)
+    // Save immediately and refresh visibility
+    doSave(qid, value)
+  } else {
+    // Debounce text input — cancel previous, schedule new
+    if (setAnswer._pending[qid]?.timer) clearTimeout(setAnswer._pending[qid].timer)
+    setAnswer._pending[qid] = { value }
+    setAnswer._pending[qid].timer = setTimeout(() => doSave(qid, value), 300)
+  }
+}
+
+/** Actually send the save request + refresh visibility */
+async function doSave(qid, value) {
+  if (!currentInstance.value) return
+  try {
     await saveAnswerApi(currentInstance.value.id, { questionId: qid, value })
-    // Re-fetch to update visibility
+    console.log('[Fill] Saved Q' + qid + ' =', value)
+    delete setAnswer._pending?.[qid]
+    // Re-fetch to update visibility immediately
     await refreshFillData()
-  }, 500)
+  } catch (e) {
+    console.error('[Fill] Save failed for Q' + qid + ':', e)
+  }
+}
+
+/** Flush all pending debounced saves (called before page nav / submit) */
+async function flushPendingSaves() {
+  if (!setAnswer._pending) return
+  const pending = Object.entries(setAnswer._pending)
+  for (const [qid, entry] of pending) {
+    if (entry.timer) clearTimeout(entry.timer)
+    await doSave(Number(qid), entry.value)
+  }
 }
 
 async function refreshFillData() {
   if (!currentInstance.value) return
-  const { data } = await getFillDataApi(currentInstance.value.id)
-  if (data.code === 200) {
-    fillData.value = data.data
-    // Merge existing answers
-    if (data.data.existingAnswers) {
-      Object.entries(data.data.existingAnswers).forEach(([k, v]) => {
-        if (!answers[k]) answers[k] = v
-      })
+  try {
+    const { data } = await getFillDataApi(currentInstance.value.id)
+    if (data.code === 200) {
+      fillData.value = data.data
+      // Merge existing answers (server is source of truth for persisted values)
+      if (data.data.existingAnswers) {
+        Object.entries(data.data.existingAnswers).forEach(([k, v]) => {
+          if (!answers[k]) answers[k] = v
+        })
+      }
     }
+  } catch (e) {
+    console.error('[Fill] Failed to refresh fill data:', e)
   }
 }
 
 function switchPage(pi) {
+  const page = (fillData.value?.pages || [])[pi]
+  if (!page || isHidden(page)) return // Block navigation to hidden pages
   currentPageIdx.value = pi
   currentSectionIdx.value = 0
 }
 
-function prevPage() {
-  if (currentPageIdx.value > 0) { currentPageIdx.value--; currentSectionIdx.value = 0 }
-}
-function nextPage() {
-  if (setAnswer._timers) {
-    Object.values(setAnswer._timers).forEach(t => clearTimeout(t))
-    setAnswer._timers = {}
+async function prevPage() {
+  if (currentPageIdx.value <= 0) return
+  await flushPendingSaves()
+  // Find previous visible page
+  for (let i = currentPageIdx.value - 1; i >= 0; i--) {
+    const page = (fillData.value?.pages || [])[i]
+    if (page && !isHidden(page)) {
+      currentPageIdx.value = i
+      currentSectionIdx.value = 0
+      return
+    }
   }
-  if (currentPageIdx.value < (fillData.value?.pages?.length || 1) - 1) {
-    currentPageIdx.value++
-    currentSectionIdx.value = 0
+}
+async function nextPage() {
+  await flushPendingSaves()
+  const pages = fillData.value?.pages || []
+  // Find next visible page
+  for (let i = currentPageIdx.value + 1; i < pages.length; i++) {
+    const page = pages[i]
+    if (page && !isHidden(page)) {
+      currentPageIdx.value = i
+      currentSectionIdx.value = 0
+      return
+    }
   }
 }
 
@@ -234,6 +508,14 @@ async function openSurvey(instanceId) {
       if (data.data.existingAnswers) {
         Object.entries(data.data.existingAnswers).forEach(([k, v]) => { answers[k] = v })
       }
+      // Navigate to first visible page
+      const pages = data.data.pages || []
+      const ht = data.data.hiddenTargets || []
+      let firstVisible = 0
+      for (let i = 0; i < pages.length; i++) {
+        if (!ht.includes('PAGE:' + pages[i].id)) { firstVisible = i; break }
+      }
+      currentPageIdx.value = firstVisible
     } else {
       ElMessage.error(data.message || 'Failed to load survey')
       currentInstance.value = null
@@ -245,11 +527,7 @@ async function openSurvey(instanceId) {
 }
 
 async function handleSubmit() {
-  // Flush pending saves
-  if (setAnswer._timers) {
-    Object.values(setAnswer._timers).forEach(t => clearTimeout(t))
-    setAnswer._timers = {}
-  }
+  await flushPendingSaves()
   submitting.value = true
   try {
     const answerList = Object.entries(answers).map(([qid, val]) => ({ questionId: Number(qid), value: val }))
@@ -278,61 +556,122 @@ onMounted(async () => {
 
 <style scoped>
 .fill-page { max-width: 960px; margin: 0 auto; padding: var(--space-xl) var(--space-lg); min-height: 100vh; }
-.fill-loading { text-align: center; padding: var(--space-3xl); color: var(--color-text-muted); }
+
+/* Skeleton loading */
+.fill-loading { padding: var(--space-2xl) 0; }
+.skeleton-list { display: flex; flex-direction: column; gap: var(--space-lg); }
+.skeleton-card { padding: var(--space-xl); background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); }
+.skeleton-line { height: 14px; border-radius: var(--radius-sm); background: var(--color-gray-200); margin-bottom: var(--space-sm); animation: skeleton-pulse 1.5s ease-in-out infinite; }
+.skeleton-line--med { width: 55%; }
+.skeleton-line--long { width: 80%; }
+@keyframes skeleton-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
 
 /* Instance list */
 .fill-instances-title { font-family: var(--font-heading); font-size: var(--text-2xl); margin: 0 0 var(--space-lg); }
-.empty-state { text-align: center; padding: var(--space-3xl); color: var(--color-text-muted); }
+.empty-state { text-align: center; padding: var(--space-3xl); color: var(--color-text-secondary); }
+.empty-icon { width: 48px; height: 48px; color: var(--color-gray-300); margin-bottom: var(--space-md); }
+.empty-title { font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary); margin: 0 0 var(--space-xs); }
+.empty-desc { font-size: var(--text-sm); color: var(--color-text-secondary); margin: 0 0 var(--space-lg); max-width: 360px; margin-left: auto; margin-right: auto; }
 .instance-list { display: flex; flex-direction: column; gap: var(--space-md); }
-.instance-card { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-lg); cursor: pointer; transition: box-shadow var(--transition-fast); }
-.instance-card:hover { box-shadow: var(--shadow-md); }
-.instance-card h3 { margin: 0 0 var(--space-sm); font-size: var(--text-lg); }
-.instance-meta { display: flex; gap: var(--space-md); font-size: var(--text-sm); color: var(--color-text-secondary); align-items: center; }
-.instance-template { color: var(--color-text-muted); }
+.instance-card { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-lg); cursor: pointer; transition: all var(--transition-fast); position: relative; }
+.instance-card:hover { border-color: var(--color-primary-light); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.instance-card h3 { margin: 0 0 var(--space-sm); font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary); }
+.instance-meta { display: flex; gap: var(--space-md); font-size: var(--text-sm); color: var(--color-text-secondary); align-items: center; flex-wrap: wrap; }
+.instance-template { color: var(--color-text-secondary); font-size: var(--text-xs); background: var(--color-gray-50); padding: 2px 8px; border-radius: var(--radius-full); }
+.instance-assignee { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--color-text-secondary); }
+.instance-assignee svg { flex-shrink: 0; }
 
 /* Fill layout */
 .fill-layout { display: flex; flex-direction: column; min-height: calc(100vh - 64px); }
-.fill-topbar { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) 0; border-bottom: 1px solid var(--color-gray-200); margin-bottom: var(--space-lg); }
-.fill-back { display: flex; align-items: center; padding: 6px 12px; background: none; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); cursor: pointer; }
+
+/* Top bar — just back link */
+.fill-topbar { padding: var(--space-sm) 0 var(--space-md); }
+.fill-back { display: inline-flex; align-items: center; gap: 6px; padding: 6px 4px; font-size: var(--text-sm); font-family: var(--font-body); color: var(--color-text-secondary); background: none; border: none; cursor: pointer; transition: color var(--transition-fast); }
+.fill-back:hover { color: var(--color-primary); }
 .fill-back svg { width: 16px; height: 16px; }
-.fill-title { flex: 1; font-size: var(--text-lg); font-weight: 600; margin: 0; }
-.fill-page-indicator { font-size: var(--text-sm); color: var(--color-text-muted); }
+
+/* Survey Head card */
+.survey-head { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-lg); margin-bottom: var(--space-lg); box-shadow: var(--shadow-sm); }
+.survey-head-title { font-size: var(--text-xl); font-weight: 700; font-family: var(--font-heading); margin: 0 0 var(--space-md); color: var(--color-text-primary); }
+.survey-head-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xl); margin-bottom: var(--space-md); }
+.survey-head-col { display: flex; flex-direction: column; gap: 8px; }
+.survey-head-item { display: flex; align-items: center; gap: var(--space-sm); }
+.survey-head-label { font-size: var(--text-xs); font-weight: 500; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; min-width: 90px; }
+.survey-head-value { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary); }
+.survey-head-value svg { flex-shrink: 0; color: var(--color-text-muted); }
+.survey-head-na { font-size: var(--text-sm); color: var(--color-text-muted); }
+.survey-head-page-status { font-size: var(--text-xs); font-weight: 600; padding: 2px 8px; border-radius: var(--radius-full); white-space: nowrap; }
+.survey-head-page-status--ready_to_start { background: var(--color-gray-100); color: var(--color-text-secondary); }
+.survey-head-page-status--in_progress { background: #FEF3C7; color: #92400E; }
+.survey-head-page-status--submitted, .survey-head-page-status--completed { background: #D1FAE5; color: #047857; }
+.survey-head-progress {}
+.survey-head-progress-bar { width: 100%; height: 6px; background: var(--color-gray-200); border-radius: var(--radius-full); overflow: hidden; }
+.survey-head-progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light)); border-radius: var(--radius-full); transition: width var(--transition-base); }
+
+/* Reassign button */
+.reassign-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: none; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; color: var(--color-text-muted); transition: all var(--transition-fast); flex-shrink: 0; }
+.reassign-btn:hover { border-color: var(--color-gray-200); color: var(--color-primary); background: var(--color-primary-bg); }
+
+.reassign-user-list { display: flex; flex-direction: column; gap: 2px; }
+.reassign-user-group-label { font-size: 10px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 14px 4px; border-top: 1px solid var(--color-gray-100); margin-top: 4px; }
+.reassign-user-group-label:first-child { border-top: none; margin-top: 0; }
+.reassign-user-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: none; border: none; cursor: pointer; border-radius: var(--radius-md); font-family: var(--font-body); font-size: var(--text-sm); transition: background var(--transition-fast); width: 100%; text-align: left; }
+.reassign-user-item:hover { background: var(--color-gray-50); }
+.reassign-user-name { font-weight: 500; color: var(--color-text-primary); }
+.reassign-user-role { font-size: var(--text-xs); color: var(--color-text-muted); }
 
 .fill-body { display: flex; flex-direction: column; flex: 1; }
 
-/* Page tabs */
-.fill-page-tabs { display: flex; align-items: center; gap: 4px; margin-bottom: var(--space-sm); padding-bottom: var(--space-sm); border-bottom: 2px solid var(--color-gray-200); overflow-x: auto; }
+/* Content card — same width as head */
+.fill-content-card { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+
+/* Page tabs — inside card */
+.fill-page-tabs { display: flex; align-items: center; gap: 4px; padding: var(--space-sm) var(--space-lg); overflow-x: auto; border-bottom: 2px solid var(--color-gray-200); }
 .fill-tab { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-md) var(--radius-md) 0 0; cursor: pointer; font-size: var(--text-sm); font-family: var(--font-body); font-weight: 500; background: none; border: none; color: var(--color-text-secondary); transition: all var(--transition-fast); white-space: nowrap; min-height: 40px; }
 .fill-tab:hover:not(:disabled) { background: var(--color-gray-50); color: var(--color-text-primary); }
 .fill-tab--active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: 700; box-shadow: inset 0 -2px 0 var(--color-primary); }
-.fill-tab--hidden { opacity: 0.35; }
-.fill-tab:disabled { opacity: 0.35; cursor: not-allowed; }
-.fill-tab-num { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: var(--color-gray-200); border-radius: 50%; flex-shrink: 0; }
+.fill-tab:disabled { opacity: 0.3; cursor: not-allowed; }
+.fill-tab-num { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border-radius: 50%; flex-shrink: 0; color: var(--color-text-secondary); background: var(--color-gray-200); border: 2px solid transparent; transition: all var(--transition-fast); }
 .fill-tab--active .fill-tab-num { background: var(--color-primary); color: white; }
 
-/* Section tabs */
-.fill-section-tabs { display: flex; align-items: center; gap: 4px; margin-bottom: var(--space-sm); padding-bottom: var(--space-sm); border-bottom: 1px solid var(--color-gray-200); overflow-x: auto; }
+/* Page status indicator — colored ring */
+.fill-tab-num--ready_to_start { border-color: var(--color-gray-400); }
+.fill-tab-num--in_progress { border-color: #F59E0B; }
+.fill-tab-num--submitted, .fill-tab-num--completed { border-color: #10B981; }
+.fill-tab--active .fill-tab-num { border-color: transparent; }
+
+/* Section tabs — inside card */
+.fill-section-tabs { display: flex; align-items: center; gap: 4px; padding: var(--space-sm) var(--space-lg) 0; overflow-x: auto; }
+.fill-section-tabs + .fill-content { border-top: 1px solid var(--color-gray-200); }
 .fill-section-tab { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--radius-md) var(--radius-md) 0 0; cursor: pointer; font-size: var(--text-xs); font-family: var(--font-body); font-weight: 500; background: none; border: none; color: var(--color-text-secondary); transition: all var(--transition-fast); white-space: nowrap; min-height: 36px; }
 .fill-section-tab:hover { background: var(--color-gray-50); color: var(--color-text-primary); }
 .fill-section-tab--active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: 700; box-shadow: inset 0 -2px 0 var(--color-primary); }
 .fill-section-tab-num { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; background: var(--color-gray-200); border-radius: 50%; flex-shrink: 0; }
 .fill-section-tab--active .fill-section-tab-num { background: var(--color-primary); color: white; }
 
-/* Content */
-.fill-content { flex: 1; min-width: 0; padding-bottom: var(--space-2xl); max-width: 800px; margin: 0 auto; width: 100%; }
+/* Content — inside card */
+.fill-content { flex: 1; min-width: 0; padding: var(--space-xl) var(--space-lg) var(--space-2xl); }
 
 .fill-question { margin-bottom: var(--space-lg); }
 .fill-q-label { display: block; font-size: var(--text-sm); font-weight: 500; margin-bottom: 6px; color: var(--color-text-primary); }
 .fill-q-required { color: var(--color-danger); }
 
-.fill-options { display: flex; flex-direction: column; gap: 8px; }
-.fill-opt { display: flex; align-items: center; gap: 8px; font-size: var(--text-sm); cursor: pointer; padding: 6px 0; }
-.fill-opt input[type="radio"], .fill-opt input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--color-primary); cursor: pointer; }
+.fill-options { display: flex; flex-direction: column; gap: 4px; }
+.fill-opt { display: flex; align-items: center; gap: 12px; font-size: var(--text-sm); cursor: pointer; padding: 10px 14px; border: 1px solid transparent; border-radius: var(--radius-md); transition: background var(--transition-fast), border-color var(--transition-fast); }
+.fill-opt:hover { background: var(--color-gray-50); border-color: var(--color-gray-200); }
+.fill-opt:focus-within { border-color: var(--color-primary); background: var(--color-primary-bg); }
+.fill-opt input[type="radio"], .fill-opt input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--color-primary); cursor: pointer; flex-shrink: 0; }
+.opt-dot { width: 20px; height: 20px; border: 2px solid var(--color-gray-300); border-radius: 50%; flex-shrink: 0; transition: all var(--transition-fast); position: relative; }
+.opt-dot::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: var(--color-primary); transform: scale(0); transition: transform var(--transition-fast); }
+.opt-dot--checked { border-color: var(--color-primary); }
+.opt-dot--checked::after { transform: scale(1); }
 
-.fill-rating { display: flex; gap: 4px; }
-.fill-rating-btn { padding: 4px; background: none; border: none; cursor: pointer; color: var(--color-gray-300); transition: color var(--transition-fast), transform var(--transition-fast); }
-.fill-rating-btn:hover { transform: scale(1.15); }
+.fill-rating { display: flex; gap: 2px; }
+.fill-rating-btn { padding: 8px; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; background: none; border: 2px solid transparent; border-radius: var(--radius-sm); cursor: pointer; color: var(--color-gray-300); transition: color var(--transition-fast), transform var(--transition-fast), border-color var(--transition-fast); }
+.fill-rating-btn:hover { transform: scale(1.1); color: #F59E0B; border-color: var(--color-gray-200); }
+.fill-rating-btn:focus-visible { border-color: var(--color-primary); outline: none; }
 .fill-rating-btn--active { color: #F59E0B; }
+.fill-rating-btn--active:hover { border-color: #F59E0B40; }
 
 .fill-nav-btns { display: flex; justify-content: space-between; margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-gray-200); }
 
@@ -345,7 +684,7 @@ onMounted(async () => {
 .input { padding: 10px 14px; font-size: var(--text-sm); font-family: var(--font-body); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); width: 100%; box-sizing: border-box; }
 .input:focus { border-color: var(--color-primary); outline: none; box-shadow: 0 0 0 3px #7C3AED20; }
 .textarea { resize: vertical; }
-.muted { color: var(--color-text-muted) !important; padding: 10px 0; }
+.muted { color: var(--color-text-secondary) !important; padding: 14px 16px; background: var(--color-gray-50); border: 1px dashed var(--color-gray-200); border-radius: var(--radius-md); font-size: var(--text-sm); }
 
 .btn-primary { padding: 10px 24px; font-size: var(--text-sm); font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); border: none; border-radius: var(--radius-md); cursor: pointer; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -353,10 +692,24 @@ onMounted(async () => {
 .btn-secondary:hover:not(:disabled) { background: var(--color-gray-50); }
 .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Transition animations */
+.fade-enter-active, .fade-leave-active { transition: opacity var(--transition-fast), transform var(--transition-fast); }
+.fade-enter-from { opacity: 0; transform: translateY(6px); }
+.fade-leave-to { opacity: 0; transform: translateY(-6px); }
+
 @media (max-width: 768px) {
+  .fill-page { padding: var(--space-md); }
   .fill-body { flex-direction: column; }
-  .fill-nav { width: 100%; flex-direction: row; overflow-x: auto; gap: 2px; }
-  .fill-nav-btn { flex-shrink: 0; }
-  .fill-nav-label { display: none; }
+  .survey-head { padding: var(--space-md); }
+  .survey-head-cols { grid-template-columns: 1fr; gap: var(--space-md); }
+  .survey-head-title { font-size: var(--text-lg); }
+  .fill-content-card { border-radius: var(--radius-md); }
+  .fill-page-tabs { padding: var(--space-xs) var(--space-md) 0 var(--space-xs); gap: 2px; }
+  .fill-section-tabs { padding: var(--space-xs) var(--space-md) 0; gap: 2px; }
+  .fill-tab { padding: 8px 10px; font-size: var(--text-xs); }
+  .fill-section-tab { padding: 6px 10px; font-size: 11px; }
+  .fill-content { padding: var(--space-md); }
+  .fill-nav-btns { flex-direction: column; gap: var(--space-sm); }
+  .fill-nav-btns .btn-primary, .fill-nav-btns .btn-secondary { width: 100%; }
 }
 </style>

@@ -114,6 +114,7 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public UserResponse getUserById(Long id) {
         User user = findUserOrThrow(id);
+        checkUserTenantAccess(user);
         return UserResponse.from(user);
     }
 
@@ -121,6 +122,7 @@ public class AdminServiceImpl implements AdminService {
     @Transactional
     public UserResponse updateUser(Long id, UserUpdateRequest request, Long adminId) {
         User user = findUserOrThrow(id);
+        checkUserTenantAccess(user);
 
         boolean changed = false;
 
@@ -172,6 +174,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         User user = findUserOrThrow(id);
+        checkUserTenantAccess(user);
         userMapper.deleteById(id);
         log.info("Admin {} deleted user {} (id={})", adminId, user.getUsername(), id);
     }
@@ -191,6 +194,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         User user = findUserOrThrow(id);
+        checkUserTenantAccess(user);
         String oldRole = user.getRole();
         user.setRole(request.getRole());
         userMapper.updateById(user);
@@ -217,6 +221,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         User user = findUserOrThrow(id);
+        checkUserTenantAccess(user);
         user.setStatus(newStatus);
         userMapper.updateById(user);
 
@@ -231,5 +236,21 @@ public class AdminServiceImpl implements AdminService {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
         return user;
+    }
+
+    /**
+     * Verify the current admin can operate on the target user.
+     * Superadmin (tenant_id=NULL) can manage any user.
+     * Tenant admin can only manage users within their own tenant.
+     */
+    private void checkUserTenantAccess(User targetUser) {
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        if (currentTid == null) return; // superadmin
+        if (targetUser.getTenantId() == null) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        if (!currentTid.equals(targetUser.getTenantId())) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
     }
 }

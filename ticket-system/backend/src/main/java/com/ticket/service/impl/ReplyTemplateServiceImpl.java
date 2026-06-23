@@ -33,13 +33,13 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
     @Override
     public List<ReplyTemplateResponse> listTemplates(String category) {
         LambdaQueryWrapper<ReplyTemplate> wrapper = new LambdaQueryWrapper<>();
-        if (SecurityUtils.isAdmin()) {
-            // Admin sees all templates across all tenants (no tenant filter)
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        if (currentTid == null) {
+            // Superadmin — sees all
         } else {
-            Long tenantId = SecurityUtils.getCurrentTenantId();
             // System defaults (NULL) + current tenant's templates
             wrapper.and(w -> w.isNull(ReplyTemplate::getTenantId)
-                    .or().eq(ReplyTemplate::getTenantId, tenantId));
+                    .or().eq(ReplyTemplate::getTenantId, currentTid));
         }
         if (StringUtils.hasText(category)) {
             wrapper.eq(ReplyTemplate::getCategory, category);
@@ -54,10 +54,10 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
     @Transactional
     public ReplyTemplateResponse createTemplate(CreateTemplateRequest request, Long userId) {
         // Validate title uniqueness within tenant
-        Long count = templateMapper.selectCount(
-                new LambdaQueryWrapper<ReplyTemplate>()
-                        .eq(ReplyTemplate::getTenantId, SecurityUtils.getCurrentTenantId())
-                        .eq(ReplyTemplate::getTitle, request.getTitle()));
+        LambdaQueryWrapper<ReplyTemplate> ckW = new LambdaQueryWrapper<>();
+        SecurityUtils.tenantEqOrNull(ckW, ReplyTemplate::getTenantId, SecurityUtils.getCurrentTenantIdOrNull());
+        ckW.eq(ReplyTemplate::getTitle, request.getTitle());
+        Long count = templateMapper.selectCount(ckW);
         if (count > 0) {
             throw new BusinessException(ErrorCode.REPLY_TEMPLATE_TITLE_DUPLICATE);
         }
@@ -70,7 +70,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
         t.setTitle(request.getTitle());
         t.setContent(request.getContent());
         t.setCategory(request.getCategory() != null ? request.getCategory() : BusinessConstants.DEFAULT_TEMPLATE_CATEGORY);
-        t.setTenantId(SecurityUtils.getCurrentTenantId()); // user's own tenant
+        t.setTenantId(SecurityUtils.getCurrentTenantIdOrNull()); // null for superadmin
         t.setCreatedBy(userId);
         templateMapper.insert(t);
         log.info("Template created: id={} title={} by userId={}", t.getId(), t.getTitle(), userId);
@@ -85,15 +85,15 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
             throw new BusinessException(ErrorCode.REPLY_TEMPLATE_NOT_FOUND);
         }
         // System defaults (tenant_id=NULL) only editable by admin
-        if (t.getTenantId() == null && !SecurityUtils.isAdmin()) {
+        if (t.getTenantId() == null && SecurityUtils.getCurrentTenantIdOrNull() != null) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can edit system default templates");
         }
         // Validate title uniqueness within tenant (exclude self)
-        Long count = templateMapper.selectCount(
-                new LambdaQueryWrapper<ReplyTemplate>()
-                        .eq(ReplyTemplate::getTenantId, SecurityUtils.getCurrentTenantId())
-                        .eq(ReplyTemplate::getTitle, request.getTitle())
-                        .ne(ReplyTemplate::getId, id));
+        LambdaQueryWrapper<ReplyTemplate> upW = new LambdaQueryWrapper<>();
+        SecurityUtils.tenantEqOrNull(upW, ReplyTemplate::getTenantId, SecurityUtils.getCurrentTenantIdOrNull());
+        upW.eq(ReplyTemplate::getTitle, request.getTitle());
+        upW.ne(ReplyTemplate::getId, id);
+        Long count = templateMapper.selectCount(upW);
         if (count > 0) {
             throw new BusinessException(ErrorCode.REPLY_TEMPLATE_TITLE_DUPLICATE);
         }
@@ -118,7 +118,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
         if (t == null) {
             throw new BusinessException(ErrorCode.REPLY_TEMPLATE_NOT_FOUND);
         }
-        if (t.getTenantId() == null && !SecurityUtils.isAdmin()) {
+        if (t.getTenantId() == null && SecurityUtils.getCurrentTenantIdOrNull() != null) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can delete system default templates");
         }
         templateMapper.deleteById(id);

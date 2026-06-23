@@ -63,7 +63,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public SurveyTemplateResponse createTemplate(CreateSurveyTemplateRequest request, Long adminId) {
         SurveyTemplate t = new SurveyTemplate();
-        t.setTenantId(SecurityUtils.getCurrentTenantId());
+        t.setTenantId(SecurityUtils.getCurrentTenantIdOrNull()); // null for superadmin = system default
         t.setTitle(request.getTitle());
         t.setDescription(request.getDescription());
         t.setStatus(BusinessConstants.SURVEY_STATUS_DRAFT);
@@ -89,25 +89,65 @@ public class SurveyServiceImpl implements SurveyService {
     @Override
     public SurveyTemplateResponse getTemplate(Long templateId) {
         SurveyTemplate t = findTemplateOrFail(templateId);
+        checkTemplateTenantAccess(t);
         return toTemplateResponse(t);
     }
 
     @Override
     public PageResponse<SurveyTemplateResponse> listTemplates(int page, int size) {
-        var mpPage = templateMapper.selectPage(
-                Page.of(page, size),
-                new LambdaQueryWrapper<SurveyTemplate>()
-                        .orderByDesc(SurveyTemplate::getCreatedDate));
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        var wrapper = new LambdaQueryWrapper<SurveyTemplate>();
+        // Tenant-scoped users see their own templates + system defaults (tenant_id=NULL)
+        // Superadmin (currentTid==null) sees all
+        if (currentTid != null) {
+            wrapper.and(w -> w.isNull(SurveyTemplate::getTenantId)
+                    .or().eq(SurveyTemplate::getTenantId, currentTid));
+        }
+        wrapper.orderByDesc(SurveyTemplate::getCreatedDate);
+        var mpPage = templateMapper.selectPage(Page.of(page, size), wrapper);
         List<SurveyTemplateResponse> records = mpPage.getRecords().stream()
                 .map(this::toTemplateResponse)
                 .collect(Collectors.toList());
         return PageResponse.of(mpPage, records);
     }
 
+    /**
+     * Verify the current user can VIEW this template.
+     * System defaults (tenant_id=NULL) are visible to all tenants.
+     */
+    private void checkTemplateTenantAccess(SurveyTemplate t) {
+        if (t.getTenantId() == null) return; // system default — visible to all
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        if (currentTid == null) return; // superadmin — sees all
+        if (!currentTid.equals(t.getTenantId())) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    /**
+     * Verify the current user can MODIFY this template.
+     * System defaults (tenant_id=NULL) can only be modified by superadmin.
+     */
+    private void checkTemplateTenantWriteAccess(SurveyTemplate t) {
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        if (t.getTenantId() == null) {
+            // System defaults — only superadmin can modify
+            if (currentTid != null) {
+                throw new BusinessException(ErrorCode.ACCESS_DENIED);
+            }
+            return;
+        }
+        if (currentTid == null) return; // superadmin
+        if (!currentTid.equals(t.getTenantId())) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+
     @Override
     @Transactional
     public SurveyTemplateResponse updateTemplate(Long id, UpdateSurveyTemplateRequest request, Long adminId) {
         SurveyTemplate t = findTemplateOrFail(id);
+        checkTemplateTenantAccess(t);
         if (StringUtils.hasText(request.getTitle())) t.setTitle(request.getTitle());
         if (request.getDescription() != null) t.setDescription(request.getDescription());
 
@@ -147,6 +187,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public void deleteTemplate(Long id) {
         SurveyTemplate t = findTemplateOrFail(id);
+        checkTemplateTenantWriteAccess(t);
         if (BusinessConstants.SURVEY_STATUS_PUBLISHED.equals(t.getStatus())) {
             throw new BusinessException(ErrorCode.TEMPLATE_ALREADY_PUBLISHED);
         }
@@ -349,7 +390,7 @@ public class SurveyServiceImpl implements SurveyService {
         }
 
         SurveyInstance instance = new SurveyInstance();
-        instance.setTenantId(SecurityUtils.getCurrentTenantId());
+        instance.setTenantId(SecurityUtils.getCurrentTenantIdOrNull()); // null for superadmin
         instance.setTemplateId(template.getId());
         instance.setTitle(template.getTitle());
         instance.setStatus(BusinessConstants.INSTANCE_STATUS_READY);
@@ -363,12 +404,18 @@ public class SurveyServiceImpl implements SurveyService {
         // Create instance pages for all template pages
         List<SurveyPage> pages = pageMapper.selectList(new LambdaQueryWrapper<SurveyPage>()
                 .eq(SurveyPage::getTemplateId, template.getId()));
+        Map<Long, Long> pageAssignees = request.getPageAssignees();
         for (SurveyPage page : pages) {
             SurveyInstancePage ip = new SurveyInstancePage();
             ip.setInstanceId(instance.getId());
             ip.setPageId(page.getId());
             ip.setStatus(BusinessConstants.INSTANCE_STATUS_READY);
-            ip.setAssignedTo(request.getAssignedTo()); // inherit from instance
+            // Use per-page assignee if provided, otherwise inherit from instance
+            if (pageAssignees != null && pageAssignees.containsKey(page.getId())) {
+                ip.setAssignedTo(pageAssignees.get(page.getId()));
+            } else {
+                ip.setAssignedTo(request.getAssignedTo());
+            }
             instancePageMapper.insert(ip);
         }
 
@@ -378,9 +425,19 @@ public class SurveyServiceImpl implements SurveyService {
 
     @Override
     public List<SurveyInstanceResponse> listUserInstances(Long userId) {
-        return instanceMapper.selectList(new LambdaQueryWrapper<SurveyInstance>()
-                .eq(SurveyInstance::getAssignedTo, userId)
-                .orderByDesc(SurveyInstance::getCreatedDate))
+        // Find instance IDs where user is a page assignee
+        List<Long> pageInstanceIds = instancePageMapper.selectList(new LambdaQueryWrapper<SurveyInstancePage>()
+                .eq(SurveyInstancePage::getAssignedTo, userId)
+                .select(SurveyInstancePage::getInstanceId))
+                .stream().map(SurveyInstancePage::getInstanceId).distinct().collect(Collectors.toList());
+
+        LambdaQueryWrapper<SurveyInstance> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(SurveyInstance::getAssignedTo, userId);
+        if (!pageInstanceIds.isEmpty()) {
+            wrapper.or().in(SurveyInstance::getId, pageInstanceIds);
+        }
+        wrapper.orderByDesc(SurveyInstance::getCreatedDate);
+        return instanceMapper.selectList(wrapper)
                 .stream().map(this::toInstanceResponse).collect(Collectors.toList());
     }
 
@@ -436,8 +493,8 @@ public class SurveyServiceImpl implements SurveyService {
     @Override
     public SurveyFillResponse getFillData(Long instanceId, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
-        // Verify ownership
-        if (instance.getAssignedTo() == null || !instance.getAssignedTo().equals(userId)) {
+        // Verify access: instance assignee OR any page assignee can view
+        if (!canAccessFillData(instanceId, instance, userId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
 
@@ -500,7 +557,8 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public void saveAnswer(Long instanceId, SaveAnswerRequest request, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
-        if (instance.getAssignedTo() == null || !instance.getAssignedTo().equals(userId)) {
+        // Page-level assignee check takes precedence, fall back to instance-level
+        if (!hasPageOrInstancePermission(instanceId, instance, request.getQuestionId(), userId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
         if (BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(instance.getStatus())
@@ -508,7 +566,39 @@ public class SurveyServiceImpl implements SurveyService {
             throw new BusinessException(ErrorCode.INSTANCE_ALREADY_SUBMITTED);
         }
 
-        // Upsert answer
+        upsertAnswer(instanceId, request);
+        updateInstancePageStatus(instanceId, request.getQuestionId());
+    }
+
+    /**
+     * Check permission to answer a question: page assignee first, then instance assignee.
+     */
+    private boolean hasPageOrInstancePermission(Long instanceId, SurveyInstance instance, Long questionId, Long userId) {
+        Long pageAssignTo = resolvePageAssignee(instanceId, questionId);
+        if (pageAssignTo != null) {
+            return pageAssignTo.equals(userId);
+        }
+        // No page-level assignee — fall back to instance-level
+        return instance.getAssignedTo() != null && instance.getAssignedTo().equals(userId);
+    }
+
+    /**
+     * Resolve the page-level assignee for a question.
+     * Returns null if the page has no explicit assignee.
+     */
+    private Long resolvePageAssignee(Long instanceId, Long questionId) {
+        SurveyQuestion question = questionMapper.selectById(questionId);
+        if (question == null) return null;
+        SurveySection section = sectionMapper.selectById(question.getSectionId());
+        if (section == null) return null;
+        SurveyInstancePage ip = instancePageMapper.selectOne(new LambdaQueryWrapper<SurveyInstancePage>()
+                .eq(SurveyInstancePage::getInstanceId, instanceId)
+                .eq(SurveyInstancePage::getPageId, section.getPageId()));
+        return ip != null ? ip.getAssignedTo() : null;
+    }
+
+    /** Upsert a single answer (no permission check — caller validates access). */
+    private void upsertAnswer(Long instanceId, SaveAnswerRequest request) {
         SurveyAnswer existing = answerMapper.selectOne(new LambdaQueryWrapper<SurveyAnswer>()
                 .eq(SurveyAnswer::getInstanceId, instanceId)
                 .eq(SurveyAnswer::getQuestionId, request.getQuestionId()));
@@ -522,10 +612,12 @@ public class SurveyServiceImpl implements SurveyService {
             answer.setValue(request.getValue());
             answerMapper.insert(answer);
         }
+    }
 
-        // Update instance page status (non-critical — wrap in try to avoid failing the save)
+    /** Update instance page status to IN_PROGRESS (non-critical, errors logged but not thrown). */
+    private void updateInstancePageStatus(Long instanceId, Long questionId) {
         try {
-            SurveyQuestion question = questionMapper.selectById(request.getQuestionId());
+            SurveyQuestion question = questionMapper.selectById(questionId);
             if (question != null) {
                 SurveySection section = sectionMapper.selectById(question.getSectionId());
                 if (section != null) {
@@ -558,10 +650,11 @@ public class SurveyServiceImpl implements SurveyService {
             throw new BusinessException(ErrorCode.INSTANCE_ALREADY_SUBMITTED);
         }
 
-        // Save any final answers from the submit request
+        // Save any final answers from the submit request (skip per-answer page check — already validated at instance level)
         if (request.getAnswers() != null) {
             for (SaveAnswerRequest ans : request.getAnswers()) {
-                saveAnswer(instanceId, ans, userId);
+                upsertAnswer(instanceId, ans);
+                updateInstancePageStatus(instanceId, ans.getQuestionId());
             }
         }
 
@@ -678,6 +771,20 @@ public class SurveyServiceImpl implements SurveyService {
         SurveyInstance instance = instanceMapper.selectById(id);
         if (instance == null) throw new BusinessException(ErrorCode.INSTANCE_NOT_FOUND);
         return instance;
+    }
+
+    /**
+     * Check if user can access fill data: instance assignee or any page assignee.
+     */
+    private boolean canAccessFillData(Long instanceId, SurveyInstance instance, Long userId) {
+        // Instance assignee always has access
+        if (instance.getAssignedTo() != null && instance.getAssignedTo().equals(userId)) {
+            return true;
+        }
+        // Check if user is assigned to any page of this instance
+        List<SurveyInstancePage> pages = instancePageMapper.selectList(new LambdaQueryWrapper<SurveyInstancePage>()
+                .eq(SurveyInstancePage::getInstanceId, instanceId));
+        return pages.stream().anyMatch(ip -> ip.getAssignedTo() != null && ip.getAssignedTo().equals(userId));
     }
 
     private SurveyInstanceResponse toInstanceResponse(SurveyInstance instance) {

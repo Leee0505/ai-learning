@@ -11,6 +11,7 @@ import com.ticket.dto.response.*;
 import com.ticket.entity.*;
 import com.ticket.mapper.*;
 import com.ticket.service.ConfigService;
+import com.ticket.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -121,11 +122,18 @@ public class ConfigServiceImpl implements ConfigService {
 
     @Override
     public List<SlaConfigResponse> listSla() {
-        LambdaQueryWrapper<SlaConfig> wrapper = new LambdaQueryWrapper<>();
-        wrapper.last("ORDER BY FIELD(priority, 'URGENT', 'HIGH', 'MEDIUM', 'LOW')");
-        return slaMapper.selectList(wrapper).stream()
-                .map(this::toSlaResponse)
-                .collect(Collectors.toList());
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        if (currentTid == null) {
+            // Superadmin — sees all raw SLAs
+            LambdaQueryWrapper<SlaConfig> wrapper = new LambdaQueryWrapper<>();
+            wrapper.last("ORDER BY tenant_id, FIELD(priority, 'URGENT', 'HIGH', 'MEDIUM', 'LOW')");
+            return slaMapper.selectList(wrapper).stream()
+                    .map(this::toSlaResponse)
+                    .collect(Collectors.toList());
+        }
+        // Tenant-scoped: effective set (custom overrides system default)
+        List<SlaConfig> effective = loadEffectiveSlaSet(currentTid);
+        return effective.stream().map(this::toSlaResponse).collect(Collectors.toList());
     }
 
     @Override
@@ -141,50 +149,103 @@ public class ConfigServiceImpl implements ConfigService {
             throw new BusinessException(ErrorCode.SLA_NOT_FOUND);
         }
 
-        // Cross-priority validation: load all SLAs and verify order integrity
-        List<SlaConfig> allSlas = slaMapper.selectList(new LambdaQueryWrapper<>());
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        boolean isSuperadmin = (currentTid == null);
 
-        // Build effective response/resolution maps, applying the pending change
-        Map<String, Integer> responseByPriority = new HashMap<>();
-        Map<String, Integer> resolutionByPriority = new HashMap<>();
-        for (SlaConfig sla : allSlas) {
-            if (sla.getId().equals(id)) {
-                responseByPriority.put(sla.getPriority(), request.getResponseMinutes());
-                resolutionByPriority.put(sla.getPriority(), request.getResolutionMinutes());
-            } else {
-                responseByPriority.put(sla.getPriority(), sla.getResponseMinutes());
-                resolutionByPriority.put(sla.getPriority(), sla.getResolutionMinutes());
-            }
+        // ── Copy-on-write: tenant admin editing a system default creates a new custom SLA ──
+        if (entity.getTenantId() == null && !isSuperadmin) {
+            SlaConfig custom = new SlaConfig();
+            custom.setTenantId(currentTid);
+            custom.setPriority(entity.getPriority());
+            custom.setResponseMinutes(request.getResponseMinutes());
+            custom.setResolutionMinutes(request.getResolutionMinutes());
+            custom.setActive(1);
+            custom.setCreatedBy(adminId);
+            custom.setCreatedDate(System.currentTimeMillis());
+            validateSlaChain(currentTid, entity.getPriority(), request.getResponseMinutes(), request.getResolutionMinutes());
+            slaMapper.insert(custom);
+            return toSlaResponse(custom);
         }
 
-        // Verify ascending chain: stricter priority must have lower minute values
-        List<String> ordered = BusinessConstants.SLA_PRIORITY_ORDER;
-        for (int i = 0; i < ordered.size() - 1; i++) {
-            String curPri = ordered.get(i);
-            String nextPri = ordered.get(i + 1);
-            Integer curResp = responseByPriority.get(curPri);
-            Integer nextResp = responseByPriority.get(nextPri);
-            Integer curRes = resolutionByPriority.get(curPri);
-            Integer nextRes = resolutionByPriority.get(nextPri);
-
-            if (curResp != null && nextResp != null && curResp >= nextResp) {
-                throw new BusinessException(ErrorCode.SLA_PRIORITY_ORDER_VIOLATED,
-                        nextPri + " response time (" + nextResp + "min) must be greater than "
-                                + curPri + " response time (" + curResp + "min)");
+        // ── Access check ──
+        if (entity.getTenantId() != null) {
+            if (isSuperadmin) {
+                // Superadmin can edit any tenant's custom SLA
+            } else if (!entity.getTenantId().equals(currentTid)) {
+                throw new BusinessException(ErrorCode.ACCESS_DENIED);
             }
-            if (curRes != null && nextRes != null && curRes >= nextRes) {
-                throw new BusinessException(ErrorCode.SLA_PRIORITY_ORDER_VIOLATED,
-                        nextPri + " resolution time (" + nextRes + "min) must be greater than "
-                                + curPri + " resolution time (" + curRes + "min)");
-            }
+        } else if (!isSuperadmin) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
 
+        // ── Direct update (superadmin editing system default, or tenant editing own custom) ──
+        validateSlaChain(currentTid, entity.getPriority(), request.getResponseMinutes(), request.getResolutionMinutes());
         entity.setResponseMinutes(request.getResponseMinutes());
         entity.setResolutionMinutes(request.getResolutionMinutes());
         entity.setLastModifiedBy(adminId);
         entity.setLastModifiedDate(System.currentTimeMillis());
         slaMapper.updateById(entity);
         return toSlaResponse(entity);
+    }
+
+    // ── SLA helpers ──
+
+    /**
+     * Load the effective SLA set for a tenant: custom overrides system default per priority.
+     */
+    private List<SlaConfig> loadEffectiveSlaSet(Long tenantId) {
+        LambdaQueryWrapper<SlaConfig> wrapper = new LambdaQueryWrapper<>();
+        wrapper.and(w -> w.isNull(SlaConfig::getTenantId)
+                .or().eq(SlaConfig::getTenantId, tenantId));
+        wrapper.last("ORDER BY FIELD(priority, 'URGENT', 'HIGH', 'MEDIUM', 'LOW')");
+        List<SlaConfig> all = slaMapper.selectList(wrapper);
+        Map<String, SlaConfig> effective = new LinkedHashMap<>();
+        // Process system defaults first, then tenant customs (latter overrides)
+        for (SlaConfig sla : all) {
+            if (sla.getTenantId() == null) {
+                effective.putIfAbsent(sla.getPriority(), sla);
+            } else {
+                effective.put(sla.getPriority(), sla);
+            }
+        }
+        return new ArrayList<>(effective.values());
+    }
+
+    /**
+     * Validate SLA priority ordering in the effective set for a tenant.
+     * Higher priority must have strictly lower response and resolution minutes.
+     */
+    private void validateSlaChain(Long tenantId, String changedPriority,
+                                   int newResponse, int newResolution) {
+        List<SlaConfig> effective = loadEffectiveSlaSet(tenantId);
+        Map<String, Integer> respMap = new HashMap<>();
+        Map<String, Integer> resoMap = new HashMap<>();
+        for (SlaConfig sla : effective) {
+            if (sla.getPriority().equals(changedPriority)) {
+                respMap.put(sla.getPriority(), newResponse);
+                resoMap.put(sla.getPriority(), newResolution);
+            } else {
+                respMap.put(sla.getPriority(), sla.getResponseMinutes());
+                resoMap.put(sla.getPriority(), sla.getResolutionMinutes());
+            }
+        }
+        List<String> ordered = BusinessConstants.SLA_PRIORITY_ORDER;
+        for (int i = 0; i < ordered.size() - 1; i++) {
+            String cur = ordered.get(i);
+            String next = ordered.get(i + 1);
+            Integer cr = respMap.get(cur);
+            Integer nr = respMap.get(next);
+            if (cr != null && nr != null && cr >= nr) {
+                throw new BusinessException(ErrorCode.SLA_PRIORITY_ORDER_VIOLATED,
+                        next + " response (" + nr + "min) must be > " + cur + " response (" + cr + "min)");
+            }
+            Integer cs = resoMap.get(cur);
+            Integer ns = resoMap.get(next);
+            if (cs != null && ns != null && cs >= ns) {
+                throw new BusinessException(ErrorCode.SLA_PRIORITY_ORDER_VIOLATED,
+                        next + " resolution (" + ns + "min) must be > " + cur + " resolution (" + cs + "min)");
+            }
+        }
     }
 
     private void validateSelectOptions(String optionsJson) {

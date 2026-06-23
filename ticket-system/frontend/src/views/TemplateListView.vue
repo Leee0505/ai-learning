@@ -82,7 +82,7 @@ import { useAuthStore } from '@/stores/auth'
 import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from '@/api/templates'
 
 const authStore = useAuthStore()
-const canEdit = (t) => t.tenantId !== null || authStore.isAdmin
+const canEdit = (t) => t.tenantId !== null || authStore.user?.tenantId == null
 
 const templates = ref([])
 const loading = ref(true)

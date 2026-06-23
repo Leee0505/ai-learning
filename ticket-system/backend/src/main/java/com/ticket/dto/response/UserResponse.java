@@ -9,6 +9,7 @@ public class UserResponse {
     private String phone;
     private String role;
     private Integer status;
+    private Long tenantId;
     private Long createdDate;
 
     public static UserResponse from(User user) {
@@ -19,6 +20,7 @@ public class UserResponse {
         response.phone = user.getPhone();
         response.role = user.getRole();
         response.status = user.getStatus();
+        response.tenantId = user.getTenantId();
         response.createdDate = user.getCreatedDate();
         return response;
     }
@@ -29,5 +31,6 @@ public class UserResponse {
     public String getPhone() { return phone; }
     public String getRole() { return role; }
     public Integer getStatus() { return status; }
+    public Long getTenantId() { return tenantId; }
     public Long getCreatedDate() { return createdDate; }
 }

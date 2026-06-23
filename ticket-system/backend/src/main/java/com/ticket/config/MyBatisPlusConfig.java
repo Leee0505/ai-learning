@@ -31,25 +31,31 @@ public class MyBatisPlusConfig {
 
             @Override
             public boolean ignoreTable(String tableName) {
-                // Admin bypasses ALL tenant isolation — sees data across all tenants.
-                // We do this here (not in getTenantId()) because returning null from
-                // getTenantId() generates "WHERE tenant_id = NULL" in MP 3.5.5
-                // which matches zero rows, instead of skipping the filter.
-                if (SecurityUtils.isAdmin()) {
-                    return true;
-                }
-                return "user".equalsIgnoreCase(tableName)
+                // System / cross-tenant tables — always skip interceptor.
+                // Tenant isolation for these is handled manually in the service layer
+                // (supports tenant_id=NULL = system default visible to all tenants).
+                if ("user".equalsIgnoreCase(tableName)
                         || "tenant".equalsIgnoreCase(tableName)
                         || "invite_token".equalsIgnoreCase(tableName)
                         || "reply_template".equalsIgnoreCase(tableName)
                         || "knowledge_article".equalsIgnoreCase(tableName)
+                        || "survey_template".equalsIgnoreCase(tableName)
+                        || "sla_config".equalsIgnoreCase(tableName)
                         // Survey child tables inherit tenant scope from parent
                         || "survey_page".equalsIgnoreCase(tableName)
                         || "survey_section".equalsIgnoreCase(tableName)
                         || "survey_question".equalsIgnoreCase(tableName)
                         || "survey_visibility_rule".equalsIgnoreCase(tableName)
                         || "survey_instance_page".equalsIgnoreCase(tableName)
-                        || "survey_answer".equalsIgnoreCase(tableName);
+                        || "survey_answer".equalsIgnoreCase(tableName)) {
+                    return true;
+                }
+                // Regular tenant-scoped tables (ticket, survey_instance, notification, etc.)
+                // Superadmin sees all tenants; everyone else gets tenant_id filter.
+                if (SecurityUtils.isAdmin()) {
+                    return SecurityUtils.getCurrentTenantIdOrNull() == null;
+                }
+                return false;
             }
         }));
         return interceptor;

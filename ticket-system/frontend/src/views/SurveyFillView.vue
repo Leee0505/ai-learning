@@ -139,44 +139,48 @@
 
               <!-- TEXT (debounced save on input, flush on blur) -->
               <input v-if="q.type === 'TEXT'" :id="'q'+q.id" type="text" class="input"
+                     :disabled="!canEditCurrentPage"
                      :value="answers[q.id] || ''"
                      @input="setAnswer(q.id, $event.target.value)"
                      @blur="flushPendingSaves()" />
 
               <!-- TEXTAREA (debounced save on input, flush on blur) -->
               <textarea v-else-if="q.type === 'TEXTAREA'" :id="'q'+q.id" class="input textarea" rows="3"
+                        :disabled="!canEditCurrentPage"
                         :value="answers[q.id] || ''"
                         @input="setAnswer(q.id, $event.target.value)"
                         @blur="flushPendingSaves()"></textarea>
 
               <!-- DATE (debounced save on input, flush on blur) -->
               <input v-else-if="q.type === 'DATE'" :id="'q'+q.id" type="text" class="input"
+                     :disabled="!canEditCurrentPage"
                      :value="answers[q.id] || ''" placeholder="YYYY-MM-DD"
                      @input="setAnswer(q.id, $event.target.value)"
                      @blur="flushPendingSaves()" />
 
               <!-- SINGLE_CHOICE / DROPDOWN (click to select, click again to clear) -->
-              <div v-else-if="q.type === 'SINGLE_CHOICE' || q.type === 'DROPDOWN'" class="fill-options">
+              <div v-else-if="q.type === 'SINGLE_CHOICE' || q.type === 'DROPDOWN'" class="fill-options" :class="{ 'fill-options--disabled': !canEditCurrentPage }">
                 <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="fill-opt"
-                       @click.prevent="handleSingleChoice(q.id, opt.key)">
+                       @click.prevent="canEditCurrentPage && handleSingleChoice(q.id, opt.key)">
                   <span class="opt-dot" :class="{ 'opt-dot--checked': answers[q.id] === opt.key }"></span>
                   {{ opt.label }}
                 </label>
               </div>
 
               <!-- MULTI_CHOICE (save immediately) -->
-              <div v-else-if="q.type === 'MULTI_CHOICE'" class="fill-options">
+              <div v-else-if="q.type === 'MULTI_CHOICE'" class="fill-options" :class="{ 'fill-options--disabled': !canEditCurrentPage }">
                 <label v-for="(opt, oi) in parseOptions(q.options)" :key="oi" class="fill-opt">
-                  <input type="checkbox" :value="opt.key"
+                  <input type="checkbox" :value="opt.key" :disabled="!canEditCurrentPage"
                          :checked="multiChecked(q.id, opt.key)" @change="toggleMulti(q.id, opt.key)" />
                   {{ opt.label }}
                 </label>
               </div>
 
               <!-- RATING (click star to rate, click same star again to clear) -->
-              <div v-else-if="q.type === 'RATING'" class="fill-rating">
+              <div v-else-if="q.type === 'RATING'" class="fill-rating" :class="{ 'fill-rating--disabled': !canEditCurrentPage }">
                 <button v-for="i in getRatingMax(q.options)" :key="i" class="fill-rating-btn"
                         :class="{ 'fill-rating-btn--active': Number(answers[q.id] || 0) >= i }"
+                        :disabled="!canEditCurrentPage"
                         @click="handleRating(q.id, i)" :aria-label="'Rate ' + i">
                   <svg viewBox="0 0 24 24" :fill="Number(answers[q.id] || 0) >= i ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.5" width="28" height="28"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
                 </button>
@@ -224,7 +228,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, reassignInstanceApi, reassignPageApi, listUsersApi } from '@/api/survey'
 
@@ -273,9 +277,11 @@ const groupedReassignUsers = computed(() => {
   const currentName = reassignPopover.type === 'instance'
     ? fillData.value?.assignedToName
     : pageAssignee(reassignPopover.pageId)
+  const currentUser = fillData.value?.currentUsername
   const groups = {}
   for (const u of reassignUsers.list) {
-    if (u.username === currentName) continue // skip current assignee
+    // Skip current assignee (no-op reassign) and current user (can't assign to self)
+    if (u.username === currentName || u.username === currentUser) continue
     const role = u.role || 'ROLE_USER'
     if (!groups[role]) groups[role] = { label: ROLE_LABELS[role] || role, users: [] }
     groups[role].users.push(u)
@@ -297,16 +303,31 @@ async function doReassign(userId) {
         ElMessage.error(res.data.message || 'Reassign failed')
         return
       }
-    } else {
-      const res = await reassignPageApi(currentInstance.value.id, reassignPopover.pageId, { userId })
-      if (res.data.code !== 200) {
-        ElMessage.error(res.data.message || 'Reassign failed')
-        return
-      }
+      // Instance reassign: current user is no longer the assignee — go back to list immediately.
+      // Don't try refreshFillData() — getFillData would return ACCESS_DENIED since instance.assignee changed.
+      reassignPopover.show = false
+      ElMessage.success('Reassigned — returning to list')
+      currentInstance.value = null
+      return
+    }
+
+    // Page reassign
+    const res = await reassignPageApi(currentInstance.value.id, reassignPopover.pageId, { userId })
+    if (res.data.code !== 200) {
+      ElMessage.error(res.data.message || 'Reassign failed')
+      return
     }
     reassignPopover.show = false
-    await refreshFillData()
-    ElMessage.success('Reassigned successfully')
+    // Refresh fill data to update pageAssignees in UI
+    try {
+      await refreshFillData()
+    } catch {
+      // refresh failed (e.g., user lost all access) — go back to list
+      ElMessage.success('Page reassigned — returning to list')
+      currentInstance.value = null
+      return
+    }
+    ElMessage.success('Page reassigned')
   } catch (e) {
     const msg = e.response?.data?.message || e.response?.statusText || e.message || 'Unknown error'
     ElMessage.error('Reassign failed: ' + msg)
@@ -316,6 +337,15 @@ async function doReassign(userId) {
 
 const currentPage = computed(() => fillData.value?.pages?.[currentPageIdx.value])
 const currentSection = computed(() => currentPage.value?.sections?.[currentSectionIdx.value])
+// Page-editable check: page assignee first, then fall back to instance assignee
+const canEditCurrentPage = computed(() => {
+  if (!fillData.value || !currentPage.value) return false
+  const pAssign = pageAssignee(currentPage.value.id)
+  if (pAssign !== null && pAssign !== undefined) {
+    return pAssign === fillData.value.currentUsername
+  }
+  return fillData.value.assignedToName === fillData.value.currentUsername
+})
 const visiblePages = computed(() => {
   const ht = fillData.value?.hiddenTargets || []
   return (fillData.value?.pages || []).filter(p => !ht.includes('PAGE:' + p.id))
@@ -544,13 +574,20 @@ async function handleSubmit() {
   } finally { submitting.value = false }
 }
 
-onMounted(async () => {
+async function loadInstances() {
   loading.value = true
   try {
     const { data } = await getMyInstancesApi()
     if (data.code === 200) instances.value = data.data || []
   } catch { /* no instances */ }
   finally { loading.value = false }
+}
+
+onMounted(() => loadInstances())
+
+// Refresh instance list when navigating back to list (e.g., after reassign)
+watch(currentInstance, (newVal, oldVal) => {
+  if (!newVal && oldVal) loadInstances()
 })
 </script>
 
@@ -672,6 +709,10 @@ onMounted(async () => {
 .fill-rating-btn:focus-visible { border-color: var(--color-primary); outline: none; }
 .fill-rating-btn--active { color: #F59E0B; }
 .fill-rating-btn--active:hover { border-color: #F59E0B40; }
+
+/* Disabled state for choices & rating when user is not the page assignee */
+.fill-options--disabled { opacity: 0.55; pointer-events: none; }
+.fill-rating--disabled { opacity: 0.55; pointer-events: none; }
 
 .fill-nav-btns { display: flex; justify-content: space-between; margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-gray-200); }
 

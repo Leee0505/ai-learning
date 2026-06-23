@@ -120,10 +120,10 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public PageResponse<TicketResponse> listTickets(String status, String priority, String category,
-                                                     String keyword, String assignedTo,
+                                                     String keyword, String assignedTo, String createdBy,
                                                      int pageNum, int size,
                                                      Long userId, String role, String sortOrder) {
-        LambdaQueryWrapper<Ticket> wrapper = buildFilterWrapper(status, priority, category, keyword, assignedTo, userId, role);
+        LambdaQueryWrapper<Ticket> wrapper = buildFilterWrapper(status, priority, category, keyword, assignedTo, createdBy, userId, role);
         if ("asc".equalsIgnoreCase(sortOrder)) {
             wrapper.orderByAsc(Ticket::getCreatedDate);
         } else {
@@ -530,9 +530,9 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public Resource exportTickets(String format, String status, String priority, String category,
-                                  String keyword, String assignedTo, Long userId, String role) {
+                                  String keyword, String assignedTo, String createdBy, Long userId, String role) {
         // Query without pagination — export all matching tickets
-        LambdaQueryWrapper<Ticket> wrapper = buildFilterWrapper(status, priority, category, keyword, assignedTo, userId, role);
+        LambdaQueryWrapper<Ticket> wrapper = buildFilterWrapper(status, priority, category, keyword, assignedTo, createdBy, userId, role);
         wrapper.orderByDesc(Ticket::getCreatedDate);
         List<Ticket> tickets = ticketMapper.selectList(wrapper);
 
@@ -603,10 +603,17 @@ public class TicketServiceImpl implements TicketService {
     }
 
     private LambdaQueryWrapper<Ticket> buildFilterWrapper(String status, String priority, String category,
-                                                           String keyword, String assignedTo,
+                                                           String keyword, String assignedTo, String createdBy,
                                                            Long userId, String role) {
         LambdaQueryWrapper<Ticket> wrapper = new LambdaQueryWrapper<>();
-        if (RoleConstants.ROLE_USER.equals(role)) {
+        // createdBy filter: explicit filter for admins/agents; auto-scope for regular users
+        if (createdBy != null && !createdBy.isBlank()) {
+            try {
+                wrapper.eq(Ticket::getCreatedBy, Long.parseLong(createdBy));
+            } catch (NumberFormatException e) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR, "createdBy must be a valid user ID");
+            }
+        } else if (RoleConstants.ROLE_USER.equals(role)) {
             wrapper.eq(Ticket::getCreatedBy, userId);
         }
         if (status != null && !status.isBlank()) wrapper.eq(Ticket::getStatus, status);
@@ -623,10 +630,7 @@ public class TicketServiceImpl implements TicketService {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "assignedTo must be a valid user ID or 'unassigned'");
             }
         }
-        // Tenant isolation: non-admin users see only their own tenant
-        if (!RoleConstants.ROLE_ADMIN.equals(role)) {
-            wrapper.eq(Ticket::getTenantId, SecurityUtils.getCurrentTenantId());
-        }
+        // Tenant isolation handled automatically by MyBatis Plus TenantLineInnerInterceptor
         return wrapper;
     }
 

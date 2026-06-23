@@ -86,7 +86,7 @@ import request from '@/api/request'
 import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
-const canEdit = (a) => a.tenantId !== null || authStore.isAdmin
+const canEdit = (a) => a.tenantId !== null || authStore.user?.tenantId == null
 
 const router = useRouter()
 const articles = ref([])

@@ -50,7 +50,7 @@ public class JwtTokenProvider {
                 .subject(userId.toString())
                 .id(jti)
                 .claim("role", role)
-                .claim("tenant_id", tenantId != null ? tenantId : 1L)
+                .claim("tenant_id", tenantId) // null = superadmin (claim omitted)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(key)

@@ -68,6 +68,22 @@
           @keyup.enter="store.fetchTickets()"
         />
       </div>
+      <input
+        v-if="authStore.isAdmin || authStore.isAgent"
+        v-model="store.filters.assignedTo"
+        placeholder="Assignee (ID or 'unassigned')"
+        class="ticket-list-select"
+        style="max-width:180px"
+        @keyup.enter="store.fetchTickets()"
+      />
+      <input
+        v-if="authStore.isAdmin || authStore.isAgent"
+        v-model="store.filters.createdBy"
+        placeholder="Created by (user ID)"
+        class="ticket-list-select"
+        style="max-width:160px"
+        @keyup.enter="store.fetchTickets()"
+      />
       <button class="ticket-list-filter-btn" @click="store.fetchTickets()">Search</button>
       <button class="ticket-list-reset-btn" @click="store.resetFilters()">Reset</button>
     </div>

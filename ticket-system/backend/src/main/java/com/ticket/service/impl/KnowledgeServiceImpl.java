@@ -30,13 +30,13 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     @Override
     public List<ReplyTemplateResponse> search(String keyword, String category) {
         LambdaQueryWrapper<KnowledgeArticle> wrapper = new LambdaQueryWrapper<>();
-        if (SecurityUtils.isAdmin()) {
-            // Admin sees all articles across all tenants (no tenant filter)
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        if (currentTid == null) {
+            // Superadmin — sees all articles across all tenants
         } else {
-            Long tenantId = SecurityUtils.getCurrentTenantId();
             // System defaults (NULL) + current tenant's articles
             wrapper.and(w -> w.isNull(KnowledgeArticle::getTenantId)
-                    .or().eq(KnowledgeArticle::getTenantId, tenantId));
+                    .or().eq(KnowledgeArticle::getTenantId, currentTid));
         }
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w.like(KnowledgeArticle::getTitle, keyword)
@@ -81,10 +81,10 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     @Transactional
     public ReplyTemplateResponse create(CreateTemplateRequest request, Long userId) {
         // Validate title uniqueness within tenant
-        Long count = mapper.selectCount(
-                new LambdaQueryWrapper<KnowledgeArticle>()
-                        .eq(KnowledgeArticle::getTenantId, SecurityUtils.getCurrentTenantId())
-                        .eq(KnowledgeArticle::getTitle, request.getTitle()));
+        LambdaQueryWrapper<KnowledgeArticle> ckWrapper = new LambdaQueryWrapper<>();
+        SecurityUtils.tenantEqOrNull(ckWrapper, KnowledgeArticle::getTenantId, SecurityUtils.getCurrentTenantIdOrNull());
+        ckWrapper.eq(KnowledgeArticle::getTitle, request.getTitle());
+        Long count = mapper.selectCount(ckWrapper);
         if (count > 0) {
             throw new BusinessException(ErrorCode.REPLY_TEMPLATE_TITLE_DUPLICATE);
         }
@@ -96,7 +96,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         a.setTitle(request.getTitle());
         a.setContent(request.getContent());
         a.setCategory(request.getCategory() != null ? request.getCategory() : BusinessConstants.DEFAULT_TEMPLATE_CATEGORY);
-        a.setTenantId(SecurityUtils.getCurrentTenantId()); // user's own tenant
+        a.setTenantId(SecurityUtils.getCurrentTenantIdOrNull()); // null for superadmin
         a.setCreatedBy(userId);
         mapper.insert(a);
         log.info("Knowledge article created: id={} title={}", a.getId(), a.getTitle());
@@ -111,15 +111,15 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     public ReplyTemplateResponse update(Long id, CreateTemplateRequest request, Long userId) {
         KnowledgeArticle a = mapper.selectById(id);
         if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
-        if (a.getTenantId() == null && !SecurityUtils.isAdmin()) {
+        if (a.getTenantId() == null && SecurityUtils.getCurrentTenantIdOrNull() != null) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can edit system default articles");
         }
         // Validate title uniqueness within tenant (exclude self)
-        Long count = mapper.selectCount(
-                new LambdaQueryWrapper<KnowledgeArticle>()
-                        .eq(KnowledgeArticle::getTenantId, SecurityUtils.getCurrentTenantId())
-                        .eq(KnowledgeArticle::getTitle, request.getTitle())
-                        .ne(KnowledgeArticle::getId, id));
+        LambdaQueryWrapper<KnowledgeArticle> upWrapper = new LambdaQueryWrapper<>();
+        SecurityUtils.tenantEqOrNull(upWrapper, KnowledgeArticle::getTenantId, SecurityUtils.getCurrentTenantIdOrNull());
+        upWrapper.eq(KnowledgeArticle::getTitle, request.getTitle());
+        upWrapper.ne(KnowledgeArticle::getId, id);
+        Long count = mapper.selectCount(upWrapper);
         if (count > 0) {
             throw new BusinessException(ErrorCode.REPLY_TEMPLATE_TITLE_DUPLICATE);
         }
@@ -142,7 +142,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     public void delete(Long id, Long userId) {
         KnowledgeArticle a = mapper.selectById(id);
         if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
-        if (a.getTenantId() == null && !SecurityUtils.isAdmin()) {
+        if (a.getTenantId() == null && SecurityUtils.getCurrentTenantIdOrNull() != null) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can delete system default articles");
         }
         mapper.deleteById(id);

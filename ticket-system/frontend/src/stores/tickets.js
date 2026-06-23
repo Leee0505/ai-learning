@@ -18,7 +18,9 @@ export const useTicketStore = defineStore('tickets', () => {
     status: '',
     priority: '',
     category: '',
-    keyword: ''
+    keyword: '',
+    assignedTo: '',
+    createdBy: ''
   })
 
   const sortOrder = ref('desc')
@@ -35,6 +37,8 @@ export const useTicketStore = defineStore('tickets', () => {
         priority: filters.priority || undefined,
         category: filters.category || undefined,
         keyword: filters.keyword || undefined,
+        assignedTo: filters.assignedTo || undefined,
+        createdBy: filters.createdBy || undefined,
         sortOrder: sortOrder.value
       })
       if (data.code === 200) {
@@ -110,6 +114,8 @@ export const useTicketStore = defineStore('tickets', () => {
     filters.priority = ''
     filters.category = ''
     filters.keyword = ''
+    filters.assignedTo = ''
+    filters.createdBy = ''
     page.value = 1
     fetchTickets()
   }

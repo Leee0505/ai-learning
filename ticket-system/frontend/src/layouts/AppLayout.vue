@@ -298,6 +298,8 @@ async function handleLogout() {
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-md);
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
   margin-left: var(--space-sm);
 }

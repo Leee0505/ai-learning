@@ -49,7 +49,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     Long userId = Long.parseLong(claims.getSubject());
                     String role = claims.get("role", String.class);
                     Long tenantId = claims.get("tenant_id", Long.class);
-                    if (tenantId == null) tenantId = 1L; // backward compat with old tokens
+                    // null tenant_id = superadmin (claim omitted intentionally)
                     // Verify user is still enabled (handles admin disable after token issuance)
                     User user = userMapper.selectById(userId);
                     if (user != null && user.getStatus() != null && user.getStatus() == BusinessConstants.USER_STATUS_DISABLED) {

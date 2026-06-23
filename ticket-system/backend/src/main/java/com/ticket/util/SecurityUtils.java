@@ -1,5 +1,7 @@
 package com.ticket.util;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.ticket.security.UserDetailsImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -56,6 +58,35 @@ public final class SecurityUtils {
                     .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    /**
+     * Returns the current user's tenant ID without defaulting null to 1.
+     * Returns null for superadmin (tenant_id=NULL) and when no auth context is available.
+     */
+    public static Long getCurrentTenantIdOrNull() {
+        try {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl udi) {
+                return udi.getTenantId();
+            }
+        } catch (Exception ignored) {
+            // No authentication context available
+        }
+        return null;
+    }
+
+    /**
+     * Add tenant_id condition to a query wrapper, handling NULL correctly.
+     * When tenantId is null, uses IS NULL; otherwise uses = tenantId.
+     */
+    public static <T> void tenantEqOrNull(LambdaQueryWrapper<T> wrapper,
+                                           SFunction<T, ?> column, Long tenantId) {
+        if (tenantId == null) {
+            wrapper.isNull(column);
+        } else {
+            wrapper.eq(column, tenantId);
         }
     }
 }

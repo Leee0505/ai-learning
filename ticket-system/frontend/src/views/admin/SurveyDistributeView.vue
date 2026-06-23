@@ -73,6 +73,28 @@
                 <input v-model.number="form.ticketId" type="number" class="input" style="max-width:160px" placeholder="e.g. 42" />
               </div>
             </div>
+
+            <!-- Per-page assignee overrides -->
+            <div v-if="template?.pages?.length" class="form-section">
+              <h4 class="form-section-title">Page Assignees</h4>
+              <p class="form-section-desc">Override assignee for specific pages. Leave as "Inherit" to use the survey assignee.</p>
+              <div v-for="(page, pi) in template.pages" :key="'pa'+page.id" class="page-assignee-row">
+                <span class="page-assignee-label">{{ pi + 1 }}. {{ page.title }}</span>
+                <select v-model="form.pageAssignees[page.id]" class="input input-sm">
+                  <option :value="null">↳ Inherit from survey</option>
+                  <optgroup v-for="group in pageAssigneeUsers" :key="group.role" :label="group.label">
+                    <option v-for="u in group.users" :key="u.id" :value="u.id">{{ u.username }}</option>
+                  </optgroup>
+                </select>
+                <button type="button" class="btn-apply-all"
+                  :disabled="!form.pageAssignees[page.id] || creating"
+                  @click="applyPageToAll(page.id)"
+                  title="Apply this assignee to all other pages">
+                  Apply to all
+                </button>
+              </div>
+            </div>
+
             <button class="btn-primary" :disabled="!form.assignedTo || creating" @click="distributeSurvey">
               {{ creating ? 'Distributing...' : 'Distribute Survey' }}
             </button>
@@ -118,11 +140,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 import { getTemplateApi, createInstanceApi, getTemplateInstancesApi } from '@/api/survey'
 import { getUsersApi } from '@/api/admin'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 const template = ref(null)
 const loading = ref(true)
@@ -135,7 +159,8 @@ const creating = ref(false)
 const form = reactive({
   assignedTo: null,
   triggerType: 'MANUAL',
-  ticketId: null
+  ticketId: null,
+  pageAssignees: {} // { pageId: userId | null }
 })
 
 const totalSections = computed(() => {
@@ -148,17 +173,41 @@ const groupedUsers = computed(() => {
     { role: 'ROLE_AGENT', label: 'Agents' },
     { role: 'ROLE_USER', label: 'Users' }
   ]
+  const currentUsername = authStore.user?.username
+  return buildGroupedUsers(users.value, currentUsername, order)
+})
+
+// Tenant of the selected instance assignee
+const selectedAssigneeTenant = computed(() => {
+  if (!form.assignedTo) return null
+  const u = users.value.find(u => u.id === form.assignedTo)
+  return u?.tenantId ?? null
+})
+
+// Users filtered by selected assignee's tenant (for page assignee dropdowns)
+const pageAssigneeUsers = computed(() => {
+  const order = [
+    { role: 'ROLE_ADMIN', label: 'Administrators' },
+    { role: 'ROLE_AGENT', label: 'Agents' },
+    { role: 'ROLE_USER', label: 'Users' }
+  ]
+  const currentUsername = authStore.user?.username
+  const tid = selectedAssigneeTenant.value
+  const filtered = tid != null ? users.value.filter(u => u.tenantId === tid) : users.value
+  return buildGroupedUsers(filtered, currentUsername, order)
+})
+
+function buildGroupedUsers(source, currentUsername, order) {
   const groups = []
   for (const g of order) {
-    const groupUsers = users.value.filter(u => u.role === g.role)
+    const groupUsers = source.filter(u => u.role === g.role && u.username !== currentUsername)
     if (groupUsers.length > 0) groups.push({ role: g.role, label: g.label + ' (' + groupUsers.length + ')', users: groupUsers })
   }
-  // Catch any unknown roles
   const knownRoles = order.map(g => g.role)
-  const otherUsers = users.value.filter(u => !knownRoles.includes(u.role))
+  const otherUsers = source.filter(u => !knownRoles.includes(u.role) && u.username !== currentUsername)
   if (otherUsers.length > 0) groups.push({ role: 'OTHER', label: 'Other (' + otherUsers.length + ')', users: otherUsers })
   return groups
-})
+}
 const totalQuestions = computed(() => {
   if (!template.value?.pages) return 0
   return template.value.pages.reduce((sum, p) => {
@@ -176,6 +225,12 @@ onMounted(async () => {
     ])
     if (templateRes.data?.code === 200) {
       template.value = templateRes.data.data
+      // Pre-initialize per-page assignee overrides
+      if (template.value?.pages) {
+        template.value.pages.forEach(p => {
+          if (!(p.id in form.pageAssignees)) form.pageAssignees[p.id] = null
+        })
+      }
     }
     if (usersRes.data?.code === 200) {
       users.value = usersRes.data.data?.records || usersRes.data.data || []
@@ -192,17 +247,27 @@ async function distributeSurvey() {
   if (!form.assignedTo) return
   creating.value = true
   try {
+    // Build pageAssignees payload — only send non-null overrides
+    const pageAssignees = {}
+    for (const [pid, uid] of Object.entries(form.pageAssignees)) {
+      if (uid !== null && uid !== undefined) pageAssignees[pid] = uid
+    }
     const { data } = await createInstanceApi({
       templateId: template.value.id,
       assignedTo: form.assignedTo,
       triggerType: form.triggerType,
-      ticketId: form.ticketId || null
+      ticketId: form.ticketId || null,
+      pageAssignees: Object.keys(pageAssignees).length > 0 ? pageAssignees : null
     })
     if (data.code === 200) {
       ElMessage.success('Survey distributed successfully')
       form.assignedTo = null
       form.triggerType = 'MANUAL'
       form.ticketId = null
+      // Reset page assignees
+      if (template.value?.pages) {
+        template.value.pages.forEach(p => { form.pageAssignees[p.id] = null })
+      }
       // Refresh instances
       const instRes = await getTemplateInstancesApi(template.value.id)
       if (instRes.data?.code === 200) {
@@ -215,6 +280,14 @@ async function distributeSurvey() {
     ElMessage.error('Failed to distribute survey')
   } finally {
     creating.value = false
+  }
+}
+
+function applyPageToAll(sourcePageId) {
+  const value = form.pageAssignees[sourcePageId]
+  if (!value) return
+  if (template.value?.pages) {
+    template.value.pages.forEach(p => { form.pageAssignees[p.id] = value })
   }
 }
 
@@ -286,7 +359,22 @@ function getUserName(userId) {
 /* Shared */
 .input { padding: 8px 10px; font-size: var(--text-sm); font-family: var(--font-body); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); width: 100%; box-sizing: border-box; }
 .input:focus { border-color: var(--color-primary); outline: none; box-shadow: 0 0 0 3px #7C3AED20; }
+.input-sm { padding: 6px 8px; font-size: var(--text-xs); }
 .btn-primary { padding: 10px 20px; font-weight: 600; font-family: var(--font-body); color: var(--color-white); background: var(--color-primary); border: none; border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); min-height: 44px; align-self: flex-start; }
 .btn-primary:hover:not(:disabled) { opacity: 0.9; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Page assignee "apply to all" button */
+.btn-apply-all { padding: 6px 10px; font-size: var(--text-xs); font-weight: 500; font-family: var(--font-body); color: var(--color-primary); background: none; border: 1px solid var(--color-gray-200); border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; min-height: 36px; transition: all var(--transition-fast); }
+.btn-apply-all:hover:not(:disabled) { border-color: var(--color-primary); background: var(--color-primary-bg); }
+.btn-apply-all:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Page assignee section */
+.form-section { border-top: 1px solid var(--color-gray-200); padding-top: var(--space-md); }
+.form-section-title { font-size: var(--text-sm); font-weight: 600; color: var(--color-text-primary); margin: 0 0 4px; }
+.form-section-desc { font-size: var(--text-xs); color: var(--color-text-muted); margin: 0 0 var(--space-md); }
+.page-assignee-row { display: flex; align-items: center; gap: var(--space-md); padding: 8px 0; border-bottom: 1px solid var(--color-gray-100); }
+.page-assignee-row:last-child { border-bottom: none; }
+.page-assignee-label { flex: 1; font-size: var(--text-sm); font-weight: 500; color: var(--color-text-primary); min-width: 120px; }
+.page-assignee-row .input-sm { max-width: 240px; }
 </style>

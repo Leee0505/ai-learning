@@ -163,7 +163,23 @@ public class ConfigServiceImpl implements ConfigService {
             custom.setCreatedBy(adminId);
             custom.setCreatedDate(System.currentTimeMillis());
             validateSlaChain(currentTid, entity.getPriority(), request.getResponseMinutes(), request.getResolutionMinutes());
-            slaMapper.insert(custom);
+            try {
+                slaMapper.insert(custom);
+            } catch (org.springframework.dao.DuplicateKeyException e) {
+                // Race: another admin already customized this SLA — update theirs instead
+                SlaConfig existing = slaMapper.selectOne(new LambdaQueryWrapper<SlaConfig>()
+                        .eq(SlaConfig::getTenantId, currentTid)
+                        .eq(SlaConfig::getPriority, entity.getPriority()));
+                if (existing != null) {
+                    existing.setResponseMinutes(request.getResponseMinutes());
+                    existing.setResolutionMinutes(request.getResolutionMinutes());
+                    existing.setLastModifiedBy(adminId);
+                    existing.setLastModifiedDate(System.currentTimeMillis());
+                    slaMapper.updateById(existing);
+                    return toSlaResponse(existing);
+                }
+                throw e; // re-throw if we can't resolve
+            }
             return toSlaResponse(custom);
         }
 

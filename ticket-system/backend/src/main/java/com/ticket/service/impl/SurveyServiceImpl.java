@@ -170,24 +170,15 @@ public class SurveyServiceImpl implements SurveyService {
         if (request.getStatus() != null) {
             String newStatus = request.getStatus();
             if (BusinessConstants.SURVEY_STATUS_PUBLISHED.equals(newStatus)) {
-                // Archive any previously published version in the same origin chain
-                if (t.getOriginId() != null) {
-                    templateMapper.selectList(new LambdaQueryWrapper<SurveyTemplate>()
-                            .eq(SurveyTemplate::getOriginId, t.getOriginId())
-                            .eq(SurveyTemplate::getStatus, BusinessConstants.SURVEY_STATUS_PUBLISHED))
-                            .forEach(old -> {
-                                old.setStatus(BusinessConstants.SURVEY_STATUS_ARCHIVED);
-                                templateMapper.updateById(old);
-                            });
-                } else {
-                    templateMapper.selectList(new LambdaQueryWrapper<SurveyTemplate>()
-                            .eq(SurveyTemplate::getOriginId, t.getId())
-                            .eq(SurveyTemplate::getStatus, BusinessConstants.SURVEY_STATUS_PUBLISHED))
-                            .forEach(old -> {
-                                old.setStatus(BusinessConstants.SURVEY_STATUS_ARCHIVED);
-                                templateMapper.updateById(old);
-                            });
-                }
+                // Atomically archive any previously published version in the same origin chain
+                // Single UPDATE prevents race conditions between concurrent publish operations
+                Long originId = t.getOriginId() != null ? t.getOriginId() : t.getId();
+                com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<SurveyTemplate> archiveWrapper =
+                        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<>();
+                archiveWrapper.set(SurveyTemplate::getStatus, BusinessConstants.SURVEY_STATUS_ARCHIVED)
+                        .eq(SurveyTemplate::getOriginId, originId)
+                        .eq(SurveyTemplate::getStatus, BusinessConstants.SURVEY_STATUS_PUBLISHED);
+                templateMapper.update(null, archiveWrapper);
             }
             t.setStatus(newStatus);
         }
@@ -343,7 +334,16 @@ public class SurveyServiceImpl implements SurveyService {
         if (fields.containsKey("title")) q.setTitle((String) fields.get("title"));
         if (fields.containsKey("description")) q.setDescription((String) fields.get("description"));
         if (fields.containsKey("options")) q.setOptions((String) fields.get("options"));
-        if (fields.containsKey("required")) q.setRequired(fields.get("required") instanceof Boolean b && b ? 1 : (Integer) fields.get("required"));
+        if (fields.containsKey("required")) {
+            Object reqVal = fields.get("required");
+            if (reqVal instanceof Boolean b) {
+                q.setRequired(b ? 1 : 0);
+            } else if (reqVal instanceof Number n) {
+                q.setRequired(n.intValue() != 0 ? 1 : 0);
+            } else if (reqVal instanceof String s) {
+                q.setRequired("true".equalsIgnoreCase(s) || "1".equals(s) ? 1 : 0);
+            }
+        }
         q.setLastModifiedBy(adminId);
         q.setLastModifiedDate(System.currentTimeMillis());
         questionMapper.updateById(q);
@@ -516,6 +516,7 @@ public class SurveyServiceImpl implements SurveyService {
     // ── Fill Flow ──
 
     @Override
+    @Transactional
     public SurveyFillResponse getFillData(Long instanceId, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
         checkInstanceTenantAccess(instance);
@@ -595,6 +596,15 @@ public class SurveyServiceImpl implements SurveyService {
 
         upsertAnswer(instanceId, request);
         updateInstancePageStatus(instanceId, request.getQuestionId());
+
+        // Re-check status after write to prevent TOCTOU: concurrent submit between the
+        // initial status guard and this upsert could have committed without us seeing it.
+        SurveyInstance fresh = instanceMapper.selectById(instanceId);
+        if (fresh != null && (BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(fresh.getStatus())
+                || BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(fresh.getStatus()))) {
+            throw new BusinessException(ErrorCode.INSTANCE_ALREADY_SUBMITTED,
+                    "survey was submitted while saving, please refresh");
+        }
     }
 
     /**
@@ -641,7 +651,7 @@ public class SurveyServiceImpl implements SurveyService {
         }
     }
 
-    /** Update instance page status to IN_PROGRESS (non-critical, errors logged but not thrown). */
+    /** Update instance page status to IN_PROGRESS (non-critical, transient errors logged but not thrown). */
     private void updateInstancePageStatus(Long instanceId, Long questionId) {
         try {
             SurveyQuestion question = questionMapper.selectById(questionId);
@@ -660,9 +670,11 @@ public class SurveyServiceImpl implements SurveyService {
                     }
                 }
             }
-        } catch (Exception e) {
-            log.warn("Failed to update instance page status: {} (answer saved successfully)", e.getMessage());
+        } catch (org.springframework.dao.DataAccessException e) {
+            // Transient DB issue — log but don't fail the answer save
+            log.warn("Failed to update instance page status (transient DB error): {}", e.getMessage());
         }
+        // Hard errors (RuntimeException, NPE, etc.) propagate — they indicate a bug, not a transient issue
     }
 
     @Override
@@ -670,7 +682,8 @@ public class SurveyServiceImpl implements SurveyService {
     public SurveyInstanceResponse submitSurvey(Long instanceId, SubmitSurveyRequest request, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
         checkInstanceTenantAccess(instance);
-        if (instance.getAssignedTo() == null || !instance.getAssignedTo().equals(userId)) {
+        // Allow any user who can access the fill data to submit (page assignee or instance assignee)
+        if (!canAccessFillData(instanceId, instance, userId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
         if (BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(instance.getStatus())

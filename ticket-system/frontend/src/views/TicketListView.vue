@@ -57,6 +57,12 @@
         <option value="ACCOUNT_ISSUE">Account Issue</option>
         <option value="OTHER">Other</option>
       </select>
+      <!-- Assignee filter: dropdown for agents/admins -->
+      <select v-if="authStore.isAdmin || authStore.isAgent" v-model="store.filters.assignedTo" class="ticket-list-select" @change="store.fetchTickets()">
+        <option value="">All Assignees</option>
+        <option value="unassigned">Unassigned</option>
+        <option v-for="u in agents" :key="u.id" :value="String(u.id)">{{ u.username }}</option>
+      </select>
       <div class="ticket-list-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ticket-list-search-icon" aria-hidden="true">
           <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -68,22 +74,6 @@
           @keyup.enter="store.fetchTickets()"
         />
       </div>
-      <input
-        v-if="authStore.isAdmin || authStore.isAgent"
-        v-model="store.filters.assignedTo"
-        placeholder="Assignee (ID or 'unassigned')"
-        class="ticket-list-select"
-        style="max-width:180px"
-        @keyup.enter="store.fetchTickets()"
-      />
-      <input
-        v-if="authStore.isAdmin || authStore.isAgent"
-        v-model="store.filters.createdBy"
-        placeholder="Created by (user ID)"
-        class="ticket-list-select"
-        style="max-width:160px"
-        @keyup.enter="store.fetchTickets()"
-      />
       <button class="ticket-list-filter-btn" @click="store.fetchTickets()">Search</button>
       <button class="ticket-list-reset-btn" @click="store.resetFilters()">Reset</button>
     </div>
@@ -188,6 +178,7 @@ import { useRouter } from 'vue-router'
 import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
 import { deleteBatchTickets } from '@/api/tickets'
+import { getAgentsApi } from '@/api/agents'
 import request from '@/api/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { formatDate } from '@/utils/date'
@@ -198,6 +189,7 @@ const router = useRouter()
 
 const selectedIds = ref([])
 const batchLoading = ref(false)
+const agents = ref([])
 const showExportMenu = ref(false)
 const exportRef = ref(null)
 const allChecked = computed(() => store.tickets.length > 0 && selectedIds.value.length === store.tickets.length)
@@ -237,9 +229,14 @@ async function handleBatchDelete() {
   } finally { batchLoading.value = false }
 }
 
-onMounted(() => {
+onMounted(async () => {
   store.fetchTickets()
   document.addEventListener('click', onClickOutside)
+  // Load agents list for assignee filter dropdown
+  try {
+    const { data } = await getAgentsApi()
+    if (data.code === 200) agents.value = data.data || []
+  } catch { /* non-critical */ }
 })
 onUnmounted(() => {
   document.removeEventListener('click', onClickOutside)

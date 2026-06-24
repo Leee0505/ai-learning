@@ -126,7 +126,7 @@
                 <td><span :class="['instance-status', 'istatus-' + (inst.status || '').toLowerCase()]">{{ inst.status }}</span></td>
                 <td>{{ inst.completedPages || 0 }} / {{ inst.totalPages || 0 }} pages</td>
                 <td>{{ inst.triggerType }}</td>
-                <td>{{ formatDate(inst.createdDate) }}</td>
+                <td>{{ formatDateTime(inst.createdDate) }}</td>
               </tr>
             </tbody>
           </table>
@@ -142,6 +142,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { getTemplateApi, createInstanceApi, getTemplateInstancesApi } from '@/api/survey'
+import { formatDateTime } from '@/utils/date'
 import { getUsersApi } from '@/api/admin'
 
 const route = useRoute()
@@ -294,10 +295,6 @@ function applyPageToAll(sourcePageId) {
   }
 }
 
-function formatDate(ts) {
-  if (!ts) return '—'
-  return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
 function getUserName(userId) {
   const u = users.value.find(u => u.id === userId)
   return u ? u.username : 'User #' + userId

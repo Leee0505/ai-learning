@@ -31,18 +31,19 @@ public class AgentController {
     }
 
     @GetMapping
-    @Operation(summary = "List all active agents",
-               description = "Returns enabled users with ROLE_AGENT, ordered by username. Used for ticket assignment dropdowns.")
+    @Operation(summary = "List all active agents (tenant-scoped)",
+               description = "Returns enabled users with ROLE_AGENT, ordered by username. Used for ticket assignment dropdowns and filtering.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "List of agent users (id + username)"),
-        @ApiResponse(responseCode = "403", description = "Requires AGENT or ADMIN role")
+        @ApiResponse(responseCode = "401", description = "Not authenticated")
     })
-    @PreAuthorize("hasAnyRole('" + RoleConstants.AGENT + "', '" + RoleConstants.ADMIN + "')")
+    @PreAuthorize("isAuthenticated()")
     public ApiResult<List<UserResponse>> listAgents() {
         var wrapper = new LambdaQueryWrapper<User>();
-        // Admin sees agents from all tenants; others see only their own tenant
-        if (!SecurityUtils.isAdmin()) {
-            wrapper.eq(User::getTenantId, SecurityUtils.getCurrentTenantId());
+        // Superadmin (tenantId=null) sees all agents; tenant users see only their own tenant
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        if (currentTid != null) {
+            wrapper.eq(User::getTenantId, currentTid);
         }
         var agents = userMapper.selectList(wrapper
                 .eq(User::getRole, RoleConstants.ROLE_AGENT)

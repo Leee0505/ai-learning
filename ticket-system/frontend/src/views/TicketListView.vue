@@ -57,8 +57,8 @@
         <option value="ACCOUNT_ISSUE">Account Issue</option>
         <option value="OTHER">Other</option>
       </select>
-      <!-- Assignee filter: dropdown for agents/admins -->
-      <select v-if="authStore.isAdmin || authStore.isAgent" v-model="store.filters.assignedTo" class="ticket-list-select" @change="store.fetchTickets()">
+      <!-- Assignee filter: visible to all roles -->
+      <select v-model="store.filters.assignedTo" class="ticket-list-select" @change="store.fetchTickets()">
         <option value="">All Assignees</option>
         <option value="unassigned">Unassigned</option>
         <option v-for="u in agents" :key="u.id" :value="String(u.id)">{{ u.username }}</option>

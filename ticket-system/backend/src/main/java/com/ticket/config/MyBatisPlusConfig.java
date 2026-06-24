@@ -10,11 +10,15 @@ import com.ticket.util.SecurityUtils;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
 import org.apache.ibatis.reflection.MetaObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class MyBatisPlusConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(MyBatisPlusConfig.class);
 
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
@@ -23,7 +27,9 @@ public class MyBatisPlusConfig {
         interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
             @Override
             public Expression getTenantId() {
-                return new LongValue(SecurityUtils.getCurrentTenantId());
+                Long tid = SecurityUtils.getCurrentTenantId();
+                log.info("[TENANT-INTERCEPTOR] getTenantId() = {}", tid);
+                return new LongValue(tid);
             }
 
             @Override
@@ -48,14 +54,17 @@ public class MyBatisPlusConfig {
                         || "survey_visibility_rule".equalsIgnoreCase(tableName)
                         || "survey_instance_page".equalsIgnoreCase(tableName)
                         || "survey_answer".equalsIgnoreCase(tableName)) {
+                    log.info("[TENANT-INTERCEPTOR] ignoreTable({}) = true (system table)", tableName);
                     return true;
                 }
                 // Regular tenant-scoped tables (ticket, survey_instance, notification, etc.)
                 // Superadmin sees all tenants; everyone else gets tenant_id filter.
-                if (SecurityUtils.isAdmin()) {
-                    return SecurityUtils.getCurrentTenantIdOrNull() == null;
-                }
-                return false;
+                boolean isAdmin = SecurityUtils.isAdmin();
+                Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+                boolean ignore = isAdmin && currentTid == null;
+                log.info("[TENANT-INTERCEPTOR] ignoreTable({}) — isAdmin={} currentTidOrNull={} → ignore={}",
+                        tableName, isAdmin, currentTid, ignore);
+                return ignore;
             }
         }));
         return interceptor;

@@ -52,6 +52,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     // as Integer rather than Long, causing Long.class lookup to return null.
                     Object tenantIdObj = claims.get("tenant_id");
                     Long tenantId = tenantIdObj instanceof Number n ? n.longValue() : null;
+                    log.info("[JWT-FILTER] userId={} role={} tenantId={} (rawClass={})",
+                            userId, role, tenantId,
+                            tenantIdObj != null ? tenantIdObj.getClass().getSimpleName() : "null");
                     // null tenant_id = superadmin (claim omitted intentionally)
                     // Verify user is still enabled (handles admin disable after token issuance)
                     User user = userMapper.selectById(userId);

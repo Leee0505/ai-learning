@@ -284,7 +284,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public void updatePageTitle(Long pageId, String title) {
         SurveyPage page = pageMapper.selectById(pageId);
-        if (page == null) throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND, "page not found");
+        if (page == null) throw new BusinessException(ErrorCode.PAGE_NOT_FOUND);
         page.setTitle(title);
         pageMapper.updateById(page);
     }
@@ -293,7 +293,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public void updateSectionTitle(Long sectionId, String title) {
         SurveySection section = sectionMapper.selectById(sectionId);
-        if (section == null) throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND, "section not found");
+        if (section == null) throw new BusinessException(ErrorCode.SECTION_NOT_FOUND);
         section.setTitle(title);
         sectionMapper.updateById(section);
     }
@@ -323,7 +323,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public void updateQuestion(Long questionId, AddQuestionRequest request, Long adminId) {
         SurveyQuestion q = questionMapper.selectById(questionId);
-        if (q == null) throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND, "question not found");
+        if (q == null) throw new BusinessException(ErrorCode.QUESTION_NOT_FOUND);
         if (request.getType() != null) q.setType(request.getType());
         if (request.getTitle() != null) q.setTitle(request.getTitle());
         if (request.getDescription() != null) q.setDescription(request.getDescription());
@@ -338,7 +338,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public void updateQuestionFields(Long questionId, Map<String, Object> fields, Long adminId) {
         SurveyQuestion q = questionMapper.selectById(questionId);
-        if (q == null) throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND, "question not found");
+        if (q == null) throw new BusinessException(ErrorCode.QUESTION_NOT_FOUND);
         if (fields.containsKey("type")) q.setType((String) fields.get("type"));
         if (fields.containsKey("title")) q.setTitle((String) fields.get("title"));
         if (fields.containsKey("description")) q.setDescription((String) fields.get("description"));

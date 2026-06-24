@@ -86,10 +86,10 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         ckWrapper.eq(KnowledgeArticle::getTitle, request.getTitle());
         Long count = mapper.selectCount(ckWrapper);
         if (count > 0) {
-            throw new BusinessException(ErrorCode.REPLY_TEMPLATE_TITLE_DUPLICATE);
+            throw new BusinessException(ErrorCode.KNOWLEDGE_TITLE_DUPLICATE);
         }
         if (request.getContent().length() > BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under " + BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH + " characters");
+            throw new BusinessException(ErrorCode.KNOWLEDGE_CONTENT_TOO_LONG);
         }
 
         KnowledgeArticle a = new KnowledgeArticle();
@@ -112,7 +112,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         KnowledgeArticle a = mapper.selectById(id);
         if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
         if (a.getTenantId() == null && SecurityUtils.getCurrentTenantIdOrNull() != null) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can edit system default articles");
+            throw new BusinessException(ErrorCode.SYSTEM_DEFAULT_WRITE_DENIED);
         }
         // Validate title uniqueness within tenant (exclude self)
         LambdaQueryWrapper<KnowledgeArticle> upWrapper = new LambdaQueryWrapper<>();
@@ -121,10 +121,10 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         upWrapper.ne(KnowledgeArticle::getId, id);
         Long count = mapper.selectCount(upWrapper);
         if (count > 0) {
-            throw new BusinessException(ErrorCode.REPLY_TEMPLATE_TITLE_DUPLICATE);
+            throw new BusinessException(ErrorCode.KNOWLEDGE_TITLE_DUPLICATE);
         }
         if (request.getContent().length() > BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under " + BusinessConstants.MAX_KNOWLEDGE_CONTENT_LENGTH + " characters");
+            throw new BusinessException(ErrorCode.KNOWLEDGE_CONTENT_TOO_LONG);
         }
 
         a.setTitle(request.getTitle());
@@ -143,7 +143,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         KnowledgeArticle a = mapper.selectById(id);
         if (a == null) throw new BusinessException(ErrorCode.KNOWLEDGE_NOT_FOUND);
         if (a.getTenantId() == null && SecurityUtils.getCurrentTenantIdOrNull() != null) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can delete system default articles");
+            throw new BusinessException(ErrorCode.SYSTEM_DEFAULT_WRITE_DENIED);
         }
         mapper.deleteById(id);
     }

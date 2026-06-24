@@ -41,6 +41,27 @@ public enum ErrorCode {
     SURVEY_PAGE_INCOMPLETE(40035, "please complete all required questions on this page"),
     SURVEY_CYCLE_DETECTED(40036, "visibility rules contain a cycle — please adjust"),
     SURVEY_PAGE_NOT_FOUND(40037, "survey instance page not found"),
+    PAGE_NOT_FOUND(40038, "survey page not found"),
+    SECTION_NOT_FOUND(40039, "survey section not found"),
+    QUESTION_NOT_FOUND(40040, "survey question not found"),
+
+    // 4004x Template / Knowledge Errors
+    TEMPLATE_CONTENT_TOO_LONG(40041, "template content exceeds maximum length"),
+    KNOWLEDGE_CONTENT_TOO_LONG(40042, "knowledge article content exceeds maximum length"),
+    KNOWLEDGE_TITLE_DUPLICATE(40043, "a knowledge article with this title already exists"),
+    SYSTEM_DEFAULT_WRITE_DENIED(40044, "only superadmin can modify system defaults"),
+
+    // 4005x Ticket / Assignment Errors
+    TICKET_CROSS_TENANT_ASSIGN(40050, "cannot assign to an agent from a different tenant"),
+    REPLY_EDIT_PERMISSION_DENIED(40051, "only the reply author can edit"),
+    REPLY_DELETE_PERMISSION_DENIED(40052, "only the reply author or admin can delete"),
+    TICKET_ASSIGNEE_FILTER_INVALID(40053, "assignee filter must be a valid user ID or 'unassigned'"),
+    TICKET_CREATOR_FILTER_INVALID(40054, "creator filter must be a valid user ID"),
+
+    // 4006x User / Config Errors
+    INVALID_USER_STATUS(40060, "status must be 0 or 1"),
+    FIELD_OPTIONS_REQUIRED(40061, "options are required for this field type"),
+    FIELD_OPTIONS_FORMAT_INVALID(40062, "options must contain items array with 1-20 entries"),
 
     // 401xx Auth Errors
     INVALID_CREDENTIALS(40100, "invalid credentials"),

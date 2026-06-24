@@ -63,7 +63,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
         }
         // Validate content length (max 5000 chars)
         if (request.getContent().length() > BusinessConstants.MAX_TEMPLATE_CONTENT_LENGTH) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under " + BusinessConstants.MAX_TEMPLATE_CONTENT_LENGTH + " characters");
+            throw new BusinessException(ErrorCode.TEMPLATE_CONTENT_TOO_LONG);
         }
 
         ReplyTemplate t = new ReplyTemplate();
@@ -84,9 +84,9 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
         if (t == null) {
             throw new BusinessException(ErrorCode.REPLY_TEMPLATE_NOT_FOUND);
         }
-        // System defaults (tenant_id=NULL) only editable by admin
+        // System defaults (tenant_id=NULL) only editable by superadmin
         if (t.getTenantId() == null && SecurityUtils.getCurrentTenantIdOrNull() != null) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can edit system default templates");
+            throw new BusinessException(ErrorCode.SYSTEM_DEFAULT_WRITE_DENIED);
         }
         // Validate title uniqueness within tenant (exclude self)
         LambdaQueryWrapper<ReplyTemplate> upW = new LambdaQueryWrapper<>();
@@ -98,7 +98,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
             throw new BusinessException(ErrorCode.REPLY_TEMPLATE_TITLE_DUPLICATE);
         }
         if (request.getContent().length() > BusinessConstants.MAX_TEMPLATE_CONTENT_LENGTH) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "content must be under " + BusinessConstants.MAX_TEMPLATE_CONTENT_LENGTH + " characters");
+            throw new BusinessException(ErrorCode.TEMPLATE_CONTENT_TOO_LONG);
         }
 
         t.setTitle(request.getTitle());
@@ -119,7 +119,7 @@ public class ReplyTemplateServiceImpl implements ReplyTemplateService {
             throw new BusinessException(ErrorCode.REPLY_TEMPLATE_NOT_FOUND);
         }
         if (t.getTenantId() == null && SecurityUtils.getCurrentTenantIdOrNull() != null) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only admin can delete system default templates");
+            throw new BusinessException(ErrorCode.SYSTEM_DEFAULT_WRITE_DENIED);
         }
         templateMapper.deleteById(id);
         log.info("Template deleted: id={} by userId={}", id, userId);

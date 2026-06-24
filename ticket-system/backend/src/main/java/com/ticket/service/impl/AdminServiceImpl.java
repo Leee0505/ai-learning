@@ -214,10 +214,10 @@ public class AdminServiceImpl implements AdminService {
         try {
             newStatus = Integer.parseInt(request.getStatus());
         } catch (NumberFormatException e) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "status must be 0 or 1");
+            throw new BusinessException(ErrorCode.INVALID_USER_STATUS);
         }
         if (newStatus != 0 && newStatus != 1) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "status must be 0 or 1");
+            throw new BusinessException(ErrorCode.INVALID_USER_STATUS);
         }
 
         User user = findUserOrThrow(id);

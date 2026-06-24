@@ -323,8 +323,7 @@ public class TicketServiceImpl implements TicketService {
 
         // Verify target agent belongs to the same tenant as the ticket
         if (!java.util.Objects.equals(ticket.getTenantId(), targetUser.getTenantId())) {
-            throw new BusinessException(ErrorCode.TICKET_ASSIGN_INVALID,
-                    "cannot assign to an agent from a different tenant");
+            throw new BusinessException(ErrorCode.TICKET_CROSS_TENANT_ASSIGN);
         }
 
         ticket.setAssignedTo(targetId);
@@ -419,7 +418,7 @@ public class TicketServiceImpl implements TicketService {
             throw new BusinessException(ErrorCode.REPLY_NOT_FOUND);
         }
         if (!reply.getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only the reply author can edit");
+            throw new BusinessException(ErrorCode.REPLY_EDIT_PERMISSION_DENIED);
         }
 
         reply.setContent(request.getContent());
@@ -444,7 +443,7 @@ public class TicketServiceImpl implements TicketService {
         }
         // Author or admin can delete
         if (!reply.getUserId().equals(userId) && !RoleConstants.ROLE_ADMIN.equals(role)) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "only the reply author or admin can delete");
+            throw new BusinessException(ErrorCode.REPLY_DELETE_PERMISSION_DENIED);
         }
 
         ticketReplyMapper.deleteById(replyId);

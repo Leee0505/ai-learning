@@ -238,6 +238,9 @@ onMounted(async () => {
     if (instancesRes.data?.code === 200) {
       instances.value = instancesRes.data.data || []
     }
+  } catch (e) {
+    console.error('[Distribute] Failed to load data:', e)
+    ElMessage.error('Failed to load survey data')
   } finally {
     loading.value = false
   }
@@ -277,7 +280,7 @@ async function distributeSurvey() {
       ElMessage.error(data.message || 'Failed to distribute')
     }
   } catch (e) {
-    ElMessage.error('Failed to distribute survey')
+    ElMessage.error(e.response?.data?.message || 'Failed to distribute survey')
   } finally {
     creating.value = false
   }

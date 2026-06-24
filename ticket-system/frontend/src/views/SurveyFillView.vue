@@ -457,12 +457,12 @@ async function doSave(qid, value) {
   if (!currentInstance.value) return
   try {
     await saveAnswerApi(currentInstance.value.id, { questionId: qid, value })
-    console.log('[Fill] Saved Q' + qid + ' =', value)
     delete setAnswer._pending?.[qid]
     // Re-fetch to update visibility immediately
     await refreshFillData()
   } catch (e) {
     console.error('[Fill] Save failed for Q' + qid + ':', e)
+    ElMessage.error(e.response?.data?.message || 'Failed to save answer')
   }
 }
 
@@ -491,6 +491,7 @@ async function refreshFillData() {
     }
   } catch (e) {
     console.error('[Fill] Failed to refresh fill data:', e)
+    ElMessage.error('Failed to refresh survey data')
   }
 }
 
@@ -579,8 +580,10 @@ async function loadInstances() {
   try {
     const { data } = await getMyInstancesApi()
     if (data.code === 200) instances.value = data.data || []
-  } catch { /* no instances */ }
-  finally { loading.value = false }
+  } catch (e) {
+    console.error('[Fill] Failed to load instances:', e)
+    ElMessage.error('Failed to load pending surveys')
+  } finally { loading.value = false }
 }
 
 onMounted(() => loadInstances())

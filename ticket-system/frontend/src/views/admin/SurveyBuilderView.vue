@@ -742,7 +742,10 @@ function saveTableConfig() {
   })
   const options = JSON.stringify({ columns: cols, rows: tableRows.value })
   selectedQuestion.value.options = options
-  updateQuestionApi(selectedQuestion.value.id, { options }).catch(() => {})
+  updateQuestionApi(selectedQuestion.value.id, { options }).catch(e => {
+    ElMessage.error('Failed to save table config')
+    console.error('[Builder] saveTableConfig:', e)
+  })
 }
 
 function parseOptions(optionsJson) {
@@ -827,7 +830,10 @@ function saveOptions(q) {
   }
   const newOptionsJson = JSON.stringify({ options: newOpts })
   q.options = newOptionsJson // sync local object so rule form dropdowns update
-  updateQuestionApi(q.id, { options: newOptionsJson }).catch(() => {})
+  updateQuestionApi(q.id, { options: newOptionsJson }).catch(e => {
+    ElMessage.error('Failed to save options')
+    console.error('[Builder] saveOption:', e)
+  })
 }
 
 // Find all visibility rules that reference a given source question
@@ -843,32 +849,37 @@ function findDownstreamRules(sourceQid) {
   return rules
 }
 async function saveAndReturn() {
-  // Save page title
-  if (currentPage.value) {
-    await updatePageApi(currentPage.value.id, { title: currentPage.value.title })
-  }
-  // Save all section & question titles + inline options
-  for (const s of currentPage.value?.sections || []) {
-    if (sectionTitles[s.id] && sectionTitles[s.id] !== s.title) {
-      await updateSectionApi(s.id, { title: sectionTitles[s.id] })
+  try {
+    // Save page title
+    if (currentPage.value) {
+      await updatePageApi(currentPage.value.id, { title: currentPage.value.title })
     }
-    for (const q of s.questions || []) {
-      if (questionTitles[q.id] && questionTitles[q.id] !== q.title) {
-        await updateQuestionApi(q.id, { title: questionTitles[q.id] })
+    // Save all section & question titles + inline options
+    for (const s of currentPage.value?.sections || []) {
+      if (sectionTitles[s.id] && sectionTitles[s.id] !== s.title) {
+        await updateSectionApi(s.id, { title: sectionTitles[s.id] })
       }
-      // Save inline options for choice/dropdown types
-      if (hasOptions(q.type) && optionsCache[q.id]) {
-        const items = optionsCache[q.id].filter(o => o.label.trim())
-        const newOpts = items.map(o => ({ key: o.key, label: o.label.trim() }))
-        if (items.length > 0) {
-          const newOptionsJson = JSON.stringify({ options: newOpts })
-          q.options = newOptionsJson
-          await updateQuestionApi(q.id, { options: newOptionsJson })
+      for (const q of s.questions || []) {
+        if (questionTitles[q.id] && questionTitles[q.id] !== q.title) {
+          await updateQuestionApi(q.id, { title: questionTitles[q.id] })
+        }
+        // Save inline options for choice/dropdown types
+        if (hasOptions(q.type) && optionsCache[q.id]) {
+          const items = optionsCache[q.id].filter(o => o.label.trim())
+          const newOpts = items.map(o => ({ key: o.key, label: o.label.trim() }))
+          if (items.length > 0) {
+            const newOptionsJson = JSON.stringify({ options: newOpts })
+            q.options = newOptionsJson
+            await updateQuestionApi(q.id, { options: newOptionsJson })
+          }
         }
       }
     }
+    router.push('/admin/surveys')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Failed to save changes')
+    console.error('[Builder] saveAndReturn:', e)
   }
-  router.push('/admin/surveys')
 }
 async function publishFromBuilder() {
   await savePendingEdits()
@@ -918,24 +929,29 @@ async function publishFromBuilder() {
 }
 
 async function savePendingEdits() {
-  if (currentPage.value) {
-    await updatePageApi(currentPage.value.id, { title: currentPage.value.title })
-  }
-  for (const s of currentPage.value?.sections || []) {
-    if (sectionTitles[s.id] && sectionTitles[s.id] !== s.title) {
-      await updateSectionApi(s.id, { title: sectionTitles[s.id] })
+  try {
+    if (currentPage.value) {
+      await updatePageApi(currentPage.value.id, { title: currentPage.value.title })
     }
-    for (const q of s.questions || []) {
-      if (questionTitles[q.id] && questionTitles[q.id] !== q.title) {
-        await updateQuestionApi(q.id, { title: questionTitles[q.id] })
+    for (const s of currentPage.value?.sections || []) {
+      if (sectionTitles[s.id] && sectionTitles[s.id] !== s.title) {
+        await updateSectionApi(s.id, { title: sectionTitles[s.id] })
       }
-      if (hasOptions(q.type) && optionsCache[q.id]) {
-        const items = optionsCache[q.id].filter(o => o.label.trim())
-        if (items.length > 0) {
-          await updateQuestionApi(q.id, { options: JSON.stringify({ options: items.map(o => ({ key: o.key, label: o.label.trim() })) }) })
+      for (const q of s.questions || []) {
+        if (questionTitles[q.id] && questionTitles[q.id] !== q.title) {
+          await updateQuestionApi(q.id, { title: questionTitles[q.id] })
+        }
+        if (hasOptions(q.type) && optionsCache[q.id]) {
+          const items = optionsCache[q.id].filter(o => o.label.trim())
+          if (items.length > 0) {
+            await updateQuestionApi(q.id, { options: JSON.stringify({ options: items.map(o => ({ key: o.key, label: o.label.trim() })) }) })
+          }
         }
       }
     }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Failed to save edits')
+    console.error('[Builder] savePendingEdits:', e)
   }
 }
 function getRatingMax(optionsJson) {
@@ -1014,10 +1030,15 @@ async function addPage() {
 async function deletePage(pageId) {
   try { await ElMessageBox.confirm('Delete this page and all its contents?', 'Delete Page', { type: 'warning' }) }
   catch { return }
-  await deletePageApi(pageId)
-  ElMessage.success('Page deleted')
-  currentPageIndex.value = Math.min(currentPageIndex.value, (template.value.pages?.length || 1) - 1)
-  await store.fetchTemplate(template.value.id)
+  try {
+    await deletePageApi(pageId)
+    ElMessage.success('Page deleted')
+    currentPageIndex.value = Math.min(currentPageIndex.value, (template.value.pages?.length || 1) - 1)
+    await store.fetchTemplate(template.value.id)
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Failed to delete page')
+    console.error('[Builder] deletePage:', e)
+  }
 }
 
 // ── Section Actions ──
@@ -1028,12 +1049,25 @@ async function saveSectionTitle(sectionId) {
   await updateSectionApi(sectionId, { title: newTitle })
 }
 async function addSection(pageId) {
-  const { data } = await addSectionApi(pageId, { title: 'New Section' })
-  if (data.code === 200) { ElMessage.success('Section added'); await store.fetchTemplate(template.value.id) }
+  try {
+    const { data } = await addSectionApi(pageId, { title: 'New Section' })
+    if (data.code === 200) { ElMessage.success('Section added'); await store.fetchTemplate(template.value.id) }
+    else ElMessage.error(data.message)
+  } catch (e) {
+    ElMessage.error('Failed to add section')
+    console.error('[Builder] addSection:', e)
+  }
 }
 async function deleteSection(sectionId) {
   try { await ElMessageBox.confirm('Delete this section?', 'Delete', { type: 'warning' }) } catch { return }
-  await deleteSectionApi(sectionId); await store.fetchTemplate(template.value.id)
+  try {
+    await deleteSectionApi(sectionId)
+    ElMessage.success('Section deleted')
+    await store.fetchTemplate(template.value.id)
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Failed to delete section')
+    console.error('[Builder] deleteSection:', e)
+  }
 }
 
 // ── Question Actions ──
@@ -1061,23 +1095,35 @@ async function addQuestion(sectionId, type = 'TEXT') {
     title = 'Rate from 1-5'
     options = JSON.stringify({ max: 5, value: 3 })
   }
-  const { data } = await addQuestionApi(sectionId, { type, title, required: 0, options })
-  if (data.code === 200) { ElMessage.success('Question added'); await store.fetchTemplate(template.value.id) }
+  try {
+    const { data } = await addQuestionApi(sectionId, { type, title, required: 0, options })
+    if (data.code === 200) { ElMessage.success('Question added'); await store.fetchTemplate(template.value.id) }
+    else ElMessage.error(data.message)
+  } catch (e) {
+    ElMessage.error('Failed to add question')
+    console.error('[Builder] addQuestion:', e)
+  }
 }
 async function saveQuestionProperties() {
   if (!selectedQuestion.value) return
-  let options = selectedQuestion.value.options
-  if (hasOptions(editForm.type)) {
-    const items = (optionsCache[selectedQuestion.value.id] || []).filter(o => o.label.trim())
-    const newOpts = items.map(o => ({ key: o.key, label: o.label.trim() }))
-    options = JSON.stringify({ options: newOpts })
+  try {
+    let options = selectedQuestion.value.options
+    if (hasOptions(editForm.type)) {
+      const items = (optionsCache[selectedQuestion.value.id] || []).filter(o => o.label.trim())
+      const newOpts = items.map(o => ({ key: o.key, label: o.label.trim() }))
+      options = JSON.stringify({ options: newOpts })
+    }
+    await updateQuestionApi(selectedQuestion.value.id, {
+      title: editForm.title, type: editForm.type, required: editForm.required ? 1 : 0, options
+    })
+    ElMessage.success('Properties saved')
+    await store.fetchTemplate(template.value.id)
+    const updated = allQuestions.value.find(q => q.id === selectedQuestion.value.id)
+    if (updated) selectQuestion(updated)
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Failed to save properties')
+    console.error('[Builder] saveQuestionProperties:', e)
   }
-  await updateQuestionApi(selectedQuestion.value.id, {
-    title: editForm.title, type: editForm.type, required: editForm.required ? 1 : 0, options
-  })
-  await store.fetchTemplate(template.value.id)
-  const updated = allQuestions.value.find(q => q.id === selectedQuestion.value.id)
-  if (updated) selectQuestion(updated)
 }
 async function moveQuestion(section, fromIdx, direction) {
   const questions = section.questions

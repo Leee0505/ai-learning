@@ -230,9 +230,10 @@ async function handleBatchDelete() {
 }
 
 onMounted(async () => {
-  store.fetchTickets()
+  // Reset filters to defaults on every page entry (ensures "All Assignees" selected)
+  store.resetFilters()
   document.addEventListener('click', onClickOutside)
-  // Load agents list for assignee filter dropdown
+  // Load agents list for assignee filter dropdown (tenant-scoped)
   try {
     const { data } = await getAgentsApi()
     if (data.code === 200) agents.value = data.data || []

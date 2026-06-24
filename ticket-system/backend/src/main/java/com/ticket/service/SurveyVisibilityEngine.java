@@ -1,12 +1,16 @@
 package com.ticket.service;
 
 import com.ticket.dto.response.SurveyTemplateResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
 
 @Component
 public class SurveyVisibilityEngine {
+
+    private static final Logger log = LoggerFactory.getLogger(SurveyVisibilityEngine.class);
 
     /**
      * Evaluate all visibility rules for a given set of answers.
@@ -109,6 +113,11 @@ public class SurveyVisibilityEngine {
     }
 
     private double toDouble(String s) {
-        try { return Double.parseDouble(s); } catch (NumberFormatException e) { return 0; }
+        try {
+            return Double.parseDouble(s);
+        } catch (NumberFormatException e) {
+            log.warn("Visibility rule used numeric comparison on non-numeric input '{}'; treating as 0", s);
+            return 0;
+        }
     }
 }

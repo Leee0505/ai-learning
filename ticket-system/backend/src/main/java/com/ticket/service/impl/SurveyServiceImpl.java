@@ -239,12 +239,21 @@ public class SurveyServiceImpl implements SurveyService {
     @Override
     @Transactional
     public void reorderPages(Long templateId, ReorderRequest request) {
+        List<Long> missing = new ArrayList<>();
         for (ReorderRequest.ReorderItem item : request.getItems()) {
             SurveyPage page = pageMapper.selectById(item.getId());
-            if (page != null && page.getTemplateId().equals(templateId)) {
-                page.setDisplayOrder(item.getDisplayOrder());
-                pageMapper.updateById(page);
+            if (page == null || !page.getTemplateId().equals(templateId)) {
+                missing.add(item.getId());
             }
+        }
+        if (!missing.isEmpty()) {
+            throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND,
+                    "pages not found: " + missing);
+        }
+        for (ReorderRequest.ReorderItem item : request.getItems()) {
+            SurveyPage page = pageMapper.selectById(item.getId());
+            page.setDisplayOrder(item.getDisplayOrder());
+            pageMapper.updateById(page);
         }
     }
 
@@ -358,12 +367,21 @@ public class SurveyServiceImpl implements SurveyService {
     @Override
     @Transactional
     public void reorderQuestions(Long sectionId, ReorderRequest request) {
+        List<Long> missing = new ArrayList<>();
         for (ReorderRequest.ReorderItem item : request.getItems()) {
             SurveyQuestion q = questionMapper.selectById(item.getId());
-            if (q != null && q.getSectionId().equals(sectionId)) {
-                q.setDisplayOrder(item.getDisplayOrder());
-                questionMapper.updateById(q);
+            if (q == null || !q.getSectionId().equals(sectionId)) {
+                missing.add(item.getId());
             }
+        }
+        if (!missing.isEmpty()) {
+            throw new BusinessException(ErrorCode.TEMPLATE_NOT_FOUND,
+                    "questions not found: " + missing);
+        }
+        for (ReorderRequest.ReorderItem item : request.getItems()) {
+            SurveyQuestion q = questionMapper.selectById(item.getId());
+            q.setDisplayOrder(item.getDisplayOrder());
+            questionMapper.updateById(q);
         }
     }
 

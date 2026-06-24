@@ -4,7 +4,6 @@ import com.ticket.common.constant.CacheConstants;
 import com.ticket.common.exception.TokenBlacklistedException;
 import com.ticket.common.exception.TokenExpiredException;
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
@@ -15,7 +14,6 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.time.Duration;
-import java.util.Base64;
 import java.util.Date;
 import java.util.UUID;
 
@@ -34,8 +32,8 @@ public class JwtTokenProvider {
             @Value("${jwt.access-token-expiration}") long accessTokenExpiration,
             @Value("${jwt.refresh-token-expiration}") long refreshTokenExpiration,
             RedissonClient redissonClient) {
-        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(
-                Base64.getEncoder().encodeToString(secret.getBytes())));
+        // Use raw UTF-8 bytes as HMAC key material (removed no-op Base64 encode→decode round-trip)
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         this.accessTokenExpiration = accessTokenExpiration;
         this.refreshTokenExpiration = refreshTokenExpiration;
         this.redissonClient = redissonClient;

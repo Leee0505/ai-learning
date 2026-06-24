@@ -365,7 +365,7 @@ public class TicketServiceImpl implements TicketService {
 
         // Query: non-closed tickets, then filter by SLA deadline
         LambdaQueryWrapper<Ticket> wrapper = new LambdaQueryWrapper<>();
-        wrapper.in(Ticket::getStatus, "OPEN", "IN_PROGRESS");
+        wrapper.in(Ticket::getStatus, BusinessConstants.TICKET_STATUS_OPEN, BusinessConstants.TICKET_STATUS_IN_PROGRESS);
         applyVisibility.accept(wrapper);
 
         Map<String, SlaConfig> slaByPriority = slas.stream()
@@ -701,12 +701,12 @@ public class TicketServiceImpl implements TicketService {
                 .isNotNull("created_date");
         var avgMaps = ticketMapper.selectMaps(avgWrapper);
         var avgResult = avgMaps.isEmpty() ? null : avgMaps.get(0).get("avg_ms");
-        double avgMinutes = avgResult != null ? ((Number) avgResult).doubleValue() / 60000.0 : 0;
+        double avgMinutes = avgResult != null ? ((Number) avgResult).doubleValue() / (double) BusinessConstants.MILLIS_PER_MINUTE : 0;
 
         // Pending queue (unassigned)
         long pendingCount = ticketMapper.selectCount(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Ticket>()
-                        .eq(Ticket::getStatus, "OPEN")
+                        .eq(Ticket::getStatus, BusinessConstants.TICKET_STATUS_OPEN)
                         .isNull(Ticket::getAssignedTo));
 
         // Active assigned to this agent

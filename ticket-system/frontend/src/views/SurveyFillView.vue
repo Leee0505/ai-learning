@@ -228,7 +228,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, reassignInstanceApi, reassignPageApi, listUsersApi } from '@/api/survey'
 
@@ -296,6 +296,8 @@ function formatRoleName(role) {
 }
 
 async function doReassign(userId) {
+  // Flush any pending saves before reassigning (otherwise they'd fire against wrong instance)
+  await flushPendingSaves()
   try {
     if (reassignPopover.type === 'instance') {
       const res = await reassignInstanceApi(currentInstance.value.id, { userId })
@@ -482,10 +484,10 @@ async function refreshFillData() {
     const { data } = await getFillDataApi(currentInstance.value.id)
     if (data.code === 200) {
       fillData.value = data.data
-      // Merge existing answers (server is source of truth for persisted values)
+      // Server is source of truth — overwrite local state with persisted answers
       if (data.data.existingAnswers) {
         Object.entries(data.data.existingAnswers).forEach(([k, v]) => {
-          if (!answers[k]) answers[k] = v
+          answers[k] = v
         })
       }
     }
@@ -529,13 +531,19 @@ async function nextPage() {
   }
 }
 
+// Guard against stale responses when user rapidly clicks different surveys
+let openSurveySeq = 0
+
 async function openSurvey(instanceId) {
+  const seq = ++openSurveySeq
   currentInstance.value = instances.value.find(i => i.id === instanceId)
   currentPageIdx.value = 0
   try {
     const { data } = await getFillDataApi(instanceId)
+    if (seq !== openSurveySeq) return // stale — user navigated to a different survey
     if (data.code === 200) {
       fillData.value = data.data
+      // Server is source of truth for persisted answers — overwrite local state
       if (data.data.existingAnswers) {
         Object.entries(data.data.existingAnswers).forEach(([k, v]) => { answers[k] = v })
       }
@@ -587,6 +595,16 @@ async function loadInstances() {
 }
 
 onMounted(() => loadInstances())
+
+// Clean up pending debounced save timers when leaving the fill view
+onBeforeUnmount(() => {
+  if (setAnswer._pending) {
+    Object.values(setAnswer._pending).forEach(entry => {
+      if (entry?.timer) clearTimeout(entry.timer)
+    })
+    setAnswer._pending = {}
+  }
+})
 
 // Refresh instance list when navigating back to list (e.g., after reassign)
 watch(currentInstance, (newVal, oldVal) => {

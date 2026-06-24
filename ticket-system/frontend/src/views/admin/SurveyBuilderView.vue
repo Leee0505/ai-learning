@@ -792,7 +792,8 @@ function getQuestionIndex(q) {
   return 0
 }
 function addOption(q) {
-  if (!optionsCache[q.id]) optionsCache[q.id] = []
+  // Populate from server options first to avoid losing existing options (Bug 27)
+  if (!optionsCache[q.id]) optionsCache[q.id] = getOptionsList(q).map(o => ({ ...o }))
   const key = 'opt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
   optionsCache[q.id].push({ key, label: '' })
 }

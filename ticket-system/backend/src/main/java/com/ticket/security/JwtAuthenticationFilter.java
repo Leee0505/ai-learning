@@ -1,9 +1,12 @@
 package com.ticket.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ticket.common.constant.BusinessConstants;
+import com.ticket.common.constant.ErrorCode;
 import com.ticket.common.constant.SecurityConstants;
 import com.ticket.common.exception.TokenBlacklistedException;
 import com.ticket.common.exception.TokenExpiredException;
+import com.ticket.dto.response.ApiResult;
 import com.ticket.entity.User;
 import com.ticket.mapper.UserMapper;
 import io.jsonwebtoken.Claims;
@@ -13,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,12 +32,19 @@ import java.util.Collections;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
     private final JwtTokenProvider jwtTokenProvider;
     private final UserMapper userMapper;
 
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, UserMapper userMapper) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userMapper = userMapper;
+    }
+
+    private void writeError(HttpServletResponse response, int status, Object body) throws IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().write(objectMapper.writeValueAsString(body));
     }
 
     @Override
@@ -56,10 +67,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     // Verify user is still enabled (handles admin disable after token issuance)
                     User user = userMapper.selectById(userId);
                     if (user != null && user.getStatus() != null && user.getStatus() == BusinessConstants.USER_STATUS_DISABLED) {
-                        response.setContentType("application/json");
-                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                        response.getWriter().write(
-                                "{\"code\":40019,\"message\":\"user account is disabled\",\"data\":null}");
+                        writeError(response, HttpServletResponse.SC_FORBIDDEN,
+                                ApiResult.error(ErrorCode.USER_ALREADY_DISABLED));
                         return;
                     }
 
@@ -73,12 +82,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
-            } catch (TokenExpiredException | TokenBlacklistedException e) {
-                response.setContentType("application/json");
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                int code = (e instanceof TokenExpiredException) ? 40101 : 40102;
-                response.getWriter().write(
-                        "{\"code\":" + code + ",\"message\":\"" + e.getMessage() + "\",\"data\":null}");
+            } catch (TokenExpiredException e) {
+                writeError(response, HttpServletResponse.SC_UNAUTHORIZED,
+                        ApiResult.error(ErrorCode.TOKEN_EXPIRED));
+                return;
+            } catch (TokenBlacklistedException e) {
+                writeError(response, HttpServletResponse.SC_UNAUTHORIZED,
+                        ApiResult.error(ErrorCode.TOKEN_BLACKLISTED));
                 return;
             }
         }

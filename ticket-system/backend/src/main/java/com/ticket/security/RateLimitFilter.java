@@ -35,7 +35,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final Map<String, Integer> RATE_LIMIT_RULES = Map.of(
             "/api/auth/login", 10,
             "/api/auth/register", 3,
-            "/api/tickets/create", 20,
+            "/api/tickets", 20,   // POST /api/tickets = ticket creation
             "/api/tickets/export", 2
     );
     // Attachment upload: rate-limited by path prefix
@@ -61,7 +61,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         // Check exact path + method matches
         if ("POST".equals(method) && path.equals("/api/tickets")) {
-            maxRequests = RATE_LIMIT_RULES.getOrDefault("/api/tickets/create", 0);
+            maxRequests = RATE_LIMIT_RULES.getOrDefault("/api/tickets", 0);
         } else if ("GET".equals(method) && path.startsWith("/api/tickets/export")) {
             maxRequests = RATE_LIMIT_RULES.getOrDefault("/api/tickets/export", 0);
         } else if ("POST".equals(method) && path.contains("/attachments")) {

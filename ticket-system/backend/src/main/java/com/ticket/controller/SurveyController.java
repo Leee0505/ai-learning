@@ -73,7 +73,7 @@ public class SurveyController {
     @PostMapping("/{templateId}/pages")
     @Operation(summary = "Add a page to a template")
     public ApiResult<SurveyTemplateResponse.PageResponse> addPage(@PathVariable Long templateId,
-                                                                    @RequestBody AddPageRequest request,
+                                                                    @Valid @RequestBody AddPageRequest request,
                                                                     @AuthenticationPrincipal UserDetailsImpl user) {
         return ApiResult.success(surveyService.addPage(templateId, request.getTitle(), user.getUserId()));
     }
@@ -95,10 +95,9 @@ public class SurveyController {
 
     @PutMapping("/pages/{pageId}")
     @Operation(summary = "Update a page title")
-    public ApiResult<Void> updatePage(@PathVariable Long pageId, @RequestBody Map<String, String> body) {
-        String title = body.get("title");
-        if (title == null || title.isBlank()) return ApiResult.error(400, "title is required");
-        surveyService.updatePageTitle(pageId, title);
+    public ApiResult<Void> updatePage(@PathVariable Long pageId,
+                                       @Valid @RequestBody UpdatePageRequest request) {
+        surveyService.updatePageTitle(pageId, request.getTitle());
         return ApiResult.success();
     }
 
@@ -107,7 +106,7 @@ public class SurveyController {
     @PostMapping("/pages/{pageId}/sections")
     @Operation(summary = "Add a section to a page")
     public ApiResult<SurveyTemplateResponse.SectionResponse> addSection(@PathVariable Long pageId,
-                                                                          @RequestBody AddSectionRequest request,
+                                                                          @Valid @RequestBody AddSectionRequest request,
                                                                           @AuthenticationPrincipal UserDetailsImpl user) {
         return ApiResult.success(surveyService.addSection(pageId, request.getTitle(), user.getUserId()));
     }
@@ -121,10 +120,9 @@ public class SurveyController {
 
     @PutMapping("/sections/{sectionId}")
     @Operation(summary = "Update a section title")
-    public ApiResult<Void> updateSection(@PathVariable Long sectionId, @RequestBody Map<String, String> body) {
-        String title = body.get("title");
-        if (title == null || title.isBlank()) return ApiResult.error(400, "title is required");
-        surveyService.updateSectionTitle(sectionId, title);
+    public ApiResult<Void> updateSection(@PathVariable Long sectionId,
+                                          @Valid @RequestBody UpdateSectionRequest request) {
+        surveyService.updateSectionTitle(sectionId, request.getTitle());
         return ApiResult.success();
     }
 

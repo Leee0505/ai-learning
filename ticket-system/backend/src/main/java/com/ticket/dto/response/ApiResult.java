@@ -1,6 +1,7 @@
 package com.ticket.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.ticket.common.constant.ErrorCode;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -32,6 +33,11 @@ public class ApiResult<T> {
 
     public static <T> ApiResult<T> error(int code, String message) {
         return new ApiResult<>(code, message, null);
+    }
+
+    /** Convenience overload — uses the ErrorCode's built-in code and default message. */
+    public static <T> ApiResult<T> error(ErrorCode errorCode) {
+        return new ApiResult<>(errorCode.getCode(), errorCode.getDefaultMessage(), null);
     }
 
     public int getCode() { return code; }

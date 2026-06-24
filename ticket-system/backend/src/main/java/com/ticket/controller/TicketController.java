@@ -237,8 +237,9 @@ public class TicketController {
     })
     public ApiResult<Integer> deleteBatchTickets(
             @Parameter(description = "List of ticket IDs to delete", required = true)
-            @RequestBody List<Long> ids) {
-        int deleted = ticketService.deleteBatchTickets(ids);
+            @RequestBody List<Long> ids,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        int deleted = ticketService.deleteBatchTickets(ids, userDetails.getUserId(), userDetails.getRole());
         return ApiResult.success(deleted);
     }
 
@@ -258,8 +259,9 @@ public class TicketController {
     })
     public ApiResult<Void> deleteTicket(
             @Parameter(description = "Ticket ID", required = true)
-            @PathVariable Long id) {
-        ticketService.deleteTicket(id);
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        ticketService.deleteTicket(id, userDetails.getUserId(), userDetails.getRole());
         return ApiResult.success();
     }
 
@@ -350,7 +352,7 @@ public class TicketController {
             @PathVariable Long id,
             @Valid @RequestBody CreateReplyRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        TicketReplyResponse response = ticketService.addReply(id, request, userDetails.getUserId());
+        TicketReplyResponse response = ticketService.addReply(id, request, userDetails.getUserId(), userDetails.getRole());
         return ApiResult.success(response);
     }
 
@@ -421,7 +423,7 @@ public class TicketController {
             @Parameter(description = "File to upload (max 10 MB)", required = true)
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        TicketAttachmentResponse response = ticketService.uploadAttachment(id, file, userDetails.getUserId());
+        TicketAttachmentResponse response = ticketService.uploadAttachment(id, file, userDetails.getUserId(), userDetails.getRole());
         return ApiResult.success(response);
     }
 
@@ -442,8 +444,9 @@ public class TicketController {
     })
     public ResponseEntity<Resource> downloadAttachment(
             @Parameter(description = "Attachment ID", required = true)
-            @PathVariable Long id) {
-        Resource resource = ticketService.downloadAttachment(id);
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        Resource resource = ticketService.downloadAttachment(id, userDetails.getUserId(), userDetails.getRole());
         // Determine Content-Disposition filename from the attachment
         String filename = resource.getFilename();
         String encodedFilename = URLEncoder.encode(filename != null ? filename : "file",
@@ -476,8 +479,9 @@ public class TicketController {
             @Parameter(description = "Attachment ID", required = true)
             @PathVariable Long id,
             @Parameter(description = "Thumbnail max dimension in pixels (default 200)")
-            @RequestParam(defaultValue = "200") int size) {
-        Resource original = ticketService.downloadAttachment(id);
+            @RequestParam(defaultValue = "200") int size,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        Resource original = ticketService.downloadAttachment(id, userDetails.getUserId(), userDetails.getRole());
         try {
             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
             net.coobird.thumbnailator.Thumbnails.of(original.getInputStream())

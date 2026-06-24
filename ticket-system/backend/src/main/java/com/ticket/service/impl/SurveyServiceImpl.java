@@ -125,6 +125,21 @@ public class SurveyServiceImpl implements SurveyService {
     }
 
     /**
+     * Verify the current user can access this instance (tenant isolation).
+     * System instances (tenant_id=NULL) are visible to all tenants;
+     * tenant-scoped instances are only visible to users within the same tenant.
+     */
+    private void checkInstanceTenantAccess(SurveyInstance instance) {
+        if (instance.getTenantId() == null) return; // system — visible to all
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        if (currentTid == null) return; // superadmin — sees all
+        if (!currentTid.equals(instance.getTenantId())) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED,
+                    "cross-tenant instance access not allowed");
+        }
+    }
+
+    /**
      * Verify the current user can MODIFY this template.
      * System defaults (tenant_id=NULL) can only be modified by superadmin.
      */
@@ -432,10 +447,14 @@ public class SurveyServiceImpl implements SurveyService {
                 .stream().map(SurveyInstancePage::getInstanceId).distinct().collect(Collectors.toList());
 
         LambdaQueryWrapper<SurveyInstance> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SurveyInstance::getAssignedTo, userId);
-        if (!pageInstanceIds.isEmpty()) {
-            wrapper.or().in(SurveyInstance::getId, pageInstanceIds);
+        // Tenant isolation (superadmin sees all)
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        if (currentTid != null) {
+            wrapper.and(w -> w.isNull(SurveyInstance::getTenantId)
+                    .or().eq(SurveyInstance::getTenantId, currentTid));
         }
+        wrapper.and(w -> w.eq(SurveyInstance::getAssignedTo, userId)
+                .or().in(!pageInstanceIds.isEmpty(), SurveyInstance::getId, pageInstanceIds));
         wrapper.orderByDesc(SurveyInstance::getCreatedDate);
         return instanceMapper.selectList(wrapper)
                 .stream().map(this::toInstanceResponse).collect(Collectors.toList());
@@ -443,6 +462,9 @@ public class SurveyServiceImpl implements SurveyService {
 
     @Override
     public List<SurveyInstanceResponse> listTemplateInstances(Long templateId) {
+        // Verify template tenant access first, then inherit for instances
+        SurveyTemplate template = findTemplateOrFail(templateId);
+        checkTemplateTenantAccess(template);
         return instanceMapper.selectList(new LambdaQueryWrapper<SurveyInstance>()
                 .eq(SurveyInstance::getTemplateId, templateId)
                 .orderByDesc(SurveyInstance::getCreatedDate))
@@ -455,6 +477,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public SurveyInstanceResponse reassignInstance(Long instanceId, ReassignRequest request, Long adminId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
+        checkInstanceTenantAccess(instance);
         instance.setAssignedTo(request.getUserId());
         instanceMapper.updateById(instance);
         return toInstanceResponse(instance);
@@ -463,6 +486,8 @@ public class SurveyServiceImpl implements SurveyService {
     @Override
     @Transactional
     public void reassignPage(Long instanceId, Long pageId, ReassignRequest request, Long adminId) {
+        SurveyInstance instance = findInstanceOrFail(instanceId);
+        checkInstanceTenantAccess(instance);
         SurveyInstancePage ip = instancePageMapper.selectOne(new LambdaQueryWrapper<SurveyInstancePage>()
                 .eq(SurveyInstancePage::getInstanceId, instanceId)
                 .eq(SurveyInstancePage::getPageId, pageId));
@@ -493,6 +518,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Override
     public SurveyFillResponse getFillData(Long instanceId, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
+        checkInstanceTenantAccess(instance);
         // Verify access: instance assignee OR any page assignee can view
         if (!canAccessFillData(instanceId, instance, userId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
@@ -557,6 +583,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public void saveAnswer(Long instanceId, SaveAnswerRequest request, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
+        checkInstanceTenantAccess(instance);
         // Page-level assignee check takes precedence, fall back to instance-level
         if (!hasPageOrInstancePermission(instanceId, instance, request.getQuestionId(), userId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
@@ -642,6 +669,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Transactional
     public SurveyInstanceResponse submitSurvey(Long instanceId, SubmitSurveyRequest request, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
+        checkInstanceTenantAccess(instance);
         if (instance.getAssignedTo() == null || !instance.getAssignedTo().equals(userId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }

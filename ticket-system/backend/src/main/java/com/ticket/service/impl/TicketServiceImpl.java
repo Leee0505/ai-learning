@@ -242,8 +242,9 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional
-    public void deleteTicket(Long ticketId) {
-        findTicketOrFail(ticketId);
+    public void deleteTicket(Long ticketId, Long userId, String role) {
+        Ticket ticket = findTicketOrFail(ticketId);
+        checkTicketAccess(ticket, userId, role);
 
         // Clean up attachment files via storage backend before cascade deletes DB rows
         LambdaQueryWrapper<TicketAttachment> attachWrapper = new LambdaQueryWrapper<TicketAttachment>()
@@ -254,7 +255,7 @@ public class TicketServiceImpl implements TicketService {
         }
 
         ticketMapper.deleteById(ticketId);
-        log.info("Ticket deleted: id={}", ticketId);
+        log.info("Ticket deleted: id={} by userId={}", ticketId, userId);
     }
 
     // ──────────────────────────────────────────────
@@ -266,6 +267,7 @@ public class TicketServiceImpl implements TicketService {
     public TicketDetailResponse changeStatus(Long ticketId, ChangeStatusRequest request,
                                               Long userId, String role) {
         Ticket ticket = findTicketOrFail(ticketId);
+        checkTicketAccess(ticket, userId, role);
         String newStatus = request.getStatus();
 
         if (!VALID_STATUSES.contains(newStatus)) {
@@ -310,12 +312,19 @@ public class TicketServiceImpl implements TicketService {
     public TicketDetailResponse assignTicket(Long ticketId, AssignTicketRequest request,
                                               Long userId, String role) {
         Ticket ticket = findTicketOrFail(ticketId);
+        checkTicketAccess(ticket, userId, role);
         Long targetId = request.getAssignedTo();
 
         // Verify target user exists and is an agent
         User targetUser = userMapper.selectById(targetId);
         if (targetUser == null || !RoleConstants.ROLE_AGENT.equals(targetUser.getRole())) {
             throw new BusinessException(ErrorCode.TICKET_ASSIGN_INVALID);
+        }
+
+        // Verify target agent belongs to the same tenant as the ticket
+        if (!java.util.Objects.equals(ticket.getTenantId(), targetUser.getTenantId())) {
+            throw new BusinessException(ErrorCode.TICKET_ASSIGN_INVALID,
+                    "cannot assign to an agent from a different tenant");
         }
 
         ticket.setAssignedTo(targetId);
@@ -334,7 +343,14 @@ public class TicketServiceImpl implements TicketService {
     @Override
     public List<TicketDetailResponse> getOverdueTickets(Long userId, String role) {
         long now = System.currentTimeMillis();
-        List<SlaConfig> slas = slaConfigMapper.selectList(new LambdaQueryWrapper<>());
+        // Filter SLA configs by tenant: system defaults (NULL) + current tenant
+        Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+        LambdaQueryWrapper<SlaConfig> slaWrapper = new LambdaQueryWrapper<>();
+        if (currentTid != null) {
+            slaWrapper.and(w -> w.isNull(SlaConfig::getTenantId)
+                    .or().eq(SlaConfig::getTenantId, currentTid));
+        }
+        List<SlaConfig> slas = slaConfigMapper.selectList(slaWrapper);
         List<Ticket> overdue = new ArrayList<>();
 
         // Base: OPEN/IN_PROGRESS only
@@ -374,8 +390,9 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional
-    public TicketReplyResponse addReply(Long ticketId, CreateReplyRequest request, Long userId) {
-        findTicketOrFail(ticketId);
+    public TicketReplyResponse addReply(Long ticketId, CreateReplyRequest request, Long userId, String role) {
+        Ticket ticket = findTicketOrFail(ticketId);
+        checkTicketAccess(ticket, userId, role);
 
         TicketReply reply = new TicketReply();
         reply.setTenantId(SecurityUtils.getCurrentTenantId());
@@ -440,8 +457,9 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional
-    public TicketAttachmentResponse uploadAttachment(Long ticketId, MultipartFile file, Long userId) {
-        findTicketOrFail(ticketId);
+    public TicketAttachmentResponse uploadAttachment(Long ticketId, MultipartFile file, Long userId, String role) {
+        Ticket ticket = findTicketOrFail(ticketId);
+        checkTicketAccess(ticket, userId, role);
 
         // Validate size
         if (file.getSize() > BusinessConstants.MAX_UPLOAD_SIZE) {
@@ -487,11 +505,15 @@ public class TicketServiceImpl implements TicketService {
     // ──────────────────────────────────────────────
 
     @Override
-    public Resource downloadAttachment(Long attachmentId) {
+    public Resource downloadAttachment(Long attachmentId, Long userId, String role) {
         TicketAttachment attachment = ticketAttachmentMapper.selectById(attachmentId);
         if (attachment == null) {
             throw new BusinessException(ErrorCode.TICKET_ATTACHMENT_NOT_FOUND);
         }
+
+        // Verify access to the parent ticket
+        Ticket ticket = findTicketOrFail(attachment.getTicketId());
+        checkTicketAccess(ticket, userId, role);
 
         try {
             return fileStorage.load(attachment.getStoragePath());
@@ -506,8 +528,14 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional
-    public int deleteBatchTickets(List<Long> ticketIds) {
+    public int deleteBatchTickets(List<Long> ticketIds, Long userId, String role) {
         if (ticketIds == null || ticketIds.isEmpty()) return 0;
+
+        // Verify access for every ticket before deleting
+        for (Long ticketId : ticketIds) {
+            Ticket ticket = findTicketOrFail(ticketId);
+            checkTicketAccess(ticket, userId, role);
+        }
 
         // Clean up attachment files before deleting records
         LambdaQueryWrapper<TicketAttachment> attachWrapper = new LambdaQueryWrapper<TicketAttachment>()
@@ -518,7 +546,7 @@ public class TicketServiceImpl implements TicketService {
         }
 
         int deleted = ticketMapper.deleteBatchIds(ticketIds);
-        log.info("Batch deleted {} tickets: ids={}", deleted, ticketIds);
+        log.info("Batch deleted {} tickets: ids={} by userId={}", deleted, ticketIds, userId);
         return deleted;
     }
 
@@ -749,8 +777,13 @@ public class TicketServiceImpl implements TicketService {
     }
 
     private void checkTicketAccess(Ticket ticket, Long userId, String role) {
-        // Admin can access all tickets across all tenants
+        // Admin: superadmin sees all tenants; tenant-admin only sees own tenant
         if (RoleConstants.ROLE_ADMIN.equals(role)) {
+            Long currentTid = SecurityUtils.getCurrentTenantIdOrNull();
+            if (currentTid == null) return; // superadmin — sees all
+            if (!currentTid.equals(ticket.getTenantId())) {
+                throw new TicketAccessDeniedException();
+            }
             return;
         }
         // Agent can access only tickets in their own tenant

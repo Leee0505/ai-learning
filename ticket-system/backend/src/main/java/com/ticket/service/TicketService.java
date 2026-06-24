@@ -15,16 +15,16 @@ public interface TicketService {
                                               Long userId, String role, String sortOrder);
     TicketDetailResponse getTicketDetail(Long ticketId, Long userId, String role);
     TicketDetailResponse updateTicket(Long ticketId, UpdateTicketRequest request, Long userId, String role);
-    void deleteTicket(Long ticketId);
-    int deleteBatchTickets(List<Long> ticketIds);
+    void deleteTicket(Long ticketId, Long userId, String role);
+    int deleteBatchTickets(List<Long> ticketIds, Long userId, String role);
     TicketDetailResponse changeStatus(Long ticketId, ChangeStatusRequest request, Long userId, String role);
     TicketDetailResponse assignTicket(Long ticketId, AssignTicketRequest request, Long userId, String role);
     List<TicketDetailResponse> getOverdueTickets(Long userId, String role);
-    TicketReplyResponse addReply(Long ticketId, CreateReplyRequest request, Long userId);
+    TicketReplyResponse addReply(Long ticketId, CreateReplyRequest request, Long userId, String role);
     TicketReplyResponse editReply(Long ticketId, Long replyId, UpdateReplyRequest request, Long userId);
     void deleteReply(Long ticketId, Long replyId, Long userId, String role);
-    TicketAttachmentResponse uploadAttachment(Long ticketId, MultipartFile file, Long userId);
-    Resource downloadAttachment(Long attachmentId);
+    TicketAttachmentResponse uploadAttachment(Long ticketId, MultipartFile file, Long userId, String role);
+    Resource downloadAttachment(Long attachmentId, Long userId, String role);
 
     DashboardStatsResponse getDashboardStats(Long userId, String role);
     AgentStatsResponse getAgentStats(Long userId);

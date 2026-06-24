@@ -3,3 +3,4 @@ docker-volumes/
 .idea/
 uploads/
 .claude/skills/
+__pycache__/

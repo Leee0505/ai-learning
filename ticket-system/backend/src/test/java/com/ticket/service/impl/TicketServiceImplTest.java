@@ -57,6 +57,7 @@ class TicketServiceImplTest {
     private Ticket createTicketEntity(Long id, Long createdBy, String status, String priority, String category) {
         Ticket t = new Ticket();
         t.setId(id);
+        t.setTenantId(1L);
         t.setTitle("Test Ticket " + id);
         t.setDescription("Description " + id);
         t.setStatus(status);
@@ -150,7 +151,7 @@ class TicketServiceImplTest {
         when(ticketMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(pageResult);
         when(userMapper.selectBatchIds(anyCollection())).thenReturn(List.of(createUser(userId, "testuser", role)));
 
-        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, 1, 20, userId, role, "desc");
+        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, null, 1, 20, userId, role, "desc");
 
         assertThat(response.getRecords()).hasSize(1);
         assertThat(response.getTotal()).isEqualTo(1);
@@ -175,7 +176,7 @@ class TicketServiceImplTest {
                 .thenReturn(List.of(createUser(1L, "user1", RoleConstants.ROLE_USER),
                                     createUser(3L, "user2", RoleConstants.ROLE_USER)));
 
-        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, 1, 20, agentId, role, "desc");
+        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, null, 1, 20, agentId, role, "desc");
 
         assertThat(response.getRecords()).hasSize(2);
         assertThat(response.getTotal()).isEqualTo(2);
@@ -194,7 +195,7 @@ class TicketServiceImplTest {
                 .thenReturn(List.of(createUser(1L, "user1", RoleConstants.ROLE_USER)));
 
         PageResponse<TicketResponse> response = service.listTickets(
-                BusinessConstants.TICKET_STATUS_OPEN, null, null, null, null, 1, 20, 2L, RoleConstants.ROLE_AGENT, "desc");
+                BusinessConstants.TICKET_STATUS_OPEN, null, null, null, null, null, 1, 20, 2L, RoleConstants.ROLE_AGENT, "desc");
 
         assertThat(response.getRecords()).hasSize(1);
         assertThat(response.getRecords().get(0).getStatus()).isEqualTo(BusinessConstants.TICKET_STATUS_OPEN);
@@ -208,7 +209,7 @@ class TicketServiceImplTest {
 
         when(ticketMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(emptyPage);
 
-        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, 1, 20, 1L, RoleConstants.ROLE_USER, "desc");
+        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, null, 1, 20, 1L, RoleConstants.ROLE_USER, "desc");
 
         assertThat(response.getRecords()).isEmpty();
         assertThat(response.getTotal()).isEqualTo(0);
@@ -227,7 +228,7 @@ class TicketServiceImplTest {
         when(userMapper.selectBatchIds(anyCollection()))
                 .thenReturn(List.of(createUser(1L, "user1", RoleConstants.ROLE_USER)));
 
-        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, 1, 20, 2L, RoleConstants.ROLE_AGENT, "desc");
+        PageResponse<TicketResponse> response = service.listTickets(null, null, null, null, null, null, 1, 20, 2L, RoleConstants.ROLE_AGENT, "desc");
 
         assertThat(response.getRecords()).hasSize(1);
         assertThat(response.getRecords().get(0).getAssignedToName()).isNull();
@@ -246,6 +247,8 @@ class TicketServiceImplTest {
 
         User creator = createUser(1L, "user1", RoleConstants.ROLE_USER);
         User assignee = createUser(2L, "agent1", RoleConstants.ROLE_AGENT);
+        when(userMapper.selectById(1L)).thenReturn(creator);
+        when(userMapper.selectById(2L)).thenReturn(assignee);
         when(userMapper.selectBatchIds(anyCollection())).thenReturn(List.of(creator, assignee));
 
         TicketReply reply = new TicketReply();
@@ -413,7 +416,7 @@ class TicketServiceImplTest {
                 .thenReturn(Collections.emptyList());
         when(ticketMapper.deleteById(1L)).thenReturn(1);
 
-        assertThatCode(() -> service.deleteTicket(1L)).doesNotThrowAnyException();
+        assertThatCode(() -> service.deleteTicket(1L, 1L, RoleConstants.ROLE_ADMIN)).doesNotThrowAnyException();
         verify(ticketMapper).deleteById(1L);
     }
 
@@ -421,7 +424,7 @@ class TicketServiceImplTest {
     void deleteTicketShouldThrowWhenNotFound() {
         when(ticketMapper.selectById(999L)).thenReturn(null);
 
-        assertThatThrownBy(() -> service.deleteTicket(999L))
+        assertThatThrownBy(() -> service.deleteTicket(999L, 1L, RoleConstants.ROLE_ADMIN))
                 .isInstanceOf(TicketNotFoundException.class);
         verify(ticketMapper, never()).deleteById(anyLong());
     }
@@ -439,7 +442,7 @@ class TicketServiceImplTest {
                 .thenReturn(List.of(att));
         when(ticketMapper.deleteById(1L)).thenReturn(1);
 
-        assertThatCode(() -> service.deleteTicket(1L)).doesNotThrowAnyException();
+        assertThatCode(() -> service.deleteTicket(1L, 1L, RoleConstants.ROLE_ADMIN)).doesNotThrowAnyException();
         verify(fileStorage).delete("minio/test-file.dat");
         verify(ticketMapper).deleteById(1L);
     }
@@ -553,6 +556,7 @@ class TicketServiceImplTest {
         when(ticketMapper.updateById(any(Ticket.class))).thenReturn(1);
 
         User agent = createUser(2L, "agent1", RoleConstants.ROLE_AGENT);
+        agent.setTenantId(1L);
         when(userMapper.selectById(2L)).thenReturn(agent);
 
         when(userMapper.selectBatchIds(anyCollection())).thenReturn(List.of(agent, createUser(1L, "user1", RoleConstants.ROLE_USER)));
@@ -628,7 +632,7 @@ class TicketServiceImplTest {
         request.setContent("My reply");
         request.setIsInternal(false);
 
-        TicketReplyResponse response = service.addReply(1L, request, 1L);
+        TicketReplyResponse response = service.addReply(1L, request, 1L, RoleConstants.ROLE_USER);
 
         assertThat(response.getId()).isEqualTo(100L);
         assertThat(response.getContent()).isEqualTo("My reply");
@@ -651,7 +655,7 @@ class TicketServiceImplTest {
         request.setContent("Internal note");
         request.setIsInternal(true);
 
-        TicketReplyResponse response = service.addReply(1L, request, 2L);
+        TicketReplyResponse response = service.addReply(1L, request, 2L, RoleConstants.ROLE_AGENT);
 
         assertThat(response.getId()).isEqualTo(101L);
         assertThat(response.getUsername()).isEqualTo("agent1");
@@ -664,7 +668,7 @@ class TicketServiceImplTest {
         CreateReplyRequest request = new CreateReplyRequest();
         request.setContent("Reply");
 
-        assertThatThrownBy(() -> service.addReply(999L, request, 1L))
+        assertThatThrownBy(() -> service.addReply(999L, request, 1L, RoleConstants.ROLE_USER))
                 .isInstanceOf(TicketNotFoundException.class);
     }
 
@@ -689,7 +693,7 @@ class TicketServiceImplTest {
         when(file.getContentType()).thenReturn("image/png");
         when(fileStorage.store(file)).thenReturn("/path/to/stored.png");
 
-        TicketAttachmentResponse response = service.uploadAttachment(1L, file, 1L);
+        TicketAttachmentResponse response = service.uploadAttachment(1L, file, 1L, RoleConstants.ROLE_USER);
 
         assertThat(response.getId()).isEqualTo(200L);
         assertThat(response.getOriginalFilename()).isEqualTo("screenshot.png");
@@ -706,7 +710,7 @@ class TicketServiceImplTest {
         MultipartFile file = mock(MultipartFile.class);
         when(file.getSize()).thenReturn(BusinessConstants.MAX_UPLOAD_SIZE + 1);
 
-        assertThatThrownBy(() -> service.uploadAttachment(1L, file, 1L))
+        assertThatThrownBy(() -> service.uploadAttachment(1L, file, 1L, RoleConstants.ROLE_USER))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(com.ticket.common.constant.ErrorCode.TICKET_ATTACHMENT_TOO_LARGE);
@@ -722,7 +726,7 @@ class TicketServiceImplTest {
         when(file.getSize()).thenReturn(100L);
         when(file.getOriginalFilename()).thenReturn("malware.exe");
 
-        assertThatThrownBy(() -> service.uploadAttachment(1L, file, 1L))
+        assertThatThrownBy(() -> service.uploadAttachment(1L, file, 1L, RoleConstants.ROLE_USER))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(com.ticket.common.constant.ErrorCode.TICKET_ATTACHMENT_TYPE_DENIED);
@@ -736,7 +740,7 @@ class TicketServiceImplTest {
         when(file.getSize()).thenReturn(100L);
         when(file.getOriginalFilename()).thenReturn("test.png");
 
-        assertThatThrownBy(() -> service.uploadAttachment(999L, file, 1L))
+        assertThatThrownBy(() -> service.uploadAttachment(999L, file, 1L, RoleConstants.ROLE_USER))
                 .isInstanceOf(TicketNotFoundException.class);
     }
 
@@ -748,15 +752,19 @@ class TicketServiceImplTest {
     void downloadAttachmentShouldReturnResource() throws IOException {
         TicketAttachment att = new TicketAttachment();
         att.setId(300L);
+        att.setTicketId(1L);
         att.setStoragePath("minio/test-attachment.dat");
         when(ticketAttachmentMapper.selectById(300L)).thenReturn(att);
+        Ticket ticket = createTicketEntity(1L, 1L, BusinessConstants.TICKET_STATUS_OPEN,
+                BusinessConstants.TICKET_PRIORITY_MEDIUM, BusinessConstants.TICKET_CATEGORY_BUG);
+        when(ticketMapper.selectById(1L)).thenReturn(ticket);
         when(fileStorage.load("minio/test-attachment.dat"))
                 .thenReturn(new org.springframework.core.io.ByteArrayResource("test".getBytes()) {
                     @Override
                     public String getFilename() { return "test-attachment.dat"; }
                 });
 
-        org.springframework.core.io.Resource resource = service.downloadAttachment(300L);
+        org.springframework.core.io.Resource resource = service.downloadAttachment(300L, 1L, RoleConstants.ROLE_USER);
 
         assertThat(resource).isNotNull();
         assertThat(resource.exists()).isTrue();
@@ -766,7 +774,7 @@ class TicketServiceImplTest {
     void downloadAttachmentShouldThrowWhenDbRecordNotFound() {
         when(ticketAttachmentMapper.selectById(999L)).thenReturn(null);
 
-        assertThatThrownBy(() -> service.downloadAttachment(999L))
+        assertThatThrownBy(() -> service.downloadAttachment(999L, 1L, RoleConstants.ROLE_USER))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(com.ticket.common.constant.ErrorCode.TICKET_ATTACHMENT_NOT_FOUND);
@@ -776,11 +784,15 @@ class TicketServiceImplTest {
     void downloadAttachmentShouldThrowWhenFileMissingOnDisk() {
         TicketAttachment att = new TicketAttachment();
         att.setId(301L);
+        att.setTicketId(1L);
         att.setStoragePath("minio/nonexistent.dat");
         when(ticketAttachmentMapper.selectById(301L)).thenReturn(att);
+        Ticket ticket = createTicketEntity(1L, 1L, BusinessConstants.TICKET_STATUS_OPEN,
+                BusinessConstants.TICKET_PRIORITY_MEDIUM, BusinessConstants.TICKET_CATEGORY_BUG);
+        when(ticketMapper.selectById(1L)).thenReturn(ticket);
         when(fileStorage.load("minio/nonexistent.dat")).thenThrow(new RuntimeException("not found"));
 
-        assertThatThrownBy(() -> service.downloadAttachment(301L))
+        assertThatThrownBy(() -> service.downloadAttachment(301L, 1L, RoleConstants.ROLE_USER))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(com.ticket.common.constant.ErrorCode.TICKET_ATTACHMENT_NOT_FOUND);

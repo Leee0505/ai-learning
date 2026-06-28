@@ -180,6 +180,7 @@ CREATE TABLE IF NOT EXISTS `ticket_attachment` (
 
 CREATE TABLE IF NOT EXISTS survey_instance_log (
     id              BIGINT NOT NULL AUTO_INCREMENT,
+    tenant_id       BIGINT NOT NULL DEFAULT 1,
     instance_id     BIGINT NOT NULL,
     page_id         BIGINT DEFAULT NULL,
     question_id     BIGINT DEFAULT NULL,

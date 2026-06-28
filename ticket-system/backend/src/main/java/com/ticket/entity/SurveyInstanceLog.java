@@ -10,6 +10,7 @@ import lombok.Data;
 public class SurveyInstanceLog {
     @TableId(type = IdType.AUTO)
     private Long id;
+    private Long tenantId;
     private Long instanceId;
     private Long pageId;
     private Long questionId;

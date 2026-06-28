@@ -198,7 +198,7 @@
             <button :disabled="currentPageIdx === 0" class="btn-secondary" @click="prevPage">Previous</button>
             <button v-if="currentPageIdx < (fillData?.pages?.length || 1) - 1" class="btn-primary" @click="nextPage">Next</button>
             <button v-else class="btn-primary" @click="handleSubmit" :disabled="submitting">
-              {{ submitting ? 'Submitting...' : 'Submit Survey' }}
+              {{ submitting ? 'Completing...' : 'Complete Survey' }}
             </button>
           </div>
         </main>
@@ -578,7 +578,7 @@ async function handleSubmit() {
     const answerList = Object.entries(answers).map(([qid, val]) => ({ questionId: Number(qid), value: val }))
     const { data } = await submitSurveyApi(currentInstance.value.id, { answers: answerList })
     if (data.code === 200) {
-      ElMessage.success('Survey submitted!')
+      ElMessage.success('Survey completed!')
       currentInstance.value = null
       fillData.value = null
     } else {

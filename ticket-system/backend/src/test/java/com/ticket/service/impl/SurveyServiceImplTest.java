@@ -610,7 +610,7 @@ class SurveyServiceImplTest {
 
         assertThatCode(() -> service.submitSurvey(1L, new SubmitSurveyRequest(), 1L))
                 .doesNotThrowAnyException();
-        assertThat(inst.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_SUBMITTED);
+        assertThat(inst.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_COMPLETED);
     }
 
     // ─────────────────────────────────────────────

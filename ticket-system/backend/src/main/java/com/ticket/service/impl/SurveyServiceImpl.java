@@ -759,18 +759,18 @@ public class SurveyServiceImpl implements SurveyService {
             }
         }
 
-        // Mark all instance pages as complete
+        // Mark all instance pages as completed
         List<SurveyInstancePage> ipList = instancePageMapper.selectList(new LambdaQueryWrapper<SurveyInstancePage>()
                 .eq(SurveyInstancePage::getInstanceId, instanceId));
         for (SurveyInstancePage ip : ipList) {
-            ip.setStatus(BusinessConstants.INSTANCE_STATUS_SUBMITTED);
+            ip.setStatus(BusinessConstants.INSTANCE_STATUS_COMPLETED);
             instancePageMapper.updateById(ip);
         }
 
-        instance.setStatus(BusinessConstants.INSTANCE_STATUS_SUBMITTED);
+        instance.setStatus(BusinessConstants.INSTANCE_STATUS_COMPLETED);
         instanceMapper.updateById(instance);
 
-        log.info("Survey submitted: instanceId={} userId={}", instanceId, userId);
+        log.info("Survey completed: instanceId={} userId={}", instanceId, userId);
         return toInstanceResponse(instance);
     }
 

@@ -58,6 +58,7 @@
               <button v-if="t.status === 'PUBLISHED'" class="act-btn act-btn--archive" @click="archiveTemplate(t.id)" aria-label="Archive template">Archive</button>
               <button v-if="t.status === 'ARCHIVED'" class="act-btn act-btn--view" @click="viewTemplate(t.id)" aria-label="View template">View</button>
               <button v-if="t.status === 'DRAFT' || t.status === 'PUBLISHED'" class="act-btn act-btn--clone" @click="cloneTemplate(t.id)" aria-label="Clone template">Clone</button>
+              <button v-if="t.status === 'PUBLISHED'" class="act-btn act-btn--export" @click="exportTemplate(t.id)" aria-label="Export template">Export</button>
               <button v-if="t.status === 'ARCHIVED'" class="act-btn act-btn--clone" @click="cloneTemplate(t.id)" aria-label="Clone template">Clone</button>
             </td>
           </tr>
@@ -117,7 +118,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSurveyStore } from '@/stores/survey'
-import { getTemplateApi, updateTemplateApi, cloneTemplateApi } from '@/api/survey'
+import { getTemplateApi, updateTemplateApi, cloneTemplateApi, exportTemplateApi } from '@/api/survey'
 import { formatDate } from '@/utils/date'
 
 const store = useSurveyStore()
@@ -237,6 +238,26 @@ async function cloneTemplate(id) {
     }
   } catch (e) {
     ElMessage.error(e.response?.data?.message || 'Clone failed')
+  }
+}
+
+async function exportTemplate(id) {
+  try {
+    const { data } = await exportTemplateApi(id)
+    if (data.code === 200) {
+      const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `survey-template-${id}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      ElMessage.success('Exported')
+    } else {
+      ElMessage.error(data.message || 'Export failed')
+    }
+  } catch (e) {
+    ElMessage.error('Export failed')
   }
 }
 </script>

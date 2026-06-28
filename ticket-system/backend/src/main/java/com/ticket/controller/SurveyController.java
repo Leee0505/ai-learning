@@ -75,6 +75,12 @@ public class SurveyController {
         return ApiResult.success(surveyService.cloneTemplate(id, user.getUserId()));
     }
 
+    @GetMapping("/{id}/export")
+    @Operation(summary = "Export a template as JSON (all pages, sections, questions, and rules)")
+    public ApiResult<SurveyTemplateResponse> export(@PathVariable Long id) {
+        return ApiResult.success(surveyService.getTemplate(id));
+    }
+
     // ── Builder — Pages ──
 
     @PostMapping("/{templateId}/pages")

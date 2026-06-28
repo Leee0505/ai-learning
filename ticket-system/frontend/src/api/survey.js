@@ -7,6 +7,7 @@ export function createTemplateApi(data) { return request.post('/admin/surveys', 
 export function updateTemplateApi(id, data) { return request.put(`/admin/surveys/${id}`, data) }
 export function deleteTemplateApi(id) { return request.delete(`/admin/surveys/${id}`) }
 export function cloneTemplateApi(id) { return request.post(`/admin/surveys/${id}/clone`) }
+export function exportTemplateApi(id) { return request.get(`/admin/surveys/${id}/export`) }
 
 // Builder (admin)
 export function addPageApi(templateId, data) { return request.post(`/admin/surveys/${templateId}/pages`, data) }

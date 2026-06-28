@@ -369,6 +369,10 @@ const currentSection = computed(() => currentPage.value?.sections?.[currentSecti
 // Page-editable check: page assignee first, then fall back to instance assignee
 const canEditCurrentPage = computed(() => {
   if (!fillData.value || !currentPage.value) return false
+  // Completed pages are read-only (use Reopen to edit again)
+  if (isCurrentPageCompleted.value) return false
+  // Instance-level complete also blocks editing
+  if (fillData.value.instanceStatus === 'COMPLETED') return false
   const pAssign = pageAssignee(currentPage.value.id)
   if (pAssign !== null && pAssign !== undefined) {
     return pAssign === fillData.value.currentUsername

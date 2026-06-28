@@ -1228,7 +1228,7 @@ public class SurveyServiceImpl implements SurveyService {
                 return "\"" + rawValue + "\"";
             }
             if (q.getOptions() == null || q.getOptions().isEmpty()) {
-                log.debug("resolveLabels: question {} has no options", questionId);
+                log.info("resolveLabels: question {} has no options", questionId);
                 return "\"" + rawValue + "\"";
             }
             com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -1240,7 +1240,7 @@ public class SurveyServiceImpl implements SurveyService {
                 }
             }
             if (keyToLabel.isEmpty()) {
-                log.debug("resolveLabels: no key→label mappings found in options: {}", q.getOptions());
+                log.info("resolveLabels: no key→label mappings, options={}", q.getOptions());
                 return "\"" + rawValue + "\"";
             }
             String[] keys = rawValue.split(",");
@@ -1250,7 +1250,7 @@ public class SurveyServiceImpl implements SurveyService {
                     .toArray(String[]::new);
             return "\"" + String.join(", ", labels) + "\"";
         } catch (Exception e) {
-            log.warn("resolveLabels failed for questionId={}: {}", questionId, e.getMessage());
+            log.error("resolveLabels failed for questionId={}: {}", questionId, e.getMessage(), e);
             return "\"" + rawValue + "\"";
         }
     }

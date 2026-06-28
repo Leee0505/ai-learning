@@ -208,6 +208,7 @@
               </button>
             </div>
             <button v-if="currentPageIdx < (fillData?.pages?.length || 1) - 1" class="btn-secondary" @click="nextPage">Next</button>
+            <span v-else style="visibility:hidden" class="btn-secondary">Next</span>
           </div>
         </main>
         </div><!-- .fill-content-card -->

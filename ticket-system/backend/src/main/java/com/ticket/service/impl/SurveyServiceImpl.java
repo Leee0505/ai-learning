@@ -635,15 +635,10 @@ public class SurveyServiceImpl implements SurveyService {
             throw new BusinessException(ErrorCode.INSTANCE_ALREADY_SUBMITTED);
         }
 
-        // Check previous value for change tracking
-        SurveyAnswer old = answerMapper.selectOne(new LambdaQueryWrapper<SurveyAnswer>()
-                .eq(SurveyAnswer::getInstanceId, instanceId)
-                .eq(SurveyAnswer::getQuestionId, request.getQuestionId()));
-        upsertAnswer(instanceId, request);
+        String oldVal = upsertAnswer(instanceId, request);
         String newVal = request.getValue();
-        String oldVal = old != null ? old.getValue() : null;
         String detail;
-        if (old == null) {
+        if (oldVal == null) {
             detail = "Initial answer: \"" + newVal + "\"";
         } else if (!newVal.equals(oldVal)) {
             detail = "Value changed: \"" + oldVal + "\" → \"" + newVal + "\"";
@@ -690,11 +685,15 @@ public class SurveyServiceImpl implements SurveyService {
         return ip != null ? ip.getAssignedTo() : null;
     }
 
-    /** Upsert a single answer (no permission check — caller validates access). */
-    private void upsertAnswer(Long instanceId, SaveAnswerRequest request) {
+    /**
+     * Upsert a single answer (no permission check — caller validates access).
+     * @return the old value before upsert, or null if this is a new answer
+     */
+    private String upsertAnswer(Long instanceId, SaveAnswerRequest request) {
         SurveyAnswer existing = answerMapper.selectOne(new LambdaQueryWrapper<SurveyAnswer>()
                 .eq(SurveyAnswer::getInstanceId, instanceId)
                 .eq(SurveyAnswer::getQuestionId, request.getQuestionId()));
+        String oldValue = existing != null ? existing.getValue() : null;
         if (existing != null) {
             existing.setValue(request.getValue());
             answerMapper.updateById(existing);
@@ -705,6 +704,7 @@ public class SurveyServiceImpl implements SurveyService {
             answer.setValue(request.getValue());
             answerMapper.insert(answer);
         }
+        return oldValue;
     }
 
     /** Update instance page status to IN_PROGRESS (non-critical, transient errors logged but not thrown). */

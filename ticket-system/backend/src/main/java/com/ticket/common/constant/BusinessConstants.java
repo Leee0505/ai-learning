@@ -100,6 +100,7 @@ public final class BusinessConstants {
     public static final String INSTANCE_STATUS_IN_PROGRESS = "IN_PROGRESS";
     public static final String INSTANCE_STATUS_SUBMITTED = "SUBMITTED";
     public static final String INSTANCE_STATUS_COMPLETED = "COMPLETED";
+    public static final String INSTANCE_STATUS_REOPEN = "REOPEN";
 
     // === Survey trigger types ===
     public static final String SURVEY_TRIGGER_TICKET = "TICKET";

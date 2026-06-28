@@ -622,7 +622,7 @@ public class SurveyServiceImpl implements SurveyService {
         }
 
         upsertAnswer(instanceId, request);
-        updateInstancePageStatus(instanceId, request.getQuestionId());
+        updateInstancePageStatus(instanceId, request.getQuestionId(), instance);
 
         // Re-check status after write to prevent TOCTOU: concurrent submit between the
         // initial status guard and this upsert could have committed without us seeing it.
@@ -679,7 +679,7 @@ public class SurveyServiceImpl implements SurveyService {
     }
 
     /** Update instance page status to IN_PROGRESS (non-critical, transient errors logged but not thrown). */
-    private void updateInstancePageStatus(Long instanceId, Long questionId) {
+    private void updateInstancePageStatus(Long instanceId, Long questionId, SurveyInstance instance) {
         try {
             SurveyQuestion question = questionMapper.selectById(questionId);
             if (question != null) {
@@ -693,6 +693,11 @@ public class SurveyServiceImpl implements SurveyService {
                         if (ip != null && !BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(ip.getStatus())) {
                             ip.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
                             instancePageMapper.updateById(ip);
+                        }
+                        // Transition instance from REOPEN → IN_PROGRESS on first edit
+                        if (instance != null && BusinessConstants.INSTANCE_STATUS_REOPEN.equals(instance.getStatus())) {
+                            instance.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+                            instanceMapper.updateById(instance);
                         }
                     }
                 }
@@ -713,7 +718,8 @@ public class SurveyServiceImpl implements SurveyService {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
         if (!BusinessConstants.INSTANCE_STATUS_READY.equals(instance.getStatus())
-                && !BusinessConstants.INSTANCE_STATUS_IN_PROGRESS.equals(instance.getStatus())) {
+                && !BusinessConstants.INSTANCE_STATUS_IN_PROGRESS.equals(instance.getStatus())
+                && !BusinessConstants.INSTANCE_STATUS_REOPEN.equals(instance.getStatus())) {
             throw new BusinessException(ErrorCode.INSTANCE_ALREADY_SUBMITTED);
         }
 
@@ -764,13 +770,13 @@ public class SurveyServiceImpl implements SurveyService {
             throw new BusinessException(ErrorCode.SURVEY_PAGE_NOT_FOUND);
         }
 
-        ip.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+        ip.setStatus(BusinessConstants.INSTANCE_STATUS_REOPEN);
         instancePageMapper.updateById(ip);
 
         // Roll back instance status so it can be worked on again
         if (BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(instance.getStatus())
                 || BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(instance.getStatus())) {
-            instance.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+            instance.setStatus(BusinessConstants.INSTANCE_STATUS_REOPEN);
             instanceMapper.updateById(instance);
         }
 
@@ -796,11 +802,11 @@ public class SurveyServiceImpl implements SurveyService {
         List<SurveyInstancePage> ipList = instancePageMapper.selectList(new LambdaQueryWrapper<SurveyInstancePage>()
                 .eq(SurveyInstancePage::getInstanceId, instanceId));
         for (SurveyInstancePage ip : ipList) {
-            ip.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+            ip.setStatus(BusinessConstants.INSTANCE_STATUS_REOPEN);
             instancePageMapper.updateById(ip);
         }
 
-        instance.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+        instance.setStatus(BusinessConstants.INSTANCE_STATUS_REOPEN);
         instanceMapper.updateById(instance);
 
         log.info("Instance reopened: instanceId={} userId={}", instanceId, userId);

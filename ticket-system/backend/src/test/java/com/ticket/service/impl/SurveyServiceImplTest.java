@@ -651,8 +651,8 @@ class SurveyServiceImplTest {
 
         assertThatCode(() -> service.reopenPage(1L, 10L, 1L))
                 .doesNotThrowAnyException();
-        assertThat(ip.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
-        assertThat(inst.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+        assertThat(ip.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_REOPEN);
+        assertThat(inst.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_REOPEN);
     }
 
     @Test
@@ -669,8 +669,8 @@ class SurveyServiceImplTest {
 
         assertThatCode(() -> service.reopenInstance(1L, 1L))
                 .doesNotThrowAnyException();
-        assertThat(ip.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
-        assertThat(inst.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+        assertThat(ip.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_REOPEN);
+        assertThat(inst.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_REOPEN);
     }
 
     // ─────────────────────────────────────────────

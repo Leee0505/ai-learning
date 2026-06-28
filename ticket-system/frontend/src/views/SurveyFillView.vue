@@ -765,6 +765,7 @@ watch(currentInstance, (newVal, oldVal) => {
 .survey-head-page-status--ready_to_start { background: var(--color-gray-100); color: var(--color-text-secondary); }
 .survey-head-page-status--in_progress { background: #FEF3C7; color: #92400E; }
 .survey-head-page-status--submitted, .survey-head-page-status--completed { background: #D1FAE5; color: #047857; }
+.survey-head-page-status--reopen { background: #FEF3C7; color: #92400E; }
 .survey-head-progress {}
 .survey-head-progress-bar { width: 100%; height: 6px; background: var(--color-gray-200); border-radius: var(--radius-full); overflow: hidden; }
 .survey-head-progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light)); border-radius: var(--radius-full); transition: width var(--transition-base); }

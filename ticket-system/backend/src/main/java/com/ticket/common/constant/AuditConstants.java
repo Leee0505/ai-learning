@@ -22,6 +22,12 @@ public final class AuditConstants {
     public static final String ACTION_ASSIGN_TICKET = "ASSIGN_TICKET";
     public static final String ACTION_REPLY_TICKET = "REPLY_TICKET";
     public static final String ACTION_UPLOAD_ATTACHMENT = "UPLOAD_ATTACHMENT";
+    public static final String ACTION_CREATE_SURVEY_INSTANCE = "CREATE_SURVEY_INSTANCE";
+    public static final String ACTION_COMPLETE_PAGE = "COMPLETE_PAGE";
+    public static final String ACTION_REOPEN_PAGE = "REOPEN_PAGE";
+    public static final String ACTION_REOPEN_INSTANCE = "REOPEN_INSTANCE";
+    public static final String ACTION_SUBMIT_SURVEY = "SUBMIT_SURVEY";
+    public static final String ACTION_REASSIGN_SURVEY = "REASSIGN_SURVEY";
 
     // === Target entity types ===
     public static final String TARGET_USER = "USER";
@@ -29,4 +35,5 @@ public final class AuditConstants {
     public static final String TARGET_TICKET = "TICKET";
     public static final String TARGET_TICKET_REPLY = "TICKET_REPLY";
     public static final String TARGET_TICKET_ATTACHMENT = "TICKET_ATTACHMENT";
+    public static final String TARGET_SURVEY_INSTANCE = "SURVEY_INSTANCE";
 }

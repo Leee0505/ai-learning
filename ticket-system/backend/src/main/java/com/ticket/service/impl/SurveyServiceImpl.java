@@ -746,6 +746,40 @@ public class SurveyServiceImpl implements SurveyService {
 
     @Override
     @Transactional
+    public SurveyInstanceResponse reopenPage(Long instanceId, Long pageId, Long userId) {
+        SurveyInstance instance = findInstanceOrFail(instanceId);
+        checkInstanceTenantAccess(instance);
+        if (!canAccessFillData(instanceId, instance, userId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        // Allow reopen from COMPLETED, SUBMITTED, or IN_PROGRESS (but not READY — nothing to reopen)
+        if (BusinessConstants.INSTANCE_STATUS_READY.equals(instance.getStatus())) {
+            throw new BusinessException(ErrorCode.SURVEY_PAGE_INCOMPLETE, "instance is not started yet");
+        }
+
+        SurveyInstancePage ip = instancePageMapper.selectOne(new LambdaQueryWrapper<SurveyInstancePage>()
+                .eq(SurveyInstancePage::getInstanceId, instanceId)
+                .eq(SurveyInstancePage::getPageId, pageId));
+        if (ip == null) {
+            throw new BusinessException(ErrorCode.SURVEY_PAGE_NOT_FOUND);
+        }
+
+        ip.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+        instancePageMapper.updateById(ip);
+
+        // Roll back instance status so it can be worked on again
+        if (BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(instance.getStatus())
+                || BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(instance.getStatus())) {
+            instance.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+            instanceMapper.updateById(instance);
+        }
+
+        log.info("Page reopened: instanceId={} pageId={} userId={}", instanceId, pageId, userId);
+        return toInstanceResponse(instance);
+    }
+
+    @Override
+    @Transactional
     public SurveyInstanceResponse submitSurvey(Long instanceId, SubmitSurveyRequest request, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
         checkInstanceTenantAccess(instance);

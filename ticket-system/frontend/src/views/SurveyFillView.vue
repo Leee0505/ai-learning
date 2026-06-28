@@ -197,7 +197,10 @@
           <div class="fill-nav-btns">
             <button :disabled="currentPageIdx === 0" class="btn-secondary" @click="prevPage">Previous</button>
             <div class="fill-nav-center">
-              <button v-if="!isCurrentPageCompleted" class="btn-primary" @click="handleCompletePage" :disabled="completingPage">
+              <button v-if="isCurrentPageCompleted" class="btn-secondary" @click="handleReopenPage" :disabled="completingPage">
+                {{ completingPage ? 'Reopening...' : 'Reopen Page' }}
+              </button>
+              <button v-else class="btn-primary" @click="handleCompletePage" :disabled="completingPage">
                 {{ completingPage ? 'Completing...' : 'Complete Page' }}
               </button>
               <button v-if="canCompleteInstance" class="btn-primary btn-submit" @click="handleSubmit" :disabled="submitting">
@@ -241,7 +244,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, completePageApi, reassignInstanceApi, reassignPageApi, listUsersApi } from '@/api/survey'
+import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, completePageApi, reopenPageApi, reassignInstanceApi, reassignPageApi, listUsersApi } from '@/api/survey'
 
 const loading = ref(true)
 const submitting = ref(false)
@@ -604,6 +607,23 @@ async function handleCompletePage() {
     }
   } catch (e) {
     ElMessage.error(e.response?.data?.message || 'Failed to complete page')
+  } finally { completingPage.value = false }
+}
+
+async function handleReopenPage() {
+  await flushPendingSaves()
+  completingPage.value = true
+  try {
+    const page = fillData.value.pages[currentPageIdx.value]
+    const { data } = await reopenPageApi(currentInstance.value.id, page.id)
+    if (data.code === 200) {
+      ElMessage.success("Page reopened for editing")
+      await refreshFillData()
+    } else {
+      ElMessage.error(data.message || "Failed to reopen page")
+    }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || "Failed to reopen page")
   } finally { completingPage.value = false }
 }
 

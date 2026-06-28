@@ -51,6 +51,7 @@ public interface SurveyService {
     SurveyFillResponse getFillData(Long instanceId, Long userId);
     void saveAnswer(Long instanceId, SaveAnswerRequest request, Long userId);
     SurveyInstanceResponse completePage(Long instanceId, Long pageId, Long userId);
+    SurveyInstanceResponse reopenPage(Long instanceId, Long pageId, Long userId);
     SurveyInstanceResponse submitSurvey(Long instanceId, SubmitSurveyRequest request, Long userId);
 
     // Clone

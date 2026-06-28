@@ -640,13 +640,15 @@ public class SurveyServiceImpl implements SurveyService {
                 .eq(SurveyAnswer::getInstanceId, instanceId)
                 .eq(SurveyAnswer::getQuestionId, request.getQuestionId()));
         upsertAnswer(instanceId, request);
+        String newVal = request.getValue();
+        String oldVal = old != null ? old.getValue() : null;
         String detail;
         if (old == null) {
-            detail = "Initial answer: \"" + request.getValue() + "\"";
-        } else if (!request.getValue().equals(old.getValue())) {
-            detail = "Value changed: \"" + old.getValue() + "\" → \"" + request.getValue() + "\"";
+            detail = "Initial answer: \"" + newVal + "\"";
+        } else if (!newVal.equals(oldVal)) {
+            detail = "Value changed: \"" + oldVal + "\" → \"" + newVal + "\"";
         } else {
-            detail = "Answer unchanged";
+            detail = "Answer unchanged (value: \"" + newVal + "\")";
         }
         logActivity(instanceId, null, request.getQuestionId(), LOG_ANSWER_SAVED, userId, detail);
         updateInstancePageStatus(instanceId, request.getQuestionId(), instance);

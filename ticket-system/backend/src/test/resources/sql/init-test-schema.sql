@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS `tenant` (
     UNIQUE KEY `uk_tenant_slug` (`slug`)
 );
 
-INSERT INTO tenant (id, name, slug, status, created_date) VALUES (1, 'Default', 'default', 1, 0);
+INSERT INTO tenant (id, name, slug, status, created_date)
+SELECT 1, 'Default', 'default', 1, 0 WHERE NOT EXISTS (SELECT 1 FROM tenant WHERE id = 1);
 
 CREATE TABLE IF NOT EXISTS `user` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
@@ -129,16 +130,22 @@ CREATE TABLE IF NOT EXISTS `sla_config` (
 );
 
 -- Seed default SLA rules for tests
-INSERT INTO sla_config (priority, response_minutes, resolution_minutes, active, created_by, created_date) VALUES
-('URGENT', 60, 240, 1, 0, 0),
-('HIGH', 240, 1440, 1, 0, 0),
-('MEDIUM', 480, 2880, 1, 0, 0),
-('LOW', 1440, 5760, 1, 0, 0);
+INSERT INTO sla_config (priority, response_minutes, resolution_minutes, active, created_by, created_date)
+SELECT 'URGENT', 60, 240, 1, 0, 0 WHERE NOT EXISTS (SELECT 1 FROM sla_config WHERE priority = 'URGENT');
+INSERT INTO sla_config (priority, response_minutes, resolution_minutes, active, created_by, created_date)
+SELECT 'HIGH', 240, 1440, 1, 0, 0 WHERE NOT EXISTS (SELECT 1 FROM sla_config WHERE priority = 'HIGH');
+INSERT INTO sla_config (priority, response_minutes, resolution_minutes, active, created_by, created_date)
+SELECT 'MEDIUM', 480, 2880, 1, 0, 0 WHERE NOT EXISTS (SELECT 1 FROM sla_config WHERE priority = 'MEDIUM');
+INSERT INTO sla_config (priority, response_minutes, resolution_minutes, active, created_by, created_date)
+SELECT 'LOW', 1440, 5760, 1, 0, 0 WHERE NOT EXISTS (SELECT 1 FROM sla_config WHERE priority = 'LOW');
 
 -- Seed default custom fields for tests
-INSERT INTO ticket_field_config (name, field_key, field_type, options, display_order, active, required, created_by, created_date) VALUES
-('Environment', 'environment', 'SINGLE_SELECT', '{"items":["Production","Staging","Development"]}', 1, 1, 0, 0, 0),
-('Version', 'version', 'TEXT', NULL, 2, 1, 0, 0, 0);
+INSERT INTO ticket_field_config (name, field_key, field_type, options, display_order, active, required, created_by, created_date)
+SELECT 'Environment', 'environment', 'SINGLE_SELECT', '{"items":["Production","Staging","Development"]}', 1, 1, 0, 0, 0
+WHERE NOT EXISTS (SELECT 1 FROM ticket_field_config WHERE field_key = 'environment');
+INSERT INTO ticket_field_config (name, field_key, field_type, options, display_order, active, required, created_by, created_date)
+SELECT 'Version', 'version', 'TEXT', NULL, 2, 1, 0, 0, 0
+WHERE NOT EXISTS (SELECT 1 FROM ticket_field_config WHERE field_key = 'version');
 
 CREATE TABLE IF NOT EXISTS `notification` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,

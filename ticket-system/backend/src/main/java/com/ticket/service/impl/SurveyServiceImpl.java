@@ -1246,9 +1246,17 @@ public class SurveyServiceImpl implements SurveyService {
                 log.debug("resolveLabels: no key→label mappings, options={}", q.getOptions());
                 return "\"" + rawValue + "\"";
             }
+            // Sort keys by their order in the options definition (not selection order)
             String[] keys = rawValue.split(",");
+            Map<String, Integer> keyOrder = new java.util.LinkedHashMap<>();
+            int i = 0;
+            for (var node : nodes) {
+                if (node.has("key")) keyOrder.putIfAbsent(node.get("key").asText(), i++);
+            }
             String[] labels = java.util.Arrays.stream(keys)
                     .map(String::trim)
+                    .sorted(java.util.Comparator.comparingInt(
+                            k -> keyOrder.getOrDefault(k, Integer.MAX_VALUE)))
                     .map(k -> keyToLabel.getOrDefault(k, k))
                     .toArray(String[]::new);
             return "\"" + String.join(", ", labels) + "\"";

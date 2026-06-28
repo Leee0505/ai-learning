@@ -637,13 +637,15 @@ public class SurveyServiceImpl implements SurveyService {
 
         String oldVal = upsertAnswer(instanceId, request);
         String newVal = request.getValue();
+        String displayOld = resolveLabels(request.getQuestionId(), oldVal);
+        String displayNew = resolveLabels(request.getQuestionId(), newVal);
         String detail;
         if (oldVal == null) {
-            detail = "Initial answer: \"" + newVal + "\"";
+            detail = "Initial answer: " + displayNew;
         } else if (!newVal.equals(oldVal)) {
-            detail = "Value changed: \"" + oldVal + "\" → \"" + newVal + "\"";
+            detail = "Value changed: " + displayOld + " → " + displayNew;
         } else {
-            detail = "Answer unchanged (value: \"" + newVal + "\")";
+            detail = "Answer unchanged (" + displayNew + ")";
         }
         logActivity(instanceId, null, request.getQuestionId(), LOG_ANSWER_SAVED, userId, detail);
         updateInstancePageStatus(instanceId, request.getQuestionId(), instance);
@@ -1212,6 +1214,35 @@ public class SurveyServiceImpl implements SurveyService {
         vr.setValue(rl.getValue());
         vr.setRuleType(rl.getRuleType() != null ? rl.getRuleType() : "AND");
         return vr;
+    }
+
+    // ── Helpers ──
+
+    /** Resolve option keys like "opt_1,opt_2" to labels like "Production, Staging" */
+    private String resolveLabels(Long questionId, String rawValue) {
+        if (rawValue == null || rawValue.isEmpty()) return "\"\"";
+        try {
+            SurveyQuestion q = questionMapper.selectById(questionId);
+            if (q == null || q.getOptions() == null) return "\"" + rawValue + "\"";
+            // Parse options JSON array: [{"key":"opt_1","label":"A"},...]
+            com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+            var nodes = om.readTree(q.getOptions());
+            Map<String, String> keyToLabel = new java.util.LinkedHashMap<>();
+            for (var node : nodes) {
+                if (node.has("key") && node.has("label")) {
+                    keyToLabel.put(node.get("key").asText(), node.get("label").asText());
+                }
+            }
+            if (keyToLabel.isEmpty()) return "\"" + rawValue + "\"";
+            String[] keys = rawValue.split(",");
+            String[] labels = java.util.Arrays.stream(keys)
+                    .map(String::trim)
+                    .map(k -> keyToLabel.getOrDefault(k, k))
+                    .toArray(String[]::new);
+            return "\"" + String.join(", ", labels) + "\"";
+        } catch (Exception e) {
+            return "\"" + rawValue + "\"";
+        }
     }
 
     // ── Instance Activity Log ──

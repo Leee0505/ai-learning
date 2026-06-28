@@ -596,21 +596,36 @@ class SurveyServiceImplTest {
     }
 
     @Test
-    void submitSurveyShouldSucceed() {
+    void submitSurveyShouldSucceedWhenAllPagesCompleted() {
         SurveyInstance inst = createInstance(1L, 1L, 1L);
         SurveyTemplate t = createTemplate(1L, 1L, BusinessConstants.SURVEY_STATUS_PUBLISHED);
         when(instanceMapper.selectById(1L)).thenReturn(inst);
         when(templateMapper.selectById(1L)).thenReturn(t);
+        // No pages → all completed trivially
         when(pageMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(Collections.emptyList());
         when(answerMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(Collections.emptyList());
         when(visibilityEngine.evaluateHidden(any(), any())).thenReturn(Collections.emptySet());
         when(instancePageMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(Collections.emptyList());
-        when(instancePageMapper.updateById(any(SurveyInstancePage.class))).thenReturn(1);
         when(instanceMapper.updateById(any(SurveyInstance.class))).thenReturn(1);
 
         assertThatCode(() -> service.submitSurvey(1L, new SubmitSurveyRequest(), 1L))
                 .doesNotThrowAnyException();
-        assertThat(inst.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_COMPLETED);
+        assertThat(inst.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_SUBMITTED);
+    }
+
+    @Test
+    void completePageShouldSucceed() {
+        SurveyInstance inst = createInstance(1L, 1L, 1L);
+        SurveyInstancePage ip = new SurveyInstancePage();
+        ip.setId(1L); ip.setInstanceId(1L); ip.setPageId(10L);
+        when(instanceMapper.selectById(1L)).thenReturn(inst);
+        when(instancePageMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(ip);
+        when(instancePageMapper.updateById(any(SurveyInstancePage.class))).thenReturn(1);
+        when(instanceMapper.updateById(any(SurveyInstance.class))).thenReturn(1);
+
+        assertThatCode(() -> service.completePage(1L, 10L, 1L))
+                .doesNotThrowAnyException();
+        assertThat(ip.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_COMPLETED);
     }
 
     // ─────────────────────────────────────────────

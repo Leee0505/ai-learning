@@ -196,9 +196,12 @@
           <!-- Navigation -->
           <div class="fill-nav-btns">
             <button :disabled="currentPageIdx === 0" class="btn-secondary" @click="prevPage">Previous</button>
-            <button v-if="currentPageIdx < (fillData?.pages?.length || 1) - 1" class="btn-primary" @click="nextPage">Next</button>
-            <button v-else class="btn-primary" @click="handleSubmit" :disabled="submitting">
-              {{ submitting ? 'Completing...' : 'Complete Survey' }}
+            <button v-if="!isCurrentPageCompleted" class="btn-primary" @click="handleCompletePage" :disabled="completingPage">
+              {{ completingPage ? 'Completing...' : 'Complete Page' }}
+            </button>
+            <button v-if="currentPageIdx < (fillData?.pages?.length || 1) - 1" class="btn-secondary" @click="nextPage">Next</button>
+            <button v-if="isLastPage && allPagesCompleted" class="btn-primary btn-submit" @click="handleSubmit" :disabled="submitting">
+              {{ submitting ? 'Submitting...' : 'Complete Instance' }}
             </button>
           </div>
         </main>
@@ -236,10 +239,27 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, reassignInstanceApi, reassignPageApi, listUsersApi } from '@/api/survey'
+import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, completePageApi, reassignInstanceApi, reassignPageApi, listUsersApi } from '@/api/survey'
 
 const loading = ref(true)
 const submitting = ref(false)
+const completingPage = ref(false)
+
+const isLastPage = computed(() => currentPageIdx.value >= (fillData.value?.pages?.length || 1) - 1)
+
+const isCurrentPageCompleted = computed(() => {
+  if (!fillData.value || !currentPage.value) return false
+  const status = fillData.value.pageStatuses?.[currentPage.value.id]
+  return status === 'COMPLETED'
+})
+
+const allPagesCompleted = computed(() => {
+  if (!fillData.value?.pages || !fillData.value?.pageStatuses) return false
+  return fillData.value.pages.every(p => {
+    const status = fillData.value.pageStatuses[p.id]
+    return status === 'COMPLETED'
+  })
+})
 const instances = ref([])
 const currentInstance = ref(null)
 const fillData = ref(null)
@@ -571,14 +591,30 @@ async function openSurvey(instanceId) {
   }
 }
 
-async function handleSubmit() {
+async function handleCompletePage() {
   await flushPendingSaves()
+  completingPage.value = true
+  try {
+    const page = fillData.value.pages[currentPageIdx.value]
+    const { data } = await completePageApi(currentInstance.value.id, page.id)
+    if (data.code === 200) {
+      ElMessage.success('Page completed')
+      // Refresh fill data to update page statuses
+      await refreshFillData()
+    } else {
+      ElMessage.error(data.message || 'Failed to complete page')
+    }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Failed to complete page')
+  } finally { completingPage.value = false }
+}
+
+async function handleSubmit() {
   submitting.value = true
   try {
-    const answerList = Object.entries(answers).map(([qid, val]) => ({ questionId: Number(qid), value: val }))
-    const { data } = await submitSurveyApi(currentInstance.value.id, { answers: answerList })
+    const { data } = await submitSurveyApi(currentInstance.value.id, {})
     if (data.code === 200) {
-      ElMessage.success('Survey completed!')
+      ElMessage.success('Survey submitted!')
       currentInstance.value = null
       fillData.value = null
     } else {

@@ -706,10 +706,42 @@ public class SurveyServiceImpl implements SurveyService {
 
     @Override
     @Transactional
+    public SurveyInstanceResponse completePage(Long instanceId, Long pageId, Long userId) {
+        SurveyInstance instance = findInstanceOrFail(instanceId);
+        checkInstanceTenantAccess(instance);
+        if (!canAccessFillData(instanceId, instance, userId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        if (!BusinessConstants.INSTANCE_STATUS_READY.equals(instance.getStatus())
+                && !BusinessConstants.INSTANCE_STATUS_IN_PROGRESS.equals(instance.getStatus())) {
+            throw new BusinessException(ErrorCode.INSTANCE_ALREADY_SUBMITTED);
+        }
+
+        // Mark page as completed
+        SurveyInstancePage ip = instancePageMapper.selectOne(new LambdaQueryWrapper<SurveyInstancePage>()
+                .eq(SurveyInstancePage::getInstanceId, instanceId)
+                .eq(SurveyInstancePage::getPageId, pageId));
+        if (ip == null) {
+            throw new BusinessException(ErrorCode.SURVEY_PAGE_NOT_FOUND);
+        }
+        ip.setStatus(BusinessConstants.INSTANCE_STATUS_COMPLETED);
+        instancePageMapper.updateById(ip);
+
+        // Transition instance to IN_PROGRESS if needed
+        if (BusinessConstants.INSTANCE_STATUS_READY.equals(instance.getStatus())) {
+            instance.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+            instanceMapper.updateById(instance);
+        }
+
+        log.info("Page completed: instanceId={} pageId={} userId={}", instanceId, pageId, userId);
+        return toInstanceResponse(instance);
+    }
+
+    @Override
+    @Transactional
     public SurveyInstanceResponse submitSurvey(Long instanceId, SubmitSurveyRequest request, Long userId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
         checkInstanceTenantAccess(instance);
-        // Allow any user who can access the fill data to submit (page assignee or instance assignee)
         if (!canAccessFillData(instanceId, instance, userId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
@@ -718,59 +750,39 @@ public class SurveyServiceImpl implements SurveyService {
             throw new BusinessException(ErrorCode.INSTANCE_ALREADY_SUBMITTED);
         }
 
-        // Save any final answers from the submit request (skip per-answer page check — already validated at instance level)
-        if (request.getAnswers() != null) {
-            for (SaveAnswerRequest ans : request.getAnswers()) {
-                upsertAnswer(instanceId, ans);
-                updateInstancePageStatus(instanceId, ans.getQuestionId());
-            }
-        }
-
-        // Validate all required questions across all pages
+        // Require all visible pages to be completed before submitting the instance
         SurveyTemplate template = findTemplateOrFail(instance.getTemplateId());
         SurveyTemplateResponse templateResponse = toTemplateResponse(template);
+        List<SurveyInstancePage> ipList = instancePageMapper.selectList(new LambdaQueryWrapper<SurveyInstancePage>()
+                .eq(SurveyInstancePage::getInstanceId, instanceId));
+        Map<Long, String> pageStatus = new HashMap<>();
+        for (SurveyInstancePage ip : ipList) {
+            pageStatus.put(ip.getPageId(), ip.getStatus());
+        }
 
-        // Load existing answers
+        // Load existing answers for visibility evaluation
         Map<Long, String> existingAnswers = new HashMap<>();
         List<SurveyAnswer> answers = answerMapper.selectList(new LambdaQueryWrapper<SurveyAnswer>()
                 .eq(SurveyAnswer::getInstanceId, instanceId));
         for (SurveyAnswer a : answers) {
             existingAnswers.put(a.getQuestionId(), a.getValue());
         }
-
-        // Check required questions are answered
         Map<Long, Object> answerObjects = new HashMap<>(existingAnswers);
         Set<String> hidden = visibilityEngine.evaluateHidden(templateResponse, answerObjects);
 
         for (SurveyTemplateResponse.PageResponse page : templateResponse.getPages()) {
             if (hidden.contains("PAGE:" + page.getId())) continue;
-            for (SurveyTemplateResponse.SectionResponse section : page.getSections()) {
-                if (hidden.contains("SECTION:" + section.getId())) continue;
-                for (SurveyTemplateResponse.QuestionResponse q : section.getQuestions()) {
-                    if (hidden.contains("QUESTION:" + q.getId())) continue;
-                    if (Boolean.TRUE.equals(q.getRequired())) {
-                        String val = existingAnswers.get(q.getId());
-                        if (val == null || val.isEmpty() || "null".equals(val)) {
-                            throw new BusinessException(ErrorCode.SURVEY_PAGE_INCOMPLETE,
-                                    "Question \"" + q.getTitle() + "\" is required");
-                        }
-                    }
-                }
+            String ps = pageStatus.get(page.getId());
+            if (!BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(ps)) {
+                throw new BusinessException(ErrorCode.SURVEY_PAGE_INCOMPLETE,
+                        "Page \"" + page.getTitle() + "\" must be completed before submitting");
             }
         }
 
-        // Mark all instance pages as completed
-        List<SurveyInstancePage> ipList = instancePageMapper.selectList(new LambdaQueryWrapper<SurveyInstancePage>()
-                .eq(SurveyInstancePage::getInstanceId, instanceId));
-        for (SurveyInstancePage ip : ipList) {
-            ip.setStatus(BusinessConstants.INSTANCE_STATUS_COMPLETED);
-            instancePageMapper.updateById(ip);
-        }
-
-        instance.setStatus(BusinessConstants.INSTANCE_STATUS_COMPLETED);
+        instance.setStatus(BusinessConstants.INSTANCE_STATUS_SUBMITTED);
         instanceMapper.updateById(instance);
 
-        log.info("Survey completed: instanceId={} userId={}", instanceId, userId);
+        log.info("Survey submitted: instanceId={} userId={}", instanceId, userId);
         return toInstanceResponse(instance);
     }
 

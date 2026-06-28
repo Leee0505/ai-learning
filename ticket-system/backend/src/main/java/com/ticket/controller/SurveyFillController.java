@@ -49,8 +49,16 @@ public class SurveyFillController {
         return ApiResult.success();
     }
 
+    @PostMapping("/instances/{id}/pages/{pageId}/complete")
+    @Operation(summary = "Mark a page as completed")
+    public ApiResult<SurveyInstanceResponse> completePage(@PathVariable Long id,
+                                                           @PathVariable Long pageId,
+                                                           @AuthenticationPrincipal UserDetailsImpl user) {
+        return ApiResult.success(surveyService.completePage(id, pageId, user.getUserId()));
+    }
+
     @PostMapping("/instances/{id}/submit")
-    @Operation(summary = "Submit completed survey")
+    @Operation(summary = "Submit completed survey (requires all pages completed)")
     public ApiResult<SurveyInstanceResponse> submit(@PathVariable Long id,
                                                      @Valid @RequestBody SubmitSurveyRequest request,
                                                      @AuthenticationPrincipal UserDetailsImpl user) {

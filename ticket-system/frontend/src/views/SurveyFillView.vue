@@ -212,18 +212,24 @@
   <el-dialog v-model="reassignPopover.show"
              :title="'Reassign ' + (reassignPopover.type === 'instance' ? 'Survey' : 'Page')"
              width="380px" :close-on-click-modal="true" destroy-on-close>
-    <div v-if="reassignUsers.loading" style="text-align:center;padding:32px;color:#94A3B8">Loading users...</div>
-    <div v-else-if="!reassignUsers.list.length" style="text-align:center;padding:32px;color:#94A3B8">No users available</div>
-    <div v-else class="reassign-user-list">
-      <template v-for="(group, gk) in groupedReassignUsers" :key="gk">
-        <div class="reassign-user-group-label">{{ group.label }}</div>
-        <button v-for="u in group.users" :key="u.id" class="reassign-user-item"
-                @click="doReassign(u.id)">
-          <span class="reassign-user-name">{{ u.username }}</span>
-          <span class="reassign-user-role">{{ formatRoleName(u.role) }}</span>
-        </button>
-      </template>
-    </div>
+	    <div v-if="reassignUsers.loading" class="reassign-loading">Loading users...</div>
+	    <div v-else-if="!reassignUsers.list.length" class="reassign-empty">
+	      <span class="reassign-empty-icon">👤</span>
+	      <span>No users available</span>
+	    </div>
+	    <div v-else class="reassign-user-list">
+	      <template v-for="(group, gk) in groupedReassignUsers" :key="gk">
+	        <div class="reassign-user-group-label">{{ group.label }}</div>
+	        <button v-for="u in group.users" :key="u.id" class="reassign-user-item"
+	                @click="doReassign(u.id)">
+	          <span class="reassign-user-avatar">{{ u.username.charAt(0).toUpperCase() }}</span>
+	          <div class="reassign-user-info">
+	            <span class="reassign-user-name">{{ u.username }}</span>
+	            <span class="reassign-user-role">{{ formatRoleName(u.role) }}</span>
+	          </div>
+	        </button>
+	      </template>
+	    </div>
   </el-dialog>
 </template>
 
@@ -670,11 +676,16 @@ watch(currentInstance, (newVal, oldVal) => {
 .reassign-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: none; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; color: var(--color-text-muted); transition: all var(--transition-fast); flex-shrink: 0; }
 .reassign-btn:hover { border-color: var(--color-gray-200); color: var(--color-primary); background: var(--color-primary-bg); }
 
+.reassign-loading { text-align: center; padding: var(--space-xl); color: var(--color-text-muted); }
+.reassign-empty { display: flex; flex-direction: column; align-items: center; gap: var(--space-sm); padding: var(--space-xl); color: var(--color-text-muted); }
+.reassign-empty-icon { font-size: var(--text-xl); opacity: 0.5; }
 .reassign-user-list { display: flex; flex-direction: column; gap: 2px; }
 .reassign-user-group-label { font-size: 10px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 14px 4px; border-top: 1px solid var(--color-gray-100); margin-top: 4px; }
 .reassign-user-group-label:first-child { border-top: none; margin-top: 0; }
-.reassign-user-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: none; border: none; cursor: pointer; border-radius: var(--radius-md); font-family: var(--font-body); font-size: var(--text-sm); transition: background var(--transition-fast); width: 100%; text-align: left; }
-.reassign-user-item:hover { background: var(--color-gray-50); }
+.reassign-user-item { display: flex; align-items: center; gap: var(--space-sm); padding: 10px 14px; background: none; border: none; cursor: pointer; border-radius: var(--radius-md); font-family: var(--font-body); font-size: var(--text-sm); transition: background var(--transition-fast); width: 100%; text-align: left; }
+.reassign-user-item:hover { background: var(--color-primary-bg); }
+.reassign-user-avatar { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius-full); background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); color: var(--color-white); font-size: var(--text-xs); font-weight: 700; flex-shrink: 0; }
+.reassign-user-info { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .reassign-user-name { font-weight: 500; color: var(--color-text-primary); }
 .reassign-user-role { font-size: var(--text-xs); color: var(--color-text-muted); }
 

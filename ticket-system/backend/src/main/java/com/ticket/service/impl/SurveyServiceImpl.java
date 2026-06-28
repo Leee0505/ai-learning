@@ -733,6 +733,13 @@ public class SurveyServiceImpl implements SurveyService {
             instanceMapper.updateById(instance);
         }
 
+        // If all pages are now completed, auto-transition instance to SUBMITTED
+        if (allPagesCompleted(instance)) {
+            instance.setStatus(BusinessConstants.INSTANCE_STATUS_SUBMITTED);
+            instanceMapper.updateById(instance);
+            log.info("All pages completed — instance auto-submitted: instanceId={}", instanceId);
+        }
+
         log.info("Page completed: instanceId={} pageId={} userId={}", instanceId, pageId, userId);
         return toInstanceResponse(instance);
     }
@@ -745,45 +752,31 @@ public class SurveyServiceImpl implements SurveyService {
         if (!canAccessFillData(instanceId, instance, userId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
-        if (BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(instance.getStatus())
-                || BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(instance.getStatus())) {
+        if (BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(instance.getStatus())) {
             throw new BusinessException(ErrorCode.INSTANCE_ALREADY_SUBMITTED);
         }
-
-        // Require all visible pages to be completed before submitting the instance
-        SurveyTemplate template = findTemplateOrFail(instance.getTemplateId());
-        SurveyTemplateResponse templateResponse = toTemplateResponse(template);
-        List<SurveyInstancePage> ipList = instancePageMapper.selectList(new LambdaQueryWrapper<SurveyInstancePage>()
-                .eq(SurveyInstancePage::getInstanceId, instanceId));
-        Map<Long, String> pageStatus = new HashMap<>();
-        for (SurveyInstancePage ip : ipList) {
-            pageStatus.put(ip.getPageId(), ip.getStatus());
+        if (!BusinessConstants.INSTANCE_STATUS_SUBMITTED.equals(instance.getStatus())) {
+            throw new BusinessException(ErrorCode.SURVEY_PAGE_INCOMPLETE,
+                    "All pages must be completed before completing the instance");
         }
 
-        // Load existing answers for visibility evaluation
-        Map<Long, String> existingAnswers = new HashMap<>();
-        List<SurveyAnswer> answers = answerMapper.selectList(new LambdaQueryWrapper<SurveyAnswer>()
-                .eq(SurveyAnswer::getInstanceId, instanceId));
-        for (SurveyAnswer a : answers) {
-            existingAnswers.put(a.getQuestionId(), a.getValue());
-        }
-        Map<Long, Object> answerObjects = new HashMap<>(existingAnswers);
-        Set<String> hidden = visibilityEngine.evaluateHidden(templateResponse, answerObjects);
-
-        for (SurveyTemplateResponse.PageResponse page : templateResponse.getPages()) {
-            if (hidden.contains("PAGE:" + page.getId())) continue;
-            String ps = pageStatus.get(page.getId());
-            if (!BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(ps)) {
-                throw new BusinessException(ErrorCode.SURVEY_PAGE_INCOMPLETE,
-                        "Page \"" + page.getTitle() + "\" must be completed before submitting");
-            }
-        }
-
-        instance.setStatus(BusinessConstants.INSTANCE_STATUS_SUBMITTED);
+        instance.setStatus(BusinessConstants.INSTANCE_STATUS_COMPLETED);
         instanceMapper.updateById(instance);
 
-        log.info("Survey submitted: instanceId={} userId={}", instanceId, userId);
+        log.info("Survey completed: instanceId={} userId={}", instanceId, userId);
         return toInstanceResponse(instance);
+    }
+
+    /** Check if all visible (non-hidden) pages are completed. */
+    private boolean allPagesCompleted(SurveyInstance instance) {
+        List<SurveyInstancePage> ipList = instancePageMapper.selectList(new LambdaQueryWrapper<SurveyInstancePage>()
+                .eq(SurveyInstancePage::getInstanceId, instance.getId()));
+        for (SurveyInstancePage ip : ipList) {
+            if (!BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(ip.getStatus())) {
+                return false;
+            }
+        }
+        return !ipList.isEmpty();
     }
 
     // ── Clone ──

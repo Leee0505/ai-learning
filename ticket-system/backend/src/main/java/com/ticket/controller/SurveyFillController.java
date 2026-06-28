@@ -58,7 +58,7 @@ public class SurveyFillController {
     }
 
     @PostMapping("/instances/{id}/submit")
-    @Operation(summary = "Submit completed survey (requires all pages completed)")
+    @Operation(summary = "Complete a submitted survey (requires all pages COMPLETED, instance SUBMITTED)")
     public ApiResult<SurveyInstanceResponse> submit(@PathVariable Long id,
                                                      @Valid @RequestBody SubmitSurveyRequest request,
                                                      @AuthenticationPrincipal UserDetailsImpl user) {

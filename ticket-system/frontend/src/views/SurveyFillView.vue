@@ -196,13 +196,15 @@
           <!-- Navigation -->
           <div class="fill-nav-btns">
             <button :disabled="currentPageIdx === 0" class="btn-secondary" @click="prevPage">Previous</button>
-            <button v-if="!isCurrentPageCompleted" class="btn-primary" @click="handleCompletePage" :disabled="completingPage">
-              {{ completingPage ? 'Completing...' : 'Complete Page' }}
-            </button>
+            <div class="fill-nav-center">
+              <button v-if="!isCurrentPageCompleted" class="btn-primary" @click="handleCompletePage" :disabled="completingPage">
+                {{ completingPage ? 'Completing...' : 'Complete Page' }}
+              </button>
+              <button v-if="canCompleteInstance" class="btn-primary btn-submit" @click="handleSubmit" :disabled="submitting">
+                {{ submitting ? 'Completing...' : 'Complete Instance' }}
+              </button>
+            </div>
             <button v-if="currentPageIdx < (fillData?.pages?.length || 1) - 1" class="btn-secondary" @click="nextPage">Next</button>
-            <button v-if="isLastPage && allPagesCompleted" class="btn-primary btn-submit" @click="handleSubmit" :disabled="submitting">
-              {{ submitting ? 'Submitting...' : 'Complete Instance' }}
-            </button>
           </div>
         </main>
         </div><!-- .fill-content-card -->
@@ -253,12 +255,8 @@ const isCurrentPageCompleted = computed(() => {
   return status === 'COMPLETED'
 })
 
-const allPagesCompleted = computed(() => {
-  if (!fillData.value?.pages || !fillData.value?.pageStatuses) return false
-  return fillData.value.pages.every(p => {
-    const status = fillData.value.pageStatuses[p.id]
-    return status === 'COMPLETED'
-  })
+const canCompleteInstance = computed(() => {
+  return fillData.value?.instanceStatus === 'SUBMITTED'
 })
 const instances = ref([])
 const currentInstance = ref(null)
@@ -782,7 +780,8 @@ watch(currentInstance, (newVal, oldVal) => {
 .fill-options--disabled { opacity: 0.55; pointer-events: none; }
 .fill-rating--disabled { opacity: 0.55; pointer-events: none; }
 
-.fill-nav-btns { display: flex; justify-content: space-between; margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-gray-200); }
+.fill-nav-btns { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-gray-200); }
+.fill-nav-center { display: flex; gap: var(--space-sm); }
 
 /* Shared */
 .status-badge { font-size: var(--text-xs); font-weight: 600; padding: 2px 8px; border-radius: var(--radius-full); }

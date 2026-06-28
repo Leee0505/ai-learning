@@ -82,6 +82,15 @@ public class SurveyServiceImpl implements SurveyService {
         page.setCreatedDate(System.currentTimeMillis());
         pageMapper.insert(page);
 
+        // Create a default first section (so "add question" is available immediately)
+        SurveySection section = new SurveySection();
+        section.setPageId(page.getId());
+        section.setTitle("Section 1");
+        section.setDisplayOrder(1);
+        section.setCreatedBy(adminId);
+        section.setCreatedDate(System.currentTimeMillis());
+        sectionMapper.insert(section);
+
         log.info("Survey template created: id={} title={} tenantId={}", t.getId(), t.getTitle(), t.getTenantId());
         return toTemplateResponse(t);
     }

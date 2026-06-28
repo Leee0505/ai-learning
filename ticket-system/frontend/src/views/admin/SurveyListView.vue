@@ -57,6 +57,7 @@
               <button v-if="t.status === 'PUBLISHED'" class="act-btn act-btn--distribute" @click="distributeTemplate(t)" aria-label="Distribute survey">Distribute</button>
               <button v-if="t.status === 'PUBLISHED'" class="act-btn act-btn--archive" @click="archiveTemplate(t.id)" aria-label="Archive template">Archive</button>
               <button v-if="t.status === 'ARCHIVED'" class="act-btn act-btn--view" @click="viewTemplate(t.id)" aria-label="View template">View</button>
+              <button v-if="t.status === 'DRAFT' || t.status === 'PUBLISHED'" class="act-btn act-btn--clone" @click="cloneTemplate(t.id)" aria-label="Clone template">Clone</button>
               <button v-if="t.status === 'ARCHIVED'" class="act-btn act-btn--clone" @click="cloneTemplate(t.id)" aria-label="Clone template">Clone</button>
             </td>
           </tr>
@@ -116,7 +117,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSurveyStore } from '@/stores/survey'
-import { getTemplateApi, updateTemplateApi } from '@/api/survey'
+import { getTemplateApi, updateTemplateApi, cloneTemplateApi } from '@/api/survey'
 import { formatDate } from '@/utils/date'
 
 const store = useSurveyStore()
@@ -220,6 +221,23 @@ async function handleDelete(template) {
   } catch { return }
   await store.deleteTemplate(template.id)
   ElMessage.success('Deleted')
+}
+
+async function cloneTemplate(id) {
+  try {
+    await ElMessageBox.confirm('Clone this template with all pages, questions, and rules?', 'Clone Template', { confirmButtonText: 'Clone', type: 'info' })
+  } catch { return }
+  try {
+    const { data } = await cloneTemplateApi(id)
+    if (data.code === 200) {
+      ElMessage.success('Cloned — new template created as DRAFT')
+      store.fetchTemplates()
+    } else {
+      ElMessage.error(data.message || 'Clone failed')
+    }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || 'Clone failed')
+  }
 }
 </script>
 

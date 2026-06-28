@@ -765,6 +765,120 @@ public class SurveyServiceImpl implements SurveyService {
         return toInstanceResponse(instance);
     }
 
+    // ── Clone ──
+
+    @Override
+    @Transactional
+    public SurveyTemplateResponse cloneTemplate(Long templateId, Long adminId) {
+        SurveyTemplate source = findTemplateOrFail(templateId);
+        checkTemplateTenantAccess(source);
+
+        // Create new template
+        SurveyTemplate clone = new SurveyTemplate();
+        clone.setTenantId(SecurityUtils.getCurrentTenantIdOrNull());
+        clone.setTitle("Copy of " + source.getTitle());
+        clone.setDescription(source.getDescription());
+        clone.setStatus(BusinessConstants.SURVEY_STATUS_DRAFT);
+        clone.setVersion(1);
+        clone.setAllowResubmit(source.getAllowResubmit());
+        clone.setCreatedBy(adminId);
+        clone.setCreatedDate(System.currentTimeMillis());
+        templateMapper.insert(clone);
+
+        // Clone pages → sections → questions
+        List<SurveyPage> pages = pageMapper.selectList(
+                new LambdaQueryWrapper<SurveyPage>()
+                        .eq(SurveyPage::getTemplateId, templateId)
+                        .orderByAsc(SurveyPage::getDisplayOrder));
+
+        Map<Long, Long> pageIdMap = new HashMap<>();
+        Map<Long, Long> sectionIdMap = new HashMap<>();
+        Map<Long, Long> questionIdMap = new HashMap<>();
+
+        for (SurveyPage page : pages) {
+            Long oldPageId = page.getId();
+            page.setId(null);
+            page.setTemplateId(clone.getId());
+            page.setCreatedBy(adminId);
+            page.setCreatedDate(System.currentTimeMillis());
+            page.setLastModifiedBy(null);
+            page.setLastModifiedDate(null);
+            pageMapper.insert(page);
+            pageIdMap.put(oldPageId, page.getId());
+
+            // Clone sections
+            List<SurveySection> sections = sectionMapper.selectList(
+                    new LambdaQueryWrapper<SurveySection>()
+                            .eq(SurveySection::getPageId, oldPageId)
+                            .orderByAsc(SurveySection::getDisplayOrder));
+
+            for (SurveySection section : sections) {
+                Long oldSectionId = section.getId();
+                section.setId(null);
+                section.setPageId(page.getId());
+                section.setCreatedBy(adminId);
+                section.setCreatedDate(System.currentTimeMillis());
+                section.setLastModifiedBy(null);
+                section.setLastModifiedDate(null);
+                sectionMapper.insert(section);
+                sectionIdMap.put(oldSectionId, section.getId());
+
+                // Clone questions
+                List<SurveyQuestion> questions = questionMapper.selectList(
+                        new LambdaQueryWrapper<SurveyQuestion>()
+                                .eq(SurveyQuestion::getSectionId, oldSectionId)
+                                .orderByAsc(SurveyQuestion::getDisplayOrder));
+
+                for (SurveyQuestion question : questions) {
+                    Long oldQuestionId = question.getId();
+                    question.setId(null);
+                    question.setSectionId(section.getId());
+                    question.setCreatedBy(adminId);
+                    question.setCreatedDate(System.currentTimeMillis());
+                    question.setLastModifiedBy(null);
+                    question.setLastModifiedDate(null);
+                    questionMapper.insert(question);
+                    questionIdMap.put(oldQuestionId, question.getId());
+                }
+            }
+        }
+
+        // Clone visibility rules with remapped IDs
+        List<SurveyVisibilityRule> rules = ruleMapper.selectList(
+                new LambdaQueryWrapper<SurveyVisibilityRule>()
+                        .eq(SurveyVisibilityRule::getTemplateId, templateId));
+
+        for (SurveyVisibilityRule rule : rules) {
+            rule.setId(null);
+            rule.setTemplateId(clone.getId());
+            rule.setCreatedBy(adminId);
+            rule.setCreatedDate(System.currentTimeMillis());
+            rule.setLastModifiedBy(null);
+            rule.setLastModifiedDate(null);
+
+            // Remap target IDs based on target type
+            if ("PAGE".equalsIgnoreCase(rule.getTargetType()) && rule.getTargetId() != null
+                    && pageIdMap.containsKey(rule.getTargetId())) {
+                rule.setTargetId(pageIdMap.get(rule.getTargetId()));
+            } else if ("SECTION".equalsIgnoreCase(rule.getTargetType()) && rule.getTargetId() != null
+                    && sectionIdMap.containsKey(rule.getTargetId())) {
+                rule.setTargetId(sectionIdMap.get(rule.getTargetId()));
+            } else if ("QUESTION".equalsIgnoreCase(rule.getTargetType()) && rule.getTargetId() != null
+                    && questionIdMap.containsKey(rule.getTargetId())) {
+                rule.setTargetId(questionIdMap.get(rule.getTargetId()));
+            }
+            // Remap source question ID
+            if (rule.getSourceQuestionId() != null && questionIdMap.containsKey(rule.getSourceQuestionId())) {
+                rule.setSourceQuestionId(questionIdMap.get(rule.getSourceQuestionId()));
+            }
+
+            ruleMapper.insert(rule);
+        }
+
+        log.info("Survey template cloned: sourceId={} cloneId={} title={}", templateId, clone.getId(), clone.getTitle());
+        return toTemplateResponse(clone);
+    }
+
     // ── Results ──
 
     @Override

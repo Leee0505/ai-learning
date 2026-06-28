@@ -52,6 +52,9 @@ public interface SurveyService {
     void saveAnswer(Long instanceId, SaveAnswerRequest request, Long userId);
     SurveyInstanceResponse submitSurvey(Long instanceId, SubmitSurveyRequest request, Long userId);
 
+    // Clone
+    SurveyTemplateResponse cloneTemplate(Long templateId, Long adminId);
+
     // Results
     SurveyResultResponse getTemplateResults(Long templateId);
 }

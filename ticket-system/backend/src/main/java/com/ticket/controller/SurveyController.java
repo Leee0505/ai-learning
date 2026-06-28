@@ -68,6 +68,13 @@ public class SurveyController {
         return ApiResult.success();
     }
 
+    @PostMapping("/{id}/clone")
+    @Operation(summary = "Clone a template with all pages, sections, questions, and rules")
+    public ApiResult<SurveyTemplateResponse> clone(@PathVariable Long id,
+                                                    @AuthenticationPrincipal UserDetailsImpl user) {
+        return ApiResult.success(surveyService.cloneTemplate(id, user.getUserId()));
+    }
+
     // ── Builder — Pages ──
 
     @PostMapping("/{templateId}/pages")

@@ -650,4 +650,60 @@ class SurveyServiceImplTest {
         assertThat(resp.getTemplateId()).isEqualTo(1L);
         assertThat(resp.getTotalInstances()).isEqualTo(0);
     }
+
+    // ── Clone ──
+
+    @Test
+    void cloneTemplateShouldSucceed() {
+        SurveyTemplate source = createTemplate(1L, 1L, BusinessConstants.SURVEY_STATUS_PUBLISHED);
+        source.setDescription("Original description");
+        when(templateMapper.selectById(1L)).thenReturn(source);
+        when(templateMapper.insert(any(SurveyTemplate.class))).thenAnswer(inv -> {
+            SurveyTemplate t = inv.getArgument(0);
+            t.setId(2L);
+            return 1;
+        });
+
+        // Pages
+        SurveyPage page = createPage(10L, 1L);
+        when(pageMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(page));
+        when(pageMapper.insert(any(SurveyPage.class))).thenAnswer(inv -> {
+            inv.getArgument(0, SurveyPage.class).setId(20L);
+            return 1;
+        });
+
+        // Sections
+        SurveySection section = createSection(100L, 10L);
+        when(sectionMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(section));
+        when(sectionMapper.insert(any(SurveySection.class))).thenAnswer(inv -> {
+            inv.getArgument(0, SurveySection.class).setId(200L);
+            return 1;
+        });
+
+        // Questions
+        SurveyQuestion question = createQuestion(1000L, 100L, "TEXT");
+        when(questionMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(question));
+        when(questionMapper.insert(any(SurveyQuestion.class))).thenReturn(1);
+
+        // Rules
+        SurveyVisibilityRule rule = new SurveyVisibilityRule();
+        rule.setId(500L); rule.setTemplateId(1L);
+        rule.setTargetType("QUESTION"); rule.setTargetId(1000L);
+        rule.setSourceQuestionId(1000L); rule.setRuleType("SHOW_WHEN");
+        when(ruleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(rule));
+        when(ruleMapper.insert(any(SurveyVisibilityRule.class))).thenReturn(1);
+
+        SurveyTemplateResponse resp = service.cloneTemplate(1L, 1L);
+
+        assertThat(resp.getTitle()).isEqualTo("Copy of Test Template");
+        assertThat(resp.getStatus()).isEqualTo(BusinessConstants.SURVEY_STATUS_DRAFT);
+    }
+
+    @Test
+    void cloneTemplateShouldThrowWhenSourceNotFound() {
+        when(templateMapper.selectById(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.cloneTemplate(999L, 1L))
+                .isInstanceOf(BusinessException.class);
+    }
 }

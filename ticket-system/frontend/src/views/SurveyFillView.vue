@@ -221,6 +221,26 @@
           </div>
         </main>
         </div><!-- .fill-content-card -->
+
+        <!-- Activity Timeline -->
+        <div class="activity-section" v-if="activityLog.length">
+          <button class="activity-toggle" @click="showActivity = !showActivity" :aria-expanded="showActivity" aria-label="Toggle activity log">
+            <span class="activity-toggle-label">Activity ({{ activityLog.length }})</span>
+            <svg class="activity-toggle-arrow" :class="{ 'activity-toggle-arrow--open': showActivity }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+          </button>
+          <div v-if="showActivity" class="activity-timeline">
+            <div v-for="entry in activityLog" :key="entry.id" class="activity-entry" :class="'activity-entry--' + actionClass(entry.action)">
+              <span class="activity-dot" :class="'activity-dot--' + actionClass(entry.action)"></span>
+              <div class="activity-body">
+                <div class="activity-header">
+                  <span class="activity-action">{{ formatAction(entry.action) }}</span>
+                  <span class="activity-time">{{ formatTime(entry.createdDate) }}</span>
+                </div>
+                <div v-if="entry.detail" class="activity-detail">{{ entry.detail }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div><!-- .fill-body -->
     </div><!-- .fill-layout -->
 
@@ -254,11 +274,25 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, completePageApi, reopenPageApi, reopenInstanceApi, reassignInstanceApi, reassignPageApi, listUsersApi } from '@/api/survey'
+import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, completePageApi, reopenPageApi, reopenInstanceApi, reassignInstanceApi, reassignPageApi, listUsersApi, getInstanceLogApi } from '@/api/survey'
 
 const loading = ref(true)
 const submitting = ref(false)
 const completingPage = ref(false)
+const activityLog = ref([])
+const showActivity = ref(false)
+
+function formatAction(action) {
+  const map = { INSTANCE_CREATED: 'Instance created', ANSWER_SAVED: 'Answer saved', PAGE_COMPLETED: 'Page completed', PAGE_REOPENED: 'Page reopened', INSTANCE_REOPENED: 'Instance reopened', INSTANCE_SUBMITTED: 'Instance submitted', INSTANCE_REASSIGNED: 'Instance reassigned' }
+  return map[action] || action
+}
+function actionClass(action) {
+  if (action === 'PAGE_COMPLETED' || action === 'INSTANCE_SUBMITTED') return 'success'
+  if (action.includes('REOPEN')) return 'warning'
+  if (action === 'ANSWER_SAVED') return 'info'
+  return 'default'
+}
+function formatTime(ts) { return new Date(ts).toLocaleString() }
 
 const isLastPage = computed(() => currentPageIdx.value >= (fillData.value?.pages?.length || 1) - 1)
 
@@ -534,6 +568,7 @@ async function refreshFillData() {
     const { data } = await getFillDataApi(currentInstance.value.id)
     if (data.code === 200) {
       fillData.value = data.data
+      fetchActivityLog(currentInstance.value.id)
       // Server is source of truth — overwrite local state with persisted answers
       if (data.data.existingAnswers) {
         Object.entries(data.data.existingAnswers).forEach(([k, v]) => {
@@ -605,6 +640,7 @@ async function openSurvey(instanceId) {
         if (!ht.includes('PAGE:' + pages[i].id)) { firstVisible = i; break }
       }
       currentPageIdx.value = firstVisible
+      fetchActivityLog(instanceId)
     } else {
       ElMessage.error(data.message || 'Failed to load survey')
       currentInstance.value = null
@@ -613,6 +649,13 @@ async function openSurvey(instanceId) {
     ElMessage.error('Failed to load survey: ' + (e.response?.data?.message || e.message))
     currentInstance.value = null
   }
+}
+
+async function fetchActivityLog(instanceId) {
+  try {
+    const { data } = await getInstanceLogApi(instanceId)
+    if (data.code === 200) activityLog.value = data.data || []
+  } catch (e) { activityLog.value = [] }
 }
 
 async function handleHeadAction(command) {
@@ -851,6 +894,25 @@ watch(currentInstance, (newVal, oldVal) => {
 
 .fill-nav-btns { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-gray-200); }
 .fill-nav-center { display: flex; gap: var(--space-sm); }
+
+/* ── Activity Timeline ── */
+.activity-section { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-md); margin-top: var(--space-lg); box-shadow: var(--shadow-sm); }
+.activity-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 4px 0; background: none; border: none; cursor: pointer; font-family: var(--font-body); font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); min-height: 44px; }
+.activity-toggle:hover { color: var(--color-text-primary); }
+.activity-toggle-arrow { transition: transform 200ms; color: var(--color-text-muted); flex-shrink: 0; }
+.activity-toggle-arrow--open { transform: rotate(180deg); }
+.activity-timeline { margin-top: var(--space-sm); padding-left: 12px; border-left: 2px solid var(--color-gray-200); margin-left: 7px; display: flex; flex-direction: column; gap: var(--space-sm); }
+.activity-entry { display: flex; gap: var(--space-sm); position: relative; }
+.activity-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; margin-left: -18px; box-shadow: 0 0 0 3px var(--color-white); }
+.activity-dot--success { background: #10B981; }
+.activity-dot--warning { background: #F59E0B; }
+.activity-dot--info { background: #3B82F6; }
+.activity-dot--default { background: var(--color-gray-400); }
+.activity-body { flex: 1; min-width: 0; }
+.activity-header { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-sm); }
+.activity-action { font-size: var(--text-xs); font-weight: 600; color: var(--color-text-secondary); white-space: nowrap; }
+.activity-time { font-size: var(--text-xs); color: var(--color-text-muted); white-space: nowrap; }
+.activity-detail { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; line-height: 1.4; word-break: break-word; }
 
 /* Shared */
 .status-badge { font-size: var(--text-xs); font-weight: 600; padding: 2px 8px; border-radius: var(--radius-full); }

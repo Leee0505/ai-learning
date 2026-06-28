@@ -33,6 +33,7 @@ export function saveAnswerApi(instanceId, data) { return request.put(`/surveys/i
 export function completePageApi(instanceId, pageId) { return request.post(`/surveys/instances/${instanceId}/pages/${pageId}/complete`) }
 export function reopenPageApi(instanceId, pageId) { return request.post(`/surveys/instances/${instanceId}/pages/${pageId}/reopen`) }
 export function reopenInstanceApi(instanceId) { return request.post(`/surveys/instances/${instanceId}/reopen`) }
+export function getInstanceLogApi(instanceId) { return request.get(`/surveys/instances/${instanceId}/log`) }
 export function submitSurveyApi(instanceId, data) { return request.post(`/surveys/instances/${instanceId}/submit`, data) }
 
 // Reassign

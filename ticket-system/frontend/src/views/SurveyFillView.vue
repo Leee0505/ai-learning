@@ -122,11 +122,16 @@
           <div class="fill-page-tabs">
             <button v-for="(page, pi) in fillData.pages" :key="'fp'+page.id"
                     v-show="!isHidden(page)"
-                    class="fill-tab" :class="{ 'fill-tab--active': currentPageIdx === pi }"
+                    class="fill-tab" :class="{ 'fill-tab--active': !showActivityTab && currentPageIdx === pi }"
                     @click="switchPage(pi)"
                     :title="page.title + ' — ' + pageStatusLabel(page.id)">
               <span class="fill-tab-num" :class="'fill-tab-num--' + pageStatusClass(page.id)">{{ pi + 1 }}</span>
               {{ page.title }}
+            </button>
+            <button class="fill-tab fill-tab--activity" :class="{ 'fill-tab--active': showActivityTab }"
+                    @click="showActivityTab = true" aria-label="Activity log">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+              Activity
             </button>
           </div>
 
@@ -140,8 +145,25 @@
             </button>
           </div>
 
+          <!-- Activity Timeline (when Activity tab active) -->
+          <main v-if="showActivityTab" class="fill-content">
+            <div class="activity-timeline-inline">
+              <div v-if="!activityLog.length" class="fill-empty">No activity yet.</div>
+              <div v-for="entry in activityLog" :key="entry.id" class="activity-entry" :class="'activity-entry--' + actionClass(entry.action)">
+                <span class="activity-dot" :class="'activity-dot--' + actionClass(entry.action)"></span>
+                <div class="activity-body">
+                  <div class="activity-header">
+                    <span class="activity-action">{{ formatAction(entry.action) }}</span>
+                    <span class="activity-time">{{ formatTime(entry.createdDate) }}</span>
+                  </div>
+                  <div v-if="entry.detail" class="activity-detail">{{ entry.detail }}</div>
+                </div>
+              </div>
+            </div>
+          </main>
+
           <!-- Questions -->
-          <main class="fill-content">
+          <main v-else class="fill-content">
             <div v-if="!currentSection" class="fill-empty">No sections on this page.</div>
             <div v-else>
               <Transition name="fade" mode="out-in">
@@ -222,25 +244,6 @@
         </main>
         </div><!-- .fill-content-card -->
 
-        <!-- Activity Timeline -->
-        <div class="activity-section" v-if="activityLog.length">
-          <button class="activity-toggle" @click="showActivity = !showActivity" :aria-expanded="showActivity" aria-label="Toggle activity log">
-            <span class="activity-toggle-label">Activity ({{ activityLog.length }})</span>
-            <svg class="activity-toggle-arrow" :class="{ 'activity-toggle-arrow--open': showActivity }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
-          </button>
-          <div v-if="showActivity" class="activity-timeline">
-            <div v-for="entry in activityLog" :key="entry.id" class="activity-entry" :class="'activity-entry--' + actionClass(entry.action)">
-              <span class="activity-dot" :class="'activity-dot--' + actionClass(entry.action)"></span>
-              <div class="activity-body">
-                <div class="activity-header">
-                  <span class="activity-action">{{ formatAction(entry.action) }}</span>
-                  <span class="activity-time">{{ formatTime(entry.createdDate) }}</span>
-                </div>
-                <div v-if="entry.detail" class="activity-detail">{{ entry.detail }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div><!-- .fill-body -->
     </div><!-- .fill-layout -->
 
@@ -280,7 +283,7 @@ const loading = ref(true)
 const submitting = ref(false)
 const completingPage = ref(false)
 const activityLog = ref([])
-const showActivity = ref(false)
+const showActivityTab = ref(false)
 
 function formatAction(action) {
   const map = { INSTANCE_CREATED: 'Instance created', ANSWER_SAVED: 'Answer saved', PAGE_COMPLETED: 'Page completed', PAGE_REOPENED: 'Page reopened', INSTANCE_REOPENED: 'Instance reopened', INSTANCE_SUBMITTED: 'Instance submitted', INSTANCE_REASSIGNED: 'Instance reassigned' }
@@ -583,6 +586,7 @@ async function refreshFillData() {
 }
 
 function switchPage(pi) {
+  showActivityTab.value = false
   const page = (fillData.value?.pages || [])[pi]
   if (!page || isHidden(page)) return // Block navigation to hidden pages
   currentPageIdx.value = pi
@@ -895,24 +899,23 @@ watch(currentInstance, (newVal, oldVal) => {
 .fill-nav-btns { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-gray-200); }
 .fill-nav-center { display: flex; gap: var(--space-sm); }
 
-/* ── Activity Timeline ── */
-.activity-section { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-md); margin-top: var(--space-lg); box-shadow: var(--shadow-sm); }
-.activity-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 4px 0; background: none; border: none; cursor: pointer; font-family: var(--font-body); font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); min-height: 44px; }
-.activity-toggle:hover { color: var(--color-text-primary); }
-.activity-toggle-arrow { transition: transform 200ms; color: var(--color-text-muted); flex-shrink: 0; }
-.activity-toggle-arrow--open { transform: rotate(180deg); }
-.activity-timeline { margin-top: var(--space-sm); padding-left: 12px; border-left: 2px solid var(--color-gray-200); margin-left: 7px; display: flex; flex-direction: column; gap: var(--space-sm); }
-.activity-entry { display: flex; gap: var(--space-sm); position: relative; }
-.activity-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; margin-left: -18px; box-shadow: 0 0 0 3px var(--color-white); }
-.activity-dot--success { background: #10B981; }
-.activity-dot--warning { background: #F59E0B; }
-.activity-dot--info { background: #3B82F6; }
-.activity-dot--default { background: var(--color-gray-400); }
-.activity-body { flex: 1; min-width: 0; }
-.activity-header { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-sm); }
-.activity-action { font-size: var(--text-xs); font-weight: 600; color: var(--color-text-secondary); white-space: nowrap; }
-.activity-time { font-size: var(--text-xs); color: var(--color-text-muted); white-space: nowrap; }
-.activity-detail { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; line-height: 1.4; word-break: break-word; }
+/* ── Activity Timeline (inline tab) ── */
+.fill-tab--activity { display: flex; align-items: center; gap: 6px; color: var(--color-text-muted); }
+.fill-tab--activity:hover { color: var(--color-text-secondary); }
+.fill-tab--activity svg { flex-shrink: 0; }
+.activity-timeline-inline { padding: var(--space-sm) 0; display: flex; flex-direction: column; gap: var(--space-sm); }
+.activity-timeline-inline .activity-entry { display: flex; gap: var(--space-sm); padding: 6px 0; border-bottom: 1px solid var(--color-gray-100); }
+.activity-timeline-inline .activity-entry:last-child { border-bottom: none; }
+.activity-timeline-inline .activity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.activity-timeline-inline .activity-dot--success { background: #10B981; }
+.activity-timeline-inline .activity-dot--warning { background: #F59E0B; }
+.activity-timeline-inline .activity-dot--info { background: #3B82F6; }
+.activity-timeline-inline .activity-dot--default { background: var(--color-gray-400); }
+.activity-timeline-inline .activity-body { flex: 1; min-width: 0; }
+.activity-timeline-inline .activity-header { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-sm); }
+.activity-timeline-inline .activity-action { font-size: var(--text-xs); font-weight: 600; color: var(--color-text-secondary); white-space: nowrap; }
+.activity-timeline-inline .activity-time { font-size: var(--text-xs); color: var(--color-text-muted); white-space: nowrap; }
+.activity-timeline-inline .activity-detail { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; line-height: 1.4; word-break: break-word; }
 
 /* Shared */
 .status-badge { font-size: var(--text-xs); font-weight: 600; padding: 2px 8px; border-radius: var(--radius-full); }

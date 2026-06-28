@@ -1223,8 +1223,14 @@ public class SurveyServiceImpl implements SurveyService {
         if (rawValue == null || rawValue.isEmpty()) return "\"\"";
         try {
             SurveyQuestion q = questionMapper.selectById(questionId);
-            if (q == null || q.getOptions() == null) return "\"" + rawValue + "\"";
-            // Parse options JSON array: [{"key":"opt_1","label":"A"},...]
+            if (q == null) {
+                log.warn("resolveLabels: question not found id={}", questionId);
+                return "\"" + rawValue + "\"";
+            }
+            if (q.getOptions() == null || q.getOptions().isEmpty()) {
+                log.debug("resolveLabels: question {} has no options", questionId);
+                return "\"" + rawValue + "\"";
+            }
             com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
             var nodes = om.readTree(q.getOptions());
             Map<String, String> keyToLabel = new java.util.LinkedHashMap<>();
@@ -1233,7 +1239,10 @@ public class SurveyServiceImpl implements SurveyService {
                     keyToLabel.put(node.get("key").asText(), node.get("label").asText());
                 }
             }
-            if (keyToLabel.isEmpty()) return "\"" + rawValue + "\"";
+            if (keyToLabel.isEmpty()) {
+                log.debug("resolveLabels: no key→label mappings found in options: {}", q.getOptions());
+                return "\"" + rawValue + "\"";
+            }
             String[] keys = rawValue.split(",");
             String[] labels = java.util.Arrays.stream(keys)
                     .map(String::trim)
@@ -1241,6 +1250,7 @@ public class SurveyServiceImpl implements SurveyService {
                     .toArray(String[]::new);
             return "\"" + String.join(", ", labels) + "\"";
         } catch (Exception e) {
+            log.warn("resolveLabels failed for questionId={}: {}", questionId, e.getMessage());
             return "\"" + rawValue + "\"";
         }
     }

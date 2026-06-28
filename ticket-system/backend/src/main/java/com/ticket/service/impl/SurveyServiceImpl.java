@@ -1228,11 +1228,14 @@ public class SurveyServiceImpl implements SurveyService {
                 return "\"" + rawValue + "\"";
             }
             if (q.getOptions() == null || q.getOptions().isEmpty()) {
-                log.info("resolveLabels: question {} has no options", questionId);
+                log.debug("resolveLabels: question {} has no options", questionId);
                 return "\"" + rawValue + "\"";
             }
             com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
-            var nodes = om.readTree(q.getOptions());
+            var root = om.readTree(q.getOptions());
+            // Handle both formats: raw array [{"key":...,"label":...}]
+            // and wrapped {"options": [{"key":...,"label":...}]}
+            var nodes = root.isArray() ? root : (root.has("options") ? root.get("options") : root);
             Map<String, String> keyToLabel = new java.util.LinkedHashMap<>();
             for (var node : nodes) {
                 if (node.has("key") && node.has("label")) {
@@ -1240,7 +1243,7 @@ public class SurveyServiceImpl implements SurveyService {
                 }
             }
             if (keyToLabel.isEmpty()) {
-                log.info("resolveLabels: no key→label mappings, options={}", q.getOptions());
+                log.debug("resolveLabels: no key→label mappings, options={}", q.getOptions());
                 return "\"" + rawValue + "\"";
             }
             String[] keys = rawValue.split(",");

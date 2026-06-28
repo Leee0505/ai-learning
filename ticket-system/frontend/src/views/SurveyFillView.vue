@@ -276,7 +276,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from '@/utils/message'
 import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, completePageApi, reopenPageApi, reopenInstanceApi, reassignInstanceApi, reassignPageApi, listUsersApi, getInstanceLogApi } from '@/api/survey'
 
 const loading = ref(true)
@@ -342,11 +342,11 @@ async function openReassign(type, pageId = null) {
     }
     if (reassignUsers.list.length === 0) {
       reassignPopover.show = false
-      ElMessage.warning('No users available to reassign.')
+      messageWarning('No users available to reassign.')
     }
   } catch (e) {
     reassignPopover.show = false
-    ElMessage.error('Failed to load users.')
+    messageError('Failed to load users.')
   } finally {
     reassignUsers.loading = false
   }
@@ -385,13 +385,13 @@ async function doReassign(userId) {
     if (reassignPopover.type === 'instance') {
       const res = await reassignInstanceApi(currentInstance.value.id, { userId })
       if (res.data.code !== 200) {
-        ElMessage.error(res.data.message || 'Reassign failed')
+        messageError(res.data.message || 'Reassign failed')
         return
       }
       // Instance reassign: current user is no longer the assignee — go back to list immediately.
       // Don't try refreshFillData() — getFillData would return ACCESS_DENIED since instance.assignee changed.
       reassignPopover.show = false
-      ElMessage.success('Reassigned — returning to list')
+      messageSuccess('Reassigned — returning to list')
       currentInstance.value = null
       return
     }
@@ -399,7 +399,7 @@ async function doReassign(userId) {
     // Page reassign
     const res = await reassignPageApi(currentInstance.value.id, reassignPopover.pageId, { userId })
     if (res.data.code !== 200) {
-      ElMessage.error(res.data.message || 'Reassign failed')
+      messageError(res.data.message || 'Reassign failed')
       return
     }
     reassignPopover.show = false
@@ -408,14 +408,14 @@ async function doReassign(userId) {
       await refreshFillData()
     } catch {
       // refresh failed (e.g., user lost all access) — go back to list
-      ElMessage.success('Page reassigned — returning to list')
+      messageSuccess('Page reassigned — returning to list')
       currentInstance.value = null
       return
     }
-    ElMessage.success('Page reassigned')
+    messageSuccess('Page reassigned')
   } catch (e) {
     const msg = e.response?.data?.message || e.response?.statusText || e.message || 'Unknown error'
-    ElMessage.error('Reassign failed: ' + msg)
+    messageError('Reassign failed: ' + msg)
     console.error('[Fill] Reassign error:', e)
   }
 }
@@ -551,7 +551,7 @@ async function doSave(qid, value) {
     await refreshFillData()
   } catch (e) {
     console.error('[Fill] Save failed for Q' + qid + ':', e)
-    ElMessage.error(e.response?.data?.message || 'Failed to save answer')
+    messageError(e.response?.data?.message || 'Failed to save answer')
   }
 }
 
@@ -581,7 +581,7 @@ async function refreshFillData() {
     }
   } catch (e) {
     console.error('[Fill] Failed to refresh fill data:', e)
-    ElMessage.error('Failed to refresh survey data')
+    messageError('Failed to refresh survey data')
   }
 }
 
@@ -646,11 +646,11 @@ async function openSurvey(instanceId) {
       currentPageIdx.value = firstVisible
       fetchActivityLog(instanceId)
     } else {
-      ElMessage.error(data.message || 'Failed to load survey')
+      messageError(data.message || 'Failed to load survey')
       currentInstance.value = null
     }
   } catch (e) {
-    ElMessage.error('Failed to load survey: ' + (e.response?.data?.message || e.message))
+    messageError('Failed to load survey: ' + (e.response?.data?.message || e.message))
     currentInstance.value = null
   }
 }
@@ -669,16 +669,16 @@ async function handleHeadAction(command) {
     } else if (command === "reopen-instance") {
       const { data } = await reopenInstanceApi(currentInstance.value.id)
       if (data.code === 200) {
-        ElMessage.success("Instance reopened for editing")
+        messageSuccess("Instance reopened for editing")
         await refreshFillData()
       } else {
-        ElMessage.error(data.message || "Failed to reopen instance")
+        messageError(data.message || "Failed to reopen instance")
       }
     } else if (command === "complete-instance") {
       await handleSubmit()
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || "Action failed")
+    messageError(e.response?.data?.message || "Action failed")
   }
 }
 
@@ -689,14 +689,14 @@ async function handleCompletePage() {
     const page = fillData.value.pages[currentPageIdx.value]
     const { data } = await completePageApi(currentInstance.value.id, page.id)
     if (data.code === 200) {
-      ElMessage.success('Page completed')
+      messageSuccess('Page completed')
       // Refresh fill data to update page statuses
       await refreshFillData()
     } else {
-      ElMessage.error(data.message || 'Failed to complete page')
+      messageError(data.message || 'Failed to complete page')
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to complete page')
+    messageError(e.response?.data?.message || 'Failed to complete page')
   } finally { completingPage.value = false }
 }
 
@@ -707,13 +707,13 @@ async function handleReopenPage() {
     const page = fillData.value.pages[currentPageIdx.value]
     const { data } = await reopenPageApi(currentInstance.value.id, page.id)
     if (data.code === 200) {
-      ElMessage.success("Page reopened for editing")
+      messageSuccess("Page reopened for editing")
       await refreshFillData()
     } else {
-      ElMessage.error(data.message || "Failed to reopen page")
+      messageError(data.message || "Failed to reopen page")
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || "Failed to reopen page")
+    messageError(e.response?.data?.message || "Failed to reopen page")
   } finally { completingPage.value = false }
 }
 
@@ -722,14 +722,14 @@ async function handleSubmit() {
   try {
     const { data } = await submitSurveyApi(currentInstance.value.id, {})
     if (data.code === 200) {
-      ElMessage.success('Survey submitted!')
+      messageSuccess('Survey submitted!')
       currentInstance.value = null
       fillData.value = null
     } else {
-      ElMessage.error(data.message || 'Submission failed')
+      messageError(data.message || 'Submission failed')
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Submission failed')
+    messageError(e.response?.data?.message || 'Submission failed')
   } finally { submitting.value = false }
 }
 
@@ -740,7 +740,7 @@ async function loadInstances() {
     if (data.code === 200) instances.value = data.data || []
   } catch (e) {
     console.error('[Fill] Failed to load instances:', e)
-    ElMessage.error('Failed to load pending surveys')
+    messageError('Failed to load pending surveys')
   } finally { loading.value = false }
 }
 

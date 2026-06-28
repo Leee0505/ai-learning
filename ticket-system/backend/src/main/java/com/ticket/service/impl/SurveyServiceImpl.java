@@ -1226,7 +1226,7 @@ public class SurveyServiceImpl implements SurveyService {
             entry.setCreatedDate(System.currentTimeMillis());
             instanceLogMapper.insert(entry);
         } catch (Exception e) {
-            log.warn("Failed to write instance activity log: {}", e.getMessage());
+            log.error("Failed to write instance activity log: {}", e.getMessage(), e);
         }
     }
 }

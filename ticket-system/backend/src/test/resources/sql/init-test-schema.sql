@@ -177,3 +177,15 @@ CREATE TABLE IF NOT EXISTS `ticket_attachment` (
     `last_modified_date` BIGINT DEFAULT NULL,
     PRIMARY KEY (`id`)
 );
+
+CREATE TABLE IF NOT EXISTS survey_instance_log (
+    id              BIGINT NOT NULL AUTO_INCREMENT,
+    instance_id     BIGINT NOT NULL,
+    page_id         BIGINT DEFAULT NULL,
+    question_id     BIGINT DEFAULT NULL,
+    action          VARCHAR(30) NOT NULL,
+    user_id         BIGINT NOT NULL,
+    detail          VARCHAR(500) DEFAULT NULL,
+    created_date    BIGINT NOT NULL,
+    PRIMARY KEY (id)
+);

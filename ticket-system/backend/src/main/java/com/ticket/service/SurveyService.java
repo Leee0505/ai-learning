@@ -54,6 +54,7 @@ public interface SurveyService {
     SurveyInstanceResponse reopenPage(Long instanceId, Long pageId, Long userId);
     SurveyInstanceResponse reopenInstance(Long instanceId, Long userId);
     SurveyInstanceResponse submitSurvey(Long instanceId, SubmitSurveyRequest request, Long userId);
+    List<SurveyInstanceLogResponse> getInstanceLog(Long instanceId);
 
     // Clone
     SurveyTemplateResponse cloneTemplate(Long templateId, Long adminId);

@@ -72,6 +72,12 @@ public class SurveyFillController {
         return ApiResult.success(surveyService.reopenInstance(id, user.getUserId()));
     }
 
+    @GetMapping("/instances/{id}/log")
+    @Operation(summary = "Get activity log for a survey instance")
+    public ApiResult<List<SurveyInstanceLogResponse>> getInstanceLog(@PathVariable Long id) {
+        return ApiResult.success(surveyService.getInstanceLog(id));
+    }
+
     @PostMapping("/instances/{id}/submit")
     @Operation(summary = "Complete a submitted survey (requires all pages COMPLETED, instance SUBMITTED)")
     public ApiResult<SurveyInstanceResponse> submit(@PathVariable Long id,

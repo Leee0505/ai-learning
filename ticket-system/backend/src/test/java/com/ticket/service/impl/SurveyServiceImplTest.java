@@ -32,6 +32,7 @@ class SurveyServiceImplTest {
     private SurveyInstanceMapper instanceMapper;
     private SurveyInstancePageMapper instancePageMapper;
     private SurveyAnswerMapper answerMapper;
+    private SurveyInstanceLogMapper instanceLogMapper;
     private SurveyVisibilityEngine visibilityEngine;
     private UserMapper userMapper;
 
@@ -45,12 +46,13 @@ class SurveyServiceImplTest {
         instanceMapper = mock(SurveyInstanceMapper.class);
         instancePageMapper = mock(SurveyInstancePageMapper.class);
         answerMapper = mock(SurveyAnswerMapper.class);
+        instanceLogMapper = mock(SurveyInstanceLogMapper.class);
         visibilityEngine = mock(SurveyVisibilityEngine.class);
         userMapper = mock(UserMapper.class);
 
         service = new SurveyServiceImpl(templateMapper, pageMapper, sectionMapper,
                 questionMapper, ruleMapper, instanceMapper, instancePageMapper,
-                answerMapper, visibilityEngine, userMapper);
+                answerMapper, instanceLogMapper, visibilityEngine, userMapper);
     }
 
     // ── Helper factories ──

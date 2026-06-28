@@ -36,13 +36,24 @@ public class SurveyServiceImpl implements SurveyService {
     private final SurveyInstanceMapper instanceMapper;
     private final SurveyInstancePageMapper instancePageMapper;
     private final SurveyAnswerMapper answerMapper;
+    private final SurveyInstanceLogMapper instanceLogMapper;
     private final SurveyVisibilityEngine visibilityEngine;
     private final UserMapper userMapper;
+
+    // Instance log action constants
+    private static final String LOG_INSTANCE_CREATED = "INSTANCE_CREATED";
+    private static final String LOG_ANSWER_SAVED = "ANSWER_SAVED";
+    private static final String LOG_PAGE_COMPLETED = "PAGE_COMPLETED";
+    private static final String LOG_PAGE_REOPENED = "PAGE_REOPENED";
+    private static final String LOG_INSTANCE_REOPENED = "INSTANCE_REOPENED";
+    private static final String LOG_INSTANCE_SUBMITTED = "INSTANCE_SUBMITTED";
+    private static final String LOG_INSTANCE_REASSIGNED = "INSTANCE_REASSIGNED";
 
     public SurveyServiceImpl(SurveyTemplateMapper templateMapper, SurveyPageMapper pageMapper,
                              SurveySectionMapper sectionMapper, SurveyQuestionMapper questionMapper,
                              SurveyVisibilityRuleMapper ruleMapper, SurveyInstanceMapper instanceMapper,
                              SurveyInstancePageMapper instancePageMapper, SurveyAnswerMapper answerMapper,
+                             SurveyInstanceLogMapper instanceLogMapper,
                              SurveyVisibilityEngine visibilityEngine,
                              UserMapper userMapper) {
         this.templateMapper = templateMapper;
@@ -53,6 +64,7 @@ public class SurveyServiceImpl implements SurveyService {
         this.instanceMapper = instanceMapper;
         this.instancePageMapper = instancePageMapper;
         this.answerMapper = answerMapper;
+        this.instanceLogMapper = instanceLogMapper;
         this.visibilityEngine = visibilityEngine;
         this.userMapper = userMapper;
     }
@@ -462,6 +474,7 @@ public class SurveyServiceImpl implements SurveyService {
         }
 
         log.info("Survey instance created: id={} templateId={} assignedTo={}", instance.getId(), template.getId(), request.getAssignedTo());
+        logActivity(instance.getId(), null, null, LOG_INSTANCE_CREATED, adminId, "Assigned to userId=" + request.getAssignedTo());
         return toInstanceResponse(instance);
     }
 
@@ -507,6 +520,7 @@ public class SurveyServiceImpl implements SurveyService {
         checkInstanceTenantAccess(instance);
         instance.setAssignedTo(request.getUserId());
         instanceMapper.updateById(instance);
+        logActivity(instanceId, null, null, LOG_INSTANCE_REASSIGNED, adminId, "Reassigned to userId=" + request.getUserId());
         return toInstanceResponse(instance);
     }
 
@@ -622,6 +636,7 @@ public class SurveyServiceImpl implements SurveyService {
         }
 
         upsertAnswer(instanceId, request);
+        logActivity(instanceId, null, request.getQuestionId(), LOG_ANSWER_SAVED, userId, "Answer saved");
         updateInstancePageStatus(instanceId, request.getQuestionId(), instance);
 
         // Re-check status after write to prevent TOCTOU: concurrent submit between the
@@ -741,9 +756,11 @@ public class SurveyServiceImpl implements SurveyService {
             instance.setStatus(BusinessConstants.INSTANCE_STATUS_SUBMITTED);
             instanceMapper.updateById(instance);
             log.info("All pages completed — instance auto-submitted: instanceId={}", instanceId);
+            logActivity(instanceId, null, null, LOG_INSTANCE_SUBMITTED, userId, "Auto-submitted after all pages completed");
         }
 
         log.info("Page completed: instanceId={} pageId={} userId={}", instanceId, pageId, userId);
+        logActivity(instanceId, pageId, null, LOG_PAGE_COMPLETED, userId, null);
         return toInstanceResponse(instance);
     }
 
@@ -778,6 +795,7 @@ public class SurveyServiceImpl implements SurveyService {
         }
 
         log.info("Page reopened: instanceId={} pageId={} userId={}", instanceId, pageId, userId);
+        logActivity(instanceId, pageId, null, LOG_PAGE_REOPENED, userId, null);
         return toInstanceResponse(instance);
     }
 
@@ -807,6 +825,7 @@ public class SurveyServiceImpl implements SurveyService {
         instanceMapper.updateById(instance);
 
         log.info("Instance reopened: instanceId={} userId={}", instanceId, userId);
+        logActivity(instanceId, null, null, LOG_INSTANCE_REOPENED, userId, null);
         return toInstanceResponse(instance);
     }
 
@@ -830,6 +849,7 @@ public class SurveyServiceImpl implements SurveyService {
         instanceMapper.updateById(instance);
 
         log.info("Survey completed: instanceId={} userId={}", instanceId, userId);
+        logActivity(instanceId, null, null, LOG_INSTANCE_SUBMITTED, userId, null);
         return toInstanceResponse(instance);
     }
 
@@ -843,6 +863,14 @@ public class SurveyServiceImpl implements SurveyService {
             }
         }
         return !ipList.isEmpty();
+    }
+
+    @Override
+    public List<SurveyInstanceLogResponse> getInstanceLog(Long instanceId) {
+        List<SurveyInstanceLog> entries = instanceLogMapper.selectList(new LambdaQueryWrapper<SurveyInstanceLog>()
+                .eq(SurveyInstanceLog::getInstanceId, instanceId)
+                .orderByDesc(SurveyInstanceLog::getCreatedDate));
+        return entries.stream().map(SurveyInstanceLogResponse::from).collect(Collectors.toList());
     }
 
     // ── Clone ──
@@ -1170,5 +1198,23 @@ public class SurveyServiceImpl implements SurveyService {
         vr.setValue(rl.getValue());
         vr.setRuleType(rl.getRuleType() != null ? rl.getRuleType() : "AND");
         return vr;
+    }
+
+    // ── Instance Activity Log ──
+
+    private void logActivity(Long instanceId, Long pageId, Long questionId, String action, Long userId, String detail) {
+        try {
+            SurveyInstanceLog entry = new SurveyInstanceLog();
+            entry.setInstanceId(instanceId);
+            entry.setPageId(pageId);
+            entry.setQuestionId(questionId);
+            entry.setAction(action);
+            entry.setUserId(userId);
+            entry.setDetail(detail);
+            entry.setCreatedDate(System.currentTimeMillis());
+            instanceLogMapper.insert(entry);
+        } catch (Exception e) {
+            log.warn("Failed to write instance activity log: {}", e.getMessage());
+        }
     }
 }

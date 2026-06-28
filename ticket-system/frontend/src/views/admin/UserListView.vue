@@ -275,7 +275,8 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from '@/utils/message'
 import { useAdminStore } from '@/stores/admin'
 import { useAuthStore } from '@/stores/auth'
 import { getTenantsApi } from '@/api/tenant'
@@ -386,7 +387,7 @@ async function handleCreateUser() {
   })
   if (result.code === 200) {
     createVisible.value = false
-    ElMessage.success('User created successfully')
+    messageSuccess('User created successfully')
   } else {
     createError.value = result.message || 'Create failed'
   }
@@ -424,7 +425,7 @@ async function handleSaveEdit() {
   })
   if (result.code === 200) {
     editVisible.value = false
-    ElMessage.success('User updated successfully')
+    messageSuccess('User updated successfully')
   } else {
     editError.value = result.message || 'Update failed'
   }
@@ -442,10 +443,10 @@ async function handleRoleChange() {
     const result = await adminStore.changeRole(editingUser.value.id, editForm.value.role)
     if (result.code === 200) {
       editVisible.value = false
-      ElMessage.success('Role updated successfully')
+      messageSuccess('Role updated successfully')
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to update role')
+    messageError(e.response?.data?.message || 'Failed to update role')
   }
 }
 
@@ -462,10 +463,10 @@ async function handleToggleStatus(user) {
   try {
     const result = await adminStore.toggleStatus(user.id, newStatus)
     if (result.code === 200) {
-      ElMessage.success(`User ${newStatus === 0 ? 'disabled' : 'enabled'} successfully`)
+      messageSuccess(`User ${newStatus === 0 ? 'disabled' : 'enabled'} successfully`)
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to update status')
+    messageError(e.response?.data?.message || 'Failed to update status')
   }
 }
 
@@ -480,10 +481,10 @@ async function handleDelete(user) {
   try {
     const result = await adminStore.deleteUser(user.id)
     if (result.code === 200) {
-      ElMessage.success('User deleted successfully')
+      messageSuccess('User deleted successfully')
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to delete user')
+    messageError(e.response?.data?.message || 'Failed to delete user')
   }
 }
 </script>

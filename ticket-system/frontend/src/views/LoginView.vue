@@ -115,7 +115,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from "@/utils/message"
 import { useAuthStore } from '@/stores/auth'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 
@@ -193,7 +193,7 @@ async function handleLogin() {
 }
 
 function handleForgotPassword() {
-  ElMessage.info('Password reset will be available in a future update.')
+  messageInfo('Password reset will be available in a future update.')
 }
 
 function handleRegister() {

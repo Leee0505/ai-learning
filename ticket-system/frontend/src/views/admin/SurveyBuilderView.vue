@@ -324,7 +324,8 @@
 <script setup>
 import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from '@/utils/message'
 import { useSurveyStore } from '@/stores/survey'
 import request from '@/api/request'
 import { updateTemplateApi, addPageApi, deletePageApi, updatePageApi, addSectionApi, deleteSectionApi, updateSectionApi, addQuestionApi, updateQuestionApi, deleteQuestionApi, addRuleApi, deleteRuleApi } from '@/api/survey'
@@ -743,7 +744,7 @@ function saveTableConfig() {
   const options = JSON.stringify({ columns: cols, rows: tableRows.value })
   selectedQuestion.value.options = options
   updateQuestionApi(selectedQuestion.value.id, { options }).catch(e => {
-    ElMessage.error('Failed to save table config')
+    messageError('Failed to save table config')
     console.error('[Builder] saveTableConfig:', e)
   })
 }
@@ -815,7 +816,7 @@ function saveOptions(q) {
   if (items.length > 0) {
     const labels = items.map(o => o.label.trim().toLowerCase())
     if (new Set(labels).size !== items.length) {
-      ElMessage.warning('Options must be unique — duplicate found')
+      messageWarning('Options must be unique — duplicate found')
       return
     }
   }
@@ -832,7 +833,7 @@ function saveOptions(q) {
   const newOptionsJson = JSON.stringify({ options: newOpts })
   q.options = newOptionsJson // sync local object so rule form dropdowns update
   updateQuestionApi(q.id, { options: newOptionsJson }).catch(e => {
-    ElMessage.error('Failed to save options')
+    messageError('Failed to save options')
     console.error('[Builder] saveOption:', e)
   })
 }
@@ -878,7 +879,7 @@ async function saveAndReturn() {
     }
     router.push('/admin/surveys')
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to save changes')
+    messageError(e.response?.data?.message || 'Failed to save changes')
     console.error('[Builder] saveAndReturn:', e)
   }
 }
@@ -924,9 +925,9 @@ async function publishFromBuilder() {
   } catch { return }
   const { data } = await updateTemplateApi(template.value.id, { status: 'PUBLISHED' })
   if (data.code === 200) {
-    ElMessage.success('Published!')
+    messageSuccess('Published!')
     router.push(`/admin/surveys/${template.value.id}/results`)
-  } else ElMessage.error(data.message)
+  } else messageError(data.message)
 }
 
 async function savePendingEdits() {
@@ -951,7 +952,7 @@ async function savePendingEdits() {
       }
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to save edits')
+    messageError(e.response?.data?.message || 'Failed to save edits')
     console.error('[Builder] savePendingEdits:', e)
   }
 }
@@ -1022,10 +1023,10 @@ async function updatePageTitle(page, title) {
 async function addPage() {
   const { data } = await addPageApi(template.value.id, { title: 'Page ' + ((template.value.pages?.length || 0) + 1) })
   if (data.code === 200) {
-    ElMessage.success('Page added')
+    messageSuccess('Page added')
     await store.fetchTemplate(template.value.id)
     currentPageIndex.value = template.value.pages.length - 1
-  } else ElMessage.error(data.message)
+  } else messageError(data.message)
 }
 
 async function deletePage(pageId) {
@@ -1033,11 +1034,11 @@ async function deletePage(pageId) {
   catch { return }
   try {
     await deletePageApi(pageId)
-    ElMessage.success('Page deleted')
+    messageSuccess('Page deleted')
     currentPageIndex.value = Math.min(currentPageIndex.value, (template.value.pages?.length || 1) - 1)
     await store.fetchTemplate(template.value.id)
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to delete page')
+    messageError(e.response?.data?.message || 'Failed to delete page')
     console.error('[Builder] deletePage:', e)
   }
 }
@@ -1052,10 +1053,10 @@ async function saveSectionTitle(sectionId) {
 async function addSection(pageId) {
   try {
     const { data } = await addSectionApi(pageId, { title: 'New Section' })
-    if (data.code === 200) { ElMessage.success('Section added'); await store.fetchTemplate(template.value.id) }
-    else ElMessage.error(data.message)
+    if (data.code === 200) { messageSuccess('Section added'); await store.fetchTemplate(template.value.id) }
+    else messageError(data.message)
   } catch (e) {
-    ElMessage.error('Failed to add section')
+    messageError('Failed to add section')
     console.error('[Builder] addSection:', e)
   }
 }
@@ -1063,10 +1064,10 @@ async function deleteSection(sectionId) {
   try { await ElMessageBox.confirm('Delete this section?', 'Delete', { type: 'warning' }) } catch { return }
   try {
     await deleteSectionApi(sectionId)
-    ElMessage.success('Section deleted')
+    messageSuccess('Section deleted')
     await store.fetchTemplate(template.value.id)
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to delete section')
+    messageError(e.response?.data?.message || 'Failed to delete section')
     console.error('[Builder] deleteSection:', e)
   }
 }
@@ -1098,10 +1099,10 @@ async function addQuestion(sectionId, type = 'TEXT') {
   }
   try {
     const { data } = await addQuestionApi(sectionId, { type, title, required: 0, options })
-    if (data.code === 200) { ElMessage.success('Question added'); await store.fetchTemplate(template.value.id) }
-    else ElMessage.error(data.message)
+    if (data.code === 200) { messageSuccess('Question added'); await store.fetchTemplate(template.value.id) }
+    else messageError(data.message)
   } catch (e) {
-    ElMessage.error('Failed to add question')
+    messageError('Failed to add question')
     console.error('[Builder] addQuestion:', e)
   }
 }
@@ -1117,12 +1118,12 @@ async function saveQuestionProperties() {
     await updateQuestionApi(selectedQuestion.value.id, {
       title: editForm.title, type: editForm.type, required: editForm.required ? 1 : 0, options
     })
-    ElMessage.success('Properties saved')
+    messageSuccess('Properties saved')
     await store.fetchTemplate(template.value.id)
     const updated = allQuestions.value.find(q => q.id === selectedQuestion.value.id)
     if (updated) selectQuestion(updated)
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to save properties')
+    messageError(e.response?.data?.message || 'Failed to save properties')
     console.error('[Builder] saveQuestionProperties:', e)
   }
 }
@@ -1146,7 +1147,7 @@ async function moveQuestion(section, fromIdx, direction) {
 }
 
 async function deleteQuestion(qid) {
-  await deleteQuestionApi(qid); ElMessage.success('Question deleted')
+  await deleteQuestionApi(qid); messageSuccess('Question deleted')
   selectedQuestion.value = null; await store.fetchTemplate(template.value.id)
 }
 
@@ -1182,7 +1183,7 @@ async function addRule() {
         (r.op === 'answered' && newRule.op === 'not_answered') ||
         (r.op === 'not_answered' && newRule.op === 'answered')
       if (contradicts) {
-        ElMessage.warning('This rule contradicts an existing AND rule — would always be false')
+        messageWarning('This rule contradicts an existing AND rule — would always be false')
         return
       }
     }

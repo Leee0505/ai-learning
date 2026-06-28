@@ -180,7 +180,8 @@ import { useAuthStore } from '@/stores/auth'
 import { deleteBatchTickets } from '@/api/tickets'
 import { getAgentsApi } from '@/api/agents'
 import request from '@/api/request'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from '@/utils/message'
 import { formatDate } from '@/utils/date'
 
 const store = useTicketStore()
@@ -220,12 +221,12 @@ async function handleBatchDelete() {
   try {
     const { data } = await deleteBatchTickets(selectedIds.value)
     if (data.code === 200) {
-      ElMessage.success(`${data.data} ticket(s) deleted`)
+      messageSuccess(`${data.data} ticket(s) deleted`)
       selectedIds.value = []
       store.fetchTickets()
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Batch delete failed')
+    messageError(e.response?.data?.message || 'Batch delete failed')
   } finally { batchLoading.value = false }
 }
 
@@ -273,7 +274,7 @@ async function handleExport(format) {
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Export failed')
+    messageError(e.response?.data?.message || 'Export failed')
   }
 }
 function goDetail(id, event) {

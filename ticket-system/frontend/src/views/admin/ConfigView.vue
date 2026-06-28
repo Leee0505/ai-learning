@@ -222,7 +222,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from '@/utils/message'
 import { useConfigStore } from '@/stores/config'
 
 const store = useConfigStore()
@@ -314,7 +315,7 @@ async function handleSaveField() {
     const result = await store.createField(payload)
     if (result.code === 200) {
       dialogVisible.value = false
-      ElMessage.success('Field created')
+      messageSuccess('Field created')
     } else {
       dialogError.value = result.message || 'Create failed'
     }
@@ -322,7 +323,7 @@ async function handleSaveField() {
     const result = await store.updateField(editingField.value.id, payload)
     if (result.code === 200) {
       dialogVisible.value = false
-      ElMessage.success('Field updated')
+      messageSuccess('Field updated')
     } else {
       dialogError.value = result.message || 'Update failed'
     }
@@ -341,10 +342,10 @@ async function handleDelete(field) {
     const result = await store.deleteField(field.id)
     if (result.code === 200) {
       if (selectedField.value?.id === field.id) selectedField.value = null
-      ElMessage.success('Field deleted')
+      messageSuccess('Field deleted')
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to delete field')
+    messageError(e.response?.data?.message || 'Failed to delete field')
   }
 }
 
@@ -352,10 +353,10 @@ async function handleToggleActive(field, active) {
   try {
     const result = await store.updateField(field.id, { active })
     if (result.code !== 200) {
-      ElMessage.error(result.message)
+      messageError(result.message)
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to update field')
+    messageError(e.response?.data?.message || 'Failed to update field')
   }
 }
 
@@ -391,12 +392,12 @@ async function handleSaveSla() {
     })
     if (result.code === 200) {
       slaDialogVisible.value = false
-      ElMessage.success('SLA updated')
+      messageSuccess('SLA updated')
     } else {
       slaDialogError.value = result.message || 'Update failed'
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to update SLA')
+    messageError(e.response?.data?.message || 'Failed to update SLA')
   }
 }
 </script>

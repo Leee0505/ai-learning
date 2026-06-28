@@ -270,7 +270,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from '@/utils/message'
 import { useTicketStore } from '@/stores/tickets'
 import { useAuthStore } from '@/stores/auth'
 import { downloadAttachment, editReply, deleteReply } from '@/api/tickets'
@@ -395,7 +396,7 @@ function initVditor() {
         const file = files[0]
         if (!file) return ''
         if (file.size > 10 * 1024 * 1024) {
-          ElMessage.warning(`File ${file.name} exceeds 10MB limit`)
+          messageWarning(`File ${file.name} exceeds 10MB limit`)
           return ''
         }
         const formData = new FormData()
@@ -410,10 +411,10 @@ function initVditor() {
           if (json.code === 200) {
             return `/api/attachments/${json.data.id}`
           }
-          ElMessage.error('Image upload failed')
+          messageError('Image upload failed')
           return ''
         } catch {
-          ElMessage.error('Image upload failed')
+          messageError('Image upload failed')
           return ''
         }
       }
@@ -445,10 +446,10 @@ async function handleReply() {
     vditorInstance.value.setValue('')
     replyContent.value = ''
     isInternal.value = false
-    ElMessage.success('Reply sent')
+    messageSuccess('Reply sent')
     await store.fetchTicketDetail(ticketId.value)
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to send reply')
+    messageError(e.response?.data?.message || 'Failed to send reply')
   } finally {
     replyLoading.value = false
   }
@@ -520,12 +521,12 @@ async function saveEditReply(replyId) {
   try {
     const { data } = await editReply(ticketId.value, replyId, { content: editReplyContent.value.trim() })
     if (data.code === 200) {
-      ElMessage.success('Reply updated')
+      messageSuccess('Reply updated')
       cancelEditReply()
       await store.fetchTicketDetail(ticketId.value)
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to update reply')
+    messageError(e.response?.data?.message || 'Failed to update reply')
   }
 }
 
@@ -538,7 +539,7 @@ async function handleDeleteReply(replyId) {
     })
     const { data } = await deleteReply(ticketId.value, replyId)
     if (data.code === 200) {
-      ElMessage.success('Reply deleted')
+      messageSuccess('Reply deleted')
       await store.fetchTicketDetail(ticketId.value)
     }
   } catch { /* cancelled or error */ }
@@ -551,21 +552,21 @@ async function handleStatusChange() {
   try {
     await store.changeTicketStatusAction(ticketId.value, selectedStatus.value)
     selectedStatus.value = ''
-    ElMessage.success('Status updated')
+    messageSuccess('Status updated')
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to change status')
+    messageError(e.response?.data?.message || 'Failed to change status')
   }
 }
 
 async function handleAssign() {
   const id = parseInt(assignTargetId.value)
-  if (!id || isNaN(id)) { ElMessage.warning('Enter a valid agent user ID'); return }
+  if (!id || isNaN(id)) { messageWarning('Enter a valid agent user ID'); return }
   try {
     await store.assignTicketAction(ticketId.value, id)
     assignTargetId.value = ''
-    ElMessage.success('Ticket assigned')
+    messageSuccess('Ticket assigned')
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to assign ticket')
+    messageError(e.response?.data?.message || 'Failed to assign ticket')
   }
 }
 
@@ -579,10 +580,10 @@ async function handleDelete() {
   } catch { return /* cancelled */ }
   try {
     await store.removeTicket(ticketId.value)
-    ElMessage.success('Ticket deleted')
+    messageSuccess('Ticket deleted')
     router.push('/tickets')
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to delete ticket')
+    messageError(e.response?.data?.message || 'Failed to delete ticket')
   }
 }
 
@@ -612,7 +613,7 @@ async function handleDownload(att) {
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Download failed')
+    messageError(e.response?.data?.message || 'Download failed')
   } finally {
     downloadingId.value = null
   }
@@ -664,7 +665,7 @@ async function openLightbox(att) {
     const res = await request.get(`/attachments/${att.id}`, { responseType: 'blob' })
     lightboxSrc.value = URL.createObjectURL(res.data)
   } catch {
-    ElMessage.error('Failed to load image')
+    messageError('Failed to load image')
     lightboxAtt.value = null
   }
 }

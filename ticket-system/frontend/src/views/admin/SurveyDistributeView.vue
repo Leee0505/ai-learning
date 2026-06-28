@@ -139,7 +139,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from "@/utils/message"
 import { useAuthStore } from '@/stores/auth'
 import { getTemplateApi, createInstanceApi, getTemplateInstancesApi } from '@/api/survey'
 import { formatDateTime } from '@/utils/date'
@@ -241,7 +241,7 @@ onMounted(async () => {
     }
   } catch (e) {
     console.error('[Distribute] Failed to load data:', e)
-    ElMessage.error('Failed to load survey data')
+    messageError('Failed to load survey data')
   } finally {
     loading.value = false
   }
@@ -264,7 +264,7 @@ async function distributeSurvey() {
       pageAssignees: Object.keys(pageAssignees).length > 0 ? pageAssignees : null
     })
     if (data.code === 200) {
-      ElMessage.success('Survey distributed successfully')
+      messageSuccess('Survey distributed successfully')
       form.assignedTo = null
       form.triggerType = 'MANUAL'
       form.ticketId = null
@@ -278,10 +278,10 @@ async function distributeSurvey() {
         instances.value = instRes.data.data || []
       }
     } else {
-      ElMessage.error(data.message || 'Failed to distribute')
+      messageError(data.message || 'Failed to distribute')
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Failed to distribute survey')
+    messageError(e.response?.data?.message || 'Failed to distribute survey')
   } finally {
     creating.value = false
   }

@@ -116,7 +116,8 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from '@/utils/message'
 import { useSurveyStore } from '@/stores/survey'
 import { getTemplateApi, updateTemplateApi, cloneTemplateApi, exportTemplateApi } from '@/api/survey'
 import { formatDate } from '@/utils/date'
@@ -150,7 +151,7 @@ async function handleCreate() {
   const result = await store.createTemplate({ ...form })
   if (result.code === 200) {
     dialogVisible.value = false
-    ElMessage.success('Template created')
+    messageSuccess('Template created')
   } else {
     dialogError.value = result.message || 'Create failed'
   }
@@ -165,7 +166,7 @@ async function publishTemplate(id) {
   } catch { return }
   // Validate before publishing
   const { data: tpl } = await getTemplateApi(id)
-  if (tpl.code !== 200) { ElMessage.error('Failed to load template'); return }
+  if (tpl.code !== 200) { messageError('Failed to load template'); return }
   const errors = []
   for (const page of tpl.data.pages || []) {
     for (const section of page.sections || []) {
@@ -194,12 +195,12 @@ async function publishTemplate(id) {
     }
   }
   if (errors.length > 0) {
-    ElMessage.warning('Cannot publish: ' + errors.slice(0, 3).join('; ') + (errors.length > 3 ? ` ...and ${errors.length - 3} more` : ''))
+    messageWarning('Cannot publish: ' + errors.slice(0, 3).join('; ') + (errors.length > 3 ? ` ...and ${errors.length - 3} more` : ''))
     return
   }
   const { data } = await updateTemplateApi(id, { status: 'PUBLISHED' })
-  if (data.code === 200) { ElMessage.success('Published'); store.fetchTemplates() }
-  else ElMessage.error(data.message)
+  if (data.code === 200) { messageSuccess('Published'); store.fetchTemplates() }
+  else messageError(data.message)
 }
 function parseOpts(json) { try { return JSON.parse(json || '{}').options || [] } catch { return [] } }
 function getMax(json) { try { return JSON.parse(json || '{}').max } catch { return null } }
@@ -209,8 +210,8 @@ async function archiveTemplate(id) {
     await ElMessageBox.confirm('Archive this template? Existing instances will remain active.', 'Archive Template', { confirmButtonText: 'Archive', type: 'warning' })
   } catch { return }
   const { data } = await updateTemplateApi(id, { status: 'ARCHIVED' })
-  if (data.code === 200) { ElMessage.success('Archived'); store.fetchTemplates() }
-  else ElMessage.error(data.message)
+  if (data.code === 200) { messageSuccess('Archived'); store.fetchTemplates() }
+  else messageError(data.message)
 }
 
 function distributeTemplate(template) { router.push(`/admin/surveys/${template.id}/distribute`) }
@@ -220,7 +221,7 @@ async function handleDelete(template) {
     await ElMessageBox.confirm(`Delete "${template.title}"? This cannot be undone.`, 'Delete Template', { confirmButtonText: 'Delete', type: 'warning' })
   } catch { return }
   await store.deleteTemplate(template.id)
-  ElMessage.success('Deleted')
+  messageSuccess('Deleted')
 }
 
 async function cloneTemplate(id) {
@@ -230,13 +231,13 @@ async function cloneTemplate(id) {
   try {
     const { data } = await cloneTemplateApi(id)
     if (data.code === 200) {
-      ElMessage.success('Cloned — new template created as DRAFT')
+      messageSuccess('Cloned — new template created as DRAFT')
       store.fetchTemplates()
     } else {
-      ElMessage.error(data.message || 'Clone failed')
+      messageError(data.message || 'Clone failed')
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Clone failed')
+    messageError(e.response?.data?.message || 'Clone failed')
   }
 }
 
@@ -251,12 +252,12 @@ async function exportTemplate(id) {
       a.download = `survey-template-${id}.json`
       a.click()
       URL.revokeObjectURL(url)
-      ElMessage.success('Exported')
+      messageSuccess('Exported')
     } else {
-      ElMessage.error(data.message || 'Export failed')
+      messageError(data.message || 'Export failed')
     }
   } catch (e) {
-    ElMessage.error('Export failed')
+    messageError('Export failed')
   }
 }
 </script>

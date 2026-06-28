@@ -79,7 +79,8 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from '@/utils/message'
 import { useAuthStore } from '@/stores/auth'
 import { renderMarkdown } from '@/utils/markdown'
 import request from '@/api/request'
@@ -137,12 +138,12 @@ async function handleSave() {
       ? await request.put(`/knowledge/${editingId.value}`, payload)
       : await request.post('/knowledge', payload)
     if (data.code === 200) {
-      ElMessage.success(editingId.value ? 'Article updated' : 'Article created')
+      messageSuccess(editingId.value ? 'Article updated' : 'Article created')
       closeDialog()
       await fetchList()
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Save failed')
+    messageError(e.response?.data?.message || 'Save failed')
   } finally { saving.value = false }
 }
 
@@ -152,13 +153,13 @@ async function handleDelete(a) {
   } catch { return }
   try {
     const { data } = await request.delete(`/knowledge/${a.id}`)
-    if (data.code === 200) { ElMessage.success('Article deleted'); await fetchList() }
-  } catch (e) { ElMessage.error(e.response?.data?.message || 'Delete failed') }
+    if (data.code === 200) { messageSuccess('Article deleted'); await fetchList() }
+  } catch (e) { messageError(e.response?.data?.message || 'Delete failed') }
 }
 
 function insertToReply(content) {
   router.push({ path: '/tickets', query: { kbContent: content } })
-  ElMessage.success('Article copied — navigate to a ticket to paste')
+  messageSuccess('Article copied — navigate to a ticket to paste')
   navigator.clipboard?.writeText(content)
 }
 

@@ -136,7 +136,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { listTickets, assignTicket, getDashboardStats, getOverdueTickets } from '@/api/tickets'
-import { ElMessage } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from "@/utils/message"
 import { formatDate } from '@/utils/date'
 
 const router = useRouter()
@@ -226,7 +226,7 @@ async function handleTake(id) {
   try {
     const { data } = await assignTicket(id, { assignedTo: currentUser.id })
     if (data.code === 200) {
-      ElMessage.success('Ticket claimed')
+      messageSuccess('Ticket claimed')
     } else {
       throw new Error(data.message || 'Claim failed')
     }
@@ -239,7 +239,7 @@ async function handleTake(id) {
       active.value.splice(rollbackIdx, 1)
       activeTotal.value = Math.max(0, activeTotal.value - 1)
     }
-    ElMessage.error('Failed to claim ticket')
+    messageError('Failed to claim ticket')
   } finally {
     takingIds.value.delete(id)
   }

@@ -136,7 +136,7 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from "@/utils/message"
 import { useTicketStore } from '@/stores/tickets'
 import Vditor from 'vditor'
 import 'vditor/dist/index.css'
@@ -210,7 +210,7 @@ async function handleSubmit() {
       for (const file of selectedFiles.value) {
         try { await store.uploadFile(ticketId, file) } catch {}
       }
-      ElMessage.success('Ticket created successfully')
+      messageSuccess('Ticket created successfully')
       router.push(`/tickets/${ticketId}`)
     } else {
       serverError.value = data.message || 'Failed to create ticket'
@@ -226,7 +226,7 @@ function handleFileSelect(e) {
   const files = Array.from(e.target.files || [])
   for (const f of files) {
     if (f.size > 10 * 1024 * 1024) {
-      ElMessage.warning(`File ${f.name} exceeds 10MB limit and was skipped`)
+      messageWarning(`File ${f.name} exceeds 10MB limit and was skipped`)
     } else {
       if (!selectedFiles.value.find(sf => sf.name === f.name && sf.size === f.size)) {
         selectedFiles.value.push(f)

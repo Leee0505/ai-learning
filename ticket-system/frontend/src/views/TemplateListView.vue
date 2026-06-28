@@ -77,7 +77,8 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from '@/utils/message'
 import { useAuthStore } from '@/stores/auth'
 import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from '@/api/templates'
 
@@ -114,12 +115,12 @@ async function handleSave() {
       ? await updateTemplate(editingId.value, payload)
       : await createTemplate(payload)
     if (data.code === 200) {
-      ElMessage.success(editingId.value ? 'Template updated' : 'Template created')
+      messageSuccess(editingId.value ? 'Template updated' : 'Template created')
       closeDialog()
       await fetchList()
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Save failed')
+    messageError(e.response?.data?.message || 'Save failed')
   } finally { saving.value = false }
 }
 
@@ -131,9 +132,9 @@ async function handleDelete(t) {
   } catch { return /* cancelled */ }
   try {
     const { data } = await deleteTemplate(t.id)
-    if (data.code === 200) { ElMessage.success('Template deleted'); await fetchList() }
+    if (data.code === 200) { messageSuccess('Template deleted'); await fetchList() }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'Delete failed')
+    messageError(e.response?.data?.message || 'Delete failed')
   }
 }
 

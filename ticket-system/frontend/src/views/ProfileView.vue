@@ -47,7 +47,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { ElMessage } from 'element-plus'
+import { messageSuccess, messageError, messageWarning, messageInfo } from "@/utils/message"
 import request from '@/api/request'
 
 const loading = ref(false)
@@ -88,7 +88,7 @@ async function handleChangePassword() {
       form.oldPassword = ''
       form.newPassword = ''
       confirmPassword.value = ''
-      ElMessage.success('Password changed')
+      messageSuccess('Password changed')
     } else {
       serverError.value = data.message || 'Failed to change password'
     }

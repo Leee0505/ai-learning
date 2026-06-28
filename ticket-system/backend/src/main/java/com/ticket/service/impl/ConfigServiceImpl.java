@@ -126,7 +126,7 @@ public class ConfigServiceImpl implements ConfigService {
         if (currentTid == null) {
             // Superadmin — sees all raw SLAs
             LambdaQueryWrapper<SlaConfig> wrapper = new LambdaQueryWrapper<>();
-            wrapper.last("ORDER BY tenant_id, FIELD(priority, 'URGENT', 'HIGH', 'MEDIUM', 'LOW')");
+            wrapper.last("ORDER BY tenant_id, CASE priority WHEN 'URGENT' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 WHEN 'LOW' THEN 4 ELSE 5 END");
             return slaMapper.selectList(wrapper).stream()
                     .map(this::toSlaResponse)
                     .collect(Collectors.toList());
@@ -213,7 +213,7 @@ public class ConfigServiceImpl implements ConfigService {
         LambdaQueryWrapper<SlaConfig> wrapper = new LambdaQueryWrapper<>();
         wrapper.and(w -> w.isNull(SlaConfig::getTenantId)
                 .or().eq(SlaConfig::getTenantId, tenantId));
-        wrapper.last("ORDER BY FIELD(priority, 'URGENT', 'HIGH', 'MEDIUM', 'LOW')");
+        wrapper.last("ORDER BY CASE priority WHEN 'URGENT' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 WHEN 'LOW' THEN 4 ELSE 5 END");
         List<SlaConfig> all = slaMapper.selectList(wrapper);
         Map<String, SlaConfig> effective = new LinkedHashMap<>();
         // Process system defaults first, then tenant customs (latter overrides)

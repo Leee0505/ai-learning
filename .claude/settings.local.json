@@ -48,7 +48,9 @@
       "Bash(\"/c/Users/19202/AppData/Roaming/JetBrains/IntelliJIdea2026.1/plugins/maven/lib/maven3/bin/mvn\" test *)",
       "Bash(ls mvnw*)",
       "Bash(ls *.bat)",
-      "Bash(which gradle *)"
+      "Bash(which gradle *)",
+      "Bash(/c/Users/19202/AppData/Roaming/JetBrains/IntelliJIdea2026.1/plugins/maven/lib/maven3/bin/mvn test *)",
+      "Bash(/c/Users/19202/AppData/Roaming/JetBrains/IntelliJIdea2026.1/plugins/maven/lib/maven3/bin/mvn test-compile *)"
     ]
   }
 }

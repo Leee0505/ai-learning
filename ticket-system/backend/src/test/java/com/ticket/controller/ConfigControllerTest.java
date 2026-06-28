@@ -100,7 +100,7 @@ class ConfigControllerTest {
                         .header("Authorization", auth(adminJwt))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(ErrorCode.FIELD_KEY_DUPLICATE.getCode()));
     }
 
@@ -190,7 +190,7 @@ class ConfigControllerTest {
                         .header("Authorization", auth(adminJwt))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(ErrorCode.SLA_RESPONSE_MUST_BE_LESS_THAN_RESOLUTION.getCode()));
     }
 

@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS `ticket_reply` (
     `user_id` BIGINT NOT NULL,
     `content` TEXT NOT NULL,
     `is_internal` SMALLINT NOT NULL DEFAULT 0,
+    `is_edited` SMALLINT NOT NULL DEFAULT 0,
     `created_by` BIGINT NOT NULL,
     `created_date` BIGINT NOT NULL,
     `last_modified_by` BIGINT DEFAULT NULL,

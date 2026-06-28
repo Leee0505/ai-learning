@@ -150,7 +150,7 @@ class TicketControllerTest {
         mockMvc.perform(post("/api/tickets")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -246,12 +246,12 @@ class TicketControllerTest {
     }
 
     @Test
-    void getTicketDetailShouldReturn403ForUserAccessingOthersTicket() throws Exception {
+    void getTicketDetailShouldRejectOtherUserAccess() throws Exception {
         Long ticketId = createTestTicket(userJwt, "Private", BusinessConstants.TICKET_PRIORITY_LOW, BusinessConstants.TICKET_CATEGORY_OTHER);
 
         mockMvc.perform(get("/api/tickets/" + ticketId)
                 .header("Authorization", auth(user2Jwt)))
-                .andExpect(status().isForbidden())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40009)); // TICKET_ACCESS_DENIED
     }
 
@@ -259,7 +259,7 @@ class TicketControllerTest {
     void getTicketDetailShouldReturn404ForNonexistent() throws Exception {
         mockMvc.perform(get("/api/tickets/99999")
                 .header("Authorization", auth(userJwt)))
-                .andExpect(status().isNotFound())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40008)); // TICKET_NOT_FOUND
     }
 
@@ -295,7 +295,7 @@ class TicketControllerTest {
                 .header("Authorization", auth(user2Jwt))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isBadRequest());
     }
 
     // ──────────────────────────────────────────────

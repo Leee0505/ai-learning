@@ -112,7 +112,7 @@ class AdminControllerTest {
                         .header("Authorization", auth(adminJwt))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(ErrorCode.USERNAME_ALREADY_EXISTS.getCode()));
     }
 
@@ -157,7 +157,7 @@ class AdminControllerTest {
                         .header("Authorization", auth(adminJwt))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(ErrorCode.CANNOT_CHANGE_OWN_ROLE.getCode()));
     }
 
@@ -190,7 +190,7 @@ class AdminControllerTest {
     void shouldRejectDeleteSelf() throws Exception {
         mockMvc.perform(delete("/api/admin/users/" + adminId)
                         .header("Authorization", auth(adminJwt)))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(ErrorCode.CANNOT_DELETE_SELF.getCode()));
     }
 

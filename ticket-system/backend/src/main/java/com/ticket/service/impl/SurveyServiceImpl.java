@@ -1,6 +1,7 @@
 package com.ticket.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ticket.common.constant.BusinessConstants;
@@ -496,8 +497,18 @@ public class SurveyServiceImpl implements SurveyService {
     public SurveyInstanceResponse reassignInstance(Long instanceId, ReassignRequest request, Long adminId) {
         SurveyInstance instance = findInstanceOrFail(instanceId);
         checkInstanceTenantAccess(instance);
+        Long previousAssignedTo = instance.getAssignedTo();
         instance.setAssignedTo(request.getUserId());
         instanceMapper.updateById(instance);
+
+        // Clear page-level assignees so the new instance assignee has full control.
+        // Pages that need different assignees can be reassigned individually afterwards.
+        if (!request.getUserId().equals(previousAssignedTo)) {
+            UpdateWrapper<SurveyInstancePage> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.eq("instance_id", instanceId).set("assigned_to", null);
+            instancePageMapper.update(null, updateWrapper);
+        }
+
         return toInstanceResponse(instance);
     }
 

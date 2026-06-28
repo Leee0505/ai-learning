@@ -7,7 +7,7 @@ export const useSurveyStore = defineStore('survey', () => {
   const currentTemplate = ref(null)
   const loading = ref(false)
   const page = ref(1)
-  const size = ref(12)
+  const size = ref(10)
   const total = ref(0)
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / size.value)))
 

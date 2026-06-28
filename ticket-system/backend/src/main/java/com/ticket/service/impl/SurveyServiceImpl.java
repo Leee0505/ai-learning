@@ -690,14 +690,11 @@ public class SurveyServiceImpl implements SurveyService {
                         SurveyInstancePage ip = instancePageMapper.selectOne(new LambdaQueryWrapper<SurveyInstancePage>()
                                 .eq(SurveyInstancePage::getInstanceId, instanceId)
                                 .eq(SurveyInstancePage::getPageId, page.getId()));
-                        if (ip != null && !BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(ip.getStatus())) {
+                        // REOPEN is treated as editable — keep the status until completed
+                        if (ip != null && !BusinessConstants.INSTANCE_STATUS_COMPLETED.equals(ip.getStatus())
+                                && !BusinessConstants.INSTANCE_STATUS_REOPEN.equals(ip.getStatus())) {
                             ip.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
                             instancePageMapper.updateById(ip);
-                        }
-                        // Transition instance from REOPEN → IN_PROGRESS on first edit
-                        if (instance != null && BusinessConstants.INSTANCE_STATUS_REOPEN.equals(instance.getStatus())) {
-                            instance.setStatus(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
-                            instanceMapper.updateById(instance);
                         }
                     }
                 }

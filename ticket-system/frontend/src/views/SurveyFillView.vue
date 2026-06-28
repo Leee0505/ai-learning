@@ -99,6 +99,21 @@
               <div class="survey-head-progress-fill" :style="{ width: (visiblePageNumber / visiblePages.length * 100) + '%' }"></div>
             </div>
           </div>
+          <!-- Actions dropdown (reopen / complete instance) -->
+          <div class="survey-head-actions" v-if="hasHeadActions">
+            <el-dropdown trigger="click" @command="handleHeadAction">
+              <button class="head-action-btn" aria-label="Survey actions" title="Actions">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-if="isCurrentPageCompleted" command="reopen-page">Reopen this Page</el-dropdown-item>
+                  <el-dropdown-item v-if="canCompleteInstance" command="complete-instance">Complete Instance</el-dropdown-item>
+                  <el-dropdown-item v-if="canReopenInstance" command="reopen-instance">Reopen entire Instance</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
         </div>
 
         <!-- Content card — wraps tabs + questions for consistent alignment -->
@@ -197,14 +212,8 @@
           <div class="fill-nav-btns">
             <button :disabled="currentPageIdx === 0" class="btn-secondary" @click="prevPage">Previous</button>
             <div class="fill-nav-center">
-              <button v-if="isCurrentPageCompleted" class="btn-secondary" @click="handleReopenPage" :disabled="completingPage">
-                {{ completingPage ? 'Reopening...' : 'Reopen Page' }}
-              </button>
-              <button v-else class="btn-primary" @click="handleCompletePage" :disabled="completingPage">
+              <button v-if="!isCurrentPageCompleted" class="btn-primary" @click="handleCompletePage" :disabled="completingPage">
                 {{ completingPage ? 'Completing...' : 'Complete Page' }}
-              </button>
-              <button v-if="canCompleteInstance" class="btn-primary btn-submit" @click="handleSubmit" :disabled="submitting">
-                {{ submitting ? 'Completing...' : 'Complete Instance' }}
               </button>
             </div>
             <button v-if="currentPageIdx < (fillData?.pages?.length || 1) - 1" class="btn-secondary" @click="nextPage">Next</button>
@@ -245,7 +254,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, completePageApi, reopenPageApi, reassignInstanceApi, reassignPageApi, listUsersApi } from '@/api/survey'
+import { getMyInstancesApi, getFillDataApi, saveAnswerApi, submitSurveyApi, completePageApi, reopenPageApi, reopenInstanceApi, reassignInstanceApi, reassignPageApi, listUsersApi } from '@/api/survey'
 
 const loading = ref(true)
 const submitting = ref(false)
@@ -261,6 +270,15 @@ const isCurrentPageCompleted = computed(() => {
 
 const canCompleteInstance = computed(() => {
   return fillData.value?.instanceStatus === 'SUBMITTED'
+})
+
+const canReopenInstance = computed(() => {
+  const s = fillData.value?.instanceStatus
+  return s === 'SUBMITTED' || s === 'COMPLETED'
+})
+
+const hasHeadActions = computed(() => {
+  return isCurrentPageCompleted.value || canCompleteInstance.value || canReopenInstance.value
 })
 const instances = ref([])
 const currentInstance = ref(null)
@@ -597,6 +615,26 @@ async function openSurvey(instanceId) {
   }
 }
 
+async function handleHeadAction(command) {
+  try {
+    if (command === "reopen-page") {
+      await handleReopenPage()
+    } else if (command === "reopen-instance") {
+      const { data } = await reopenInstanceApi(currentInstance.value.id)
+      if (data.code === 200) {
+        ElMessage.success("Instance reopened for editing")
+        await refreshFillData()
+      } else {
+        ElMessage.error(data.message || "Failed to reopen instance")
+      }
+    } else if (command === "complete-instance") {
+      await handleSubmit()
+    }
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || "Action failed")
+  }
+}
+
 async function handleCompletePage() {
   await flushPendingSaves()
   completingPage.value = true
@@ -714,7 +752,7 @@ watch(currentInstance, (newVal, oldVal) => {
 .fill-back svg { width: 16px; height: 16px; }
 
 /* Survey Head card */
-.survey-head { background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-lg); margin-bottom: var(--space-lg); box-shadow: var(--shadow-sm); }
+.survey-head { position: relative; background: var(--color-white); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); padding: var(--space-lg); margin-bottom: var(--space-lg); box-shadow: var(--shadow-sm); }
 .survey-head-title { font-size: var(--text-xl); font-weight: 700; font-family: var(--font-heading); margin: 0 0 var(--space-md); color: var(--color-text-primary); }
 .survey-head-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xl); margin-bottom: var(--space-md); }
 .survey-head-col { display: flex; flex-direction: column; gap: 8px; }
@@ -730,6 +768,11 @@ watch(currentInstance, (newVal, oldVal) => {
 .survey-head-progress {}
 .survey-head-progress-bar { width: 100%; height: 6px; background: var(--color-gray-200); border-radius: var(--radius-full); overflow: hidden; }
 .survey-head-progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light)); border-radius: var(--radius-full); transition: width var(--transition-base); }
+
+/* Actions dropdown */
+.survey-head-actions { position: absolute; top: var(--space-lg); right: var(--space-lg); }
+.head-action-btn { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; background: none; border: 1px solid transparent; border-radius: var(--radius-md); cursor: pointer; color: var(--color-text-muted); transition: all var(--transition-fast); }
+.head-action-btn:hover { border-color: var(--color-gray-200); color: var(--color-text-primary); background: var(--color-gray-50); }
 
 /* Reassign button */
 .reassign-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: none; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; color: var(--color-text-muted); transition: all var(--transition-fast); flex-shrink: 0; }

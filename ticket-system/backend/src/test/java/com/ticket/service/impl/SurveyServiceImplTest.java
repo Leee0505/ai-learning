@@ -655,6 +655,24 @@ class SurveyServiceImplTest {
         assertThat(inst.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
     }
 
+    @Test
+    void reopenInstanceShouldSucceed() {
+        SurveyInstance inst = createInstance(1L, 1L, 1L);
+        inst.setStatus(BusinessConstants.INSTANCE_STATUS_SUBMITTED);
+        SurveyInstancePage ip = new SurveyInstancePage();
+        ip.setId(1L); ip.setInstanceId(1L); ip.setPageId(10L);
+        ip.setStatus(BusinessConstants.INSTANCE_STATUS_COMPLETED);
+        when(instanceMapper.selectById(1L)).thenReturn(inst);
+        when(instancePageMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(ip));
+        when(instancePageMapper.updateById(any(SurveyInstancePage.class))).thenReturn(1);
+        when(instanceMapper.updateById(any(SurveyInstance.class))).thenReturn(1);
+
+        assertThatCode(() -> service.reopenInstance(1L, 1L))
+                .doesNotThrowAnyException();
+        assertThat(ip.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+        assertThat(inst.getStatus()).isEqualTo(BusinessConstants.INSTANCE_STATUS_IN_PROGRESS);
+    }
+
     // ─────────────────────────────────────────────
     //  Tenant Access Guard (requires SecurityContext — tested via integration)
     // ─────────────────────────────────────────────

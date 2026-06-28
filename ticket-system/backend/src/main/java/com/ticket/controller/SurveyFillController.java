@@ -65,6 +65,13 @@ public class SurveyFillController {
         return ApiResult.success(surveyService.reopenPage(id, pageId, user.getUserId()));
     }
 
+    @PostMapping("/instances/{id}/reopen")
+    @Operation(summary = "Reopen entire submitted/completed instance for editing")
+    public ApiResult<SurveyInstanceResponse> reopenInstance(@PathVariable Long id,
+                                                             @AuthenticationPrincipal UserDetailsImpl user) {
+        return ApiResult.success(surveyService.reopenInstance(id, user.getUserId()));
+    }
+
     @PostMapping("/instances/{id}/submit")
     @Operation(summary = "Complete a submitted survey (requires all pages COMPLETED, instance SUBMITTED)")
     public ApiResult<SurveyInstanceResponse> submit(@PathVariable Long id,

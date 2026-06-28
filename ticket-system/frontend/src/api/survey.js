@@ -32,6 +32,7 @@ export function getFillDataApi(instanceId) { return request.get(`/surveys/instan
 export function saveAnswerApi(instanceId, data) { return request.put(`/surveys/instances/${instanceId}/answers`, data) }
 export function completePageApi(instanceId, pageId) { return request.post(`/surveys/instances/${instanceId}/pages/${pageId}/complete`) }
 export function reopenPageApi(instanceId, pageId) { return request.post(`/surveys/instances/${instanceId}/pages/${pageId}/reopen`) }
+export function reopenInstanceApi(instanceId) { return request.post(`/surveys/instances/${instanceId}/reopen`) }
 export function submitSurveyApi(instanceId, data) { return request.post(`/surveys/instances/${instanceId}/submit`, data) }
 
 // Reassign

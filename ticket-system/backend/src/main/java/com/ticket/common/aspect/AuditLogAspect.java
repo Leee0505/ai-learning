@@ -1,7 +1,6 @@
 package com.ticket.common.aspect;
 
 import com.ticket.common.constant.AuditConstants;
-import com.ticket.dto.response.SurveyInstanceResponse;
 import com.ticket.dto.response.TicketAttachmentResponse;
 import com.ticket.dto.response.TicketDetailResponse;
 import com.ticket.dto.response.TicketReplyResponse;
@@ -113,61 +112,8 @@ public class AuditLogAspect {
         }
     }
 
-    // === Survey operations ===
-
-    @AfterReturning(value = "execution(* com.ticket.service.impl.SurveyServiceImpl.createInstance(..))",
-            returning = "result")
-    public void logCreateInstance(JoinPoint joinPoint, Object result) {
-        if (result instanceof SurveyInstanceResponse r) {
-            writeAudit(AuditConstants.ACTION_CREATE_SURVEY_INSTANCE, AuditConstants.TARGET_SURVEY_INSTANCE,
-                    r.getId(), "Instance created");
-        }
-    }
-
-    @AfterReturning(value = "execution(* com.ticket.service.impl.SurveyServiceImpl.completePage(..))",
-            returning = "result")
-    public void logCompletePage(JoinPoint joinPoint, Object result) {
-        if (result instanceof SurveyInstanceResponse r) {
-            writeAudit(AuditConstants.ACTION_COMPLETE_PAGE, AuditConstants.TARGET_SURVEY_INSTANCE,
-                    r.getId(), "Page completed");
-        }
-    }
-
-    @AfterReturning(value = "execution(* com.ticket.service.impl.SurveyServiceImpl.reopenPage(..))",
-            returning = "result")
-    public void logReopenPage(JoinPoint joinPoint, Object result) {
-        if (result instanceof SurveyInstanceResponse r) {
-            writeAudit(AuditConstants.ACTION_REOPEN_PAGE, AuditConstants.TARGET_SURVEY_INSTANCE,
-                    r.getId(), "Page reopened");
-        }
-    }
-
-    @AfterReturning(value = "execution(* com.ticket.service.impl.SurveyServiceImpl.reopenInstance(..))",
-            returning = "result")
-    public void logReopenInstance(JoinPoint joinPoint, Object result) {
-        if (result instanceof SurveyInstanceResponse r) {
-            writeAudit(AuditConstants.ACTION_REOPEN_INSTANCE, AuditConstants.TARGET_SURVEY_INSTANCE,
-                    r.getId(), "Instance reopened");
-        }
-    }
-
-    @AfterReturning(value = "execution(* com.ticket.service.impl.SurveyServiceImpl.submitSurvey(..))",
-            returning = "result")
-    public void logSubmitSurvey(JoinPoint joinPoint, Object result) {
-        if (result instanceof SurveyInstanceResponse r) {
-            writeAudit(AuditConstants.ACTION_SUBMIT_SURVEY, AuditConstants.TARGET_SURVEY_INSTANCE,
-                    r.getId(), "Survey submitted/completed");
-        }
-    }
-
-    @AfterReturning(value = "execution(* com.ticket.service.impl.SurveyServiceImpl.reassignInstance(..))",
-            returning = "result")
-    public void logReassignInstance(JoinPoint joinPoint, Object result) {
-        if (result instanceof SurveyInstanceResponse r) {
-            writeAudit(AuditConstants.ACTION_REASSIGN_SURVEY, AuditConstants.TARGET_SURVEY_INSTANCE,
-                    r.getId(), "Instance reassigned to userId=" + r.getAssignedTo());
-        }
-    }
+    // Survey operations are logged to survey_instance_log (not audit_log)
+    // for granular per-instance activity tracking with question-level detail.
 
     private void writeAudit(String action, String targetType, Long targetId, String detail) {
         try {

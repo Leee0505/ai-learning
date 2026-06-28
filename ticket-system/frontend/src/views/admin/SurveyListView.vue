@@ -214,7 +214,6 @@ async function archiveTemplate(id) {
 }
 
 function distributeTemplate(template) { router.push(`/admin/surveys/${template.id}/distribute`) }
-function cloneTemplate(id) { ElMessage.info('Clone will be available soon') }
 
 async function handleDelete(template) {
   try {

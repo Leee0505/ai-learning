@@ -635,8 +635,20 @@ public class SurveyServiceImpl implements SurveyService {
             throw new BusinessException(ErrorCode.INSTANCE_ALREADY_SUBMITTED);
         }
 
+        // Check previous value for change tracking
+        SurveyAnswer old = answerMapper.selectOne(new LambdaQueryWrapper<SurveyAnswer>()
+                .eq(SurveyAnswer::getInstanceId, instanceId)
+                .eq(SurveyAnswer::getQuestionId, request.getQuestionId()));
         upsertAnswer(instanceId, request);
-        logActivity(instanceId, null, request.getQuestionId(), LOG_ANSWER_SAVED, userId, "Answer saved");
+        String detail;
+        if (old == null) {
+            detail = "Initial answer: \"" + request.getValue() + "\"";
+        } else if (!request.getValue().equals(old.getValue())) {
+            detail = "Value changed: \"" + old.getValue() + "\" → \"" + request.getValue() + "\"";
+        } else {
+            detail = "Answer unchanged";
+        }
+        logActivity(instanceId, null, request.getQuestionId(), LOG_ANSWER_SAVED, userId, detail);
         updateInstancePageStatus(instanceId, request.getQuestionId(), instance);
 
         // Re-check status after write to prevent TOCTOU: concurrent submit between the
